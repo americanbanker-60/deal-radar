@@ -10,11 +10,13 @@ import { Slider } from "@/components/ui/slider";
 import { Progress } from "@/components/ui/progress";
 import { Textarea } from "@/components/ui/textarea";
 import { Download, Upload, Filter, BarChart3, Sparkles, Database, Settings, CircleAlert, Workflow, Mail, Loader2, HelpCircle } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Legend } from "recharts";
 
 import SchemaMapper from "../components/ops/SchemaMapper";
 import { useDealsAnalytics, filterTargets, scoreTargets } from "../components/ops/analyticsHelpers";
 import HowToUse from "../components/ops/HowToUse";
+import OutreachIntegration from "../components/ops/OutreachIntegration";
 
 /**
  * Base44 PitchBook + Grata Ops Console (v3)
@@ -622,41 +624,50 @@ export default function OpsConsole(){
                 </table>
               </div>
               
-              <div className="flex flex-wrap gap-2 mt-6 pt-4 border-t border-slate-200">
-                <Button 
-                  variant="secondary" 
-                  onClick={() => exportCSV("pb_cleaned_scored_targets.csv", pbScored)}
-                  disabled={loading}
-                >
-                  <Download className="w-4 h-4 mr-2"/>CSV
-                </Button>
-                <Button 
-                  variant="secondary" 
-                  onClick={() => exportExcel("pb_cleaned_scored_targets.xlsx", pbScored)}
-                  disabled={loading}
-                >
-                  <Download className="w-4 h-4 mr-2"/>XLSX
-                </Button>
-                <Button 
-                  variant="secondary" 
-                  onClick={() => exportCSV("pb_outreach_prospects.csv", outreachCsv(pbScored, { source:"PitchBook", vertical, tag }))}
-                  disabled={loading}
-                >
-                  <Download className="w-4 h-4 mr-2"/>Outreach CSV
-                </Button>
-                <Button 
-                  onClick={() => generateOutputs("PitchBook", pbScored, pbDealsKpis)}
-                  className="bg-blue-600 hover:bg-blue-700"
-                >
-                  <Sparkles className="w-4 h-4 mr-2"/>Generate Insights + Email
-                </Button>
-                <Button 
-                  onClick={() => exportPPT("PitchBook", pbScored, pbDealsKpis)}
-                  disabled={loading}
-                  className="bg-purple-600 hover:bg-purple-700"
-                >
-                  <Download className="w-4 h-4 mr-2"/>Export PPTX
-                </Button>
+              <div className="space-y-4 mt-6 pt-4 border-t border-slate-200">
+                <div className="flex flex-wrap gap-2">
+                  <Button 
+                    variant="secondary" 
+                    onClick={() => exportCSV("pb_cleaned_scored_targets.csv", pbScored)}
+                    disabled={loading}
+                  >
+                    <Download className="w-4 h-4 mr-2"/>CSV
+                  </Button>
+                  <Button 
+                    variant="secondary" 
+                    onClick={() => exportExcel("pb_cleaned_scored_targets.xlsx", pbScored)}
+                    disabled={loading}
+                  >
+                    <Download className="w-4 h-4 mr-2"/>XLSX
+                  </Button>
+                  <Button 
+                    variant="secondary" 
+                    onClick={() => exportCSV("pb_outreach_prospects.csv", outreachCsv(pbScored, { source:"PitchBook", vertical, tag }))}
+                    disabled={loading}
+                  >
+                    <Download className="w-4 h-4 mr-2"/>Outreach CSV
+                  </Button>
+                  <Button 
+                    onClick={() => generateOutputs("PitchBook", pbScored, pbDealsKpis)}
+                    className="bg-blue-600 hover:bg-blue-700"
+                  >
+                    <Sparkles className="w-4 h-4 mr-2"/>Generate Insights + Email
+                  </Button>
+                  <Button 
+                    onClick={() => exportPPT("PitchBook", pbScored, pbDealsKpis)}
+                    disabled={loading}
+                    className="bg-purple-600 hover:bg-purple-700"
+                  >
+                    <Download className="w-4 h-4 mr-2"/>Export PPTX
+                  </Button>
+                </div>
+                
+                <OutreachIntegration 
+                  prospects={pbScored.filter(t => t.score >= scoreThreshold)} 
+                  onSyncComplete={(result) => {
+                    console.log("Sync complete:", result);
+                  }}
+                />
               </div>
             </CardContent>
           </Card>
@@ -815,41 +826,50 @@ export default function OpsConsole(){
                 </table>
               </div>
               
-              <div className="flex flex-wrap gap-2 mt-6 pt-4 border-t border-slate-200">
-                <Button 
-                  variant="secondary" 
-                  onClick={() => exportCSV("grata_cleaned_scored_targets.csv", grScored)}
-                  disabled={loading}
-                >
-                  <Download className="w-4 h-4 mr-2"/>CSV
-                </Button>
-                <Button 
-                  variant="secondary" 
-                  onClick={() => exportExcel("grata_cleaned_scored_targets.xlsx", grScored)}
-                  disabled={loading}
-                >
-                  <Download className="w-4 h-4 mr-2"/>XLSX
-                </Button>
-                <Button 
-                  variant="secondary" 
-                  onClick={() => exportCSV("grata_outreach_prospects.csv", outreachCsv(grScored, { source:"Grata", vertical, tag }))}
-                  disabled={loading}
-                >
-                  <Download className="w-4 h-4 mr-2"/>Outreach CSV
-                </Button>
-                <Button 
-                  onClick={() => generateOutputs("Grata", grScored)}
-                  className="bg-emerald-600 hover:bg-emerald-700"
-                >
-                  <Sparkles className="w-4 h-4 mr-2"/>Generate Insights + Email
-                </Button>
-                <Button 
-                  onClick={() => exportPPT("Grata", grScored)}
-                  disabled={loading}
-                  className="bg-indigo-600 hover:bg-indigo-700"
-                >
-                  <Download className="w-4 h-4 mr-2"/>Export PPTX
-                </Button>
+              <div className="space-y-4 mt-6 pt-4 border-t border-slate-200">
+                <div className="flex flex-wrap gap-2">
+                  <Button 
+                    variant="secondary" 
+                    onClick={() => exportCSV("grata_cleaned_scored_targets.csv", grScored)}
+                    disabled={loading}
+                  >
+                    <Download className="w-4 h-4 mr-2"/>CSV
+                  </Button>
+                  <Button 
+                    variant="secondary" 
+                    onClick={() => exportExcel("grata_cleaned_scored_targets.xlsx", grScored)}
+                    disabled={loading}
+                  >
+                    <Download className="w-4 h-4 mr-2"/>XLSX
+                  </Button>
+                  <Button 
+                    variant="secondary" 
+                    onClick={() => exportCSV("grata_outreach_prospects.csv", outreachCsv(grScored, { source:"Grata", vertical, tag }))}
+                    disabled={loading}
+                  >
+                    <Download className="w-4 h-4 mr-2"/>Outreach CSV
+                  </Button>
+                  <Button 
+                    onClick={() => generateOutputs("Grata", grScored)}
+                    className="bg-emerald-600 hover:bg-emerald-700"
+                  >
+                    <Sparkles className="w-4 h-4 mr-2"/>Generate Insights + Email
+                  </Button>
+                  <Button 
+                    onClick={() => exportPPT("Grata", grScored)}
+                    disabled={loading}
+                    className="bg-indigo-600 hover:bg-indigo-700"
+                  >
+                    <Download className="w-4 h-4 mr-2"/>Export PPTX
+                  </Button>
+                </div>
+                
+                <OutreachIntegration 
+                  prospects={grScored.filter(t => t.score >= scoreThreshold)} 
+                  onSyncComplete={(result) => {
+                    console.log("Sync complete:", result);
+                  }}
+                />
               </div>
             </CardContent>
           </Card>
@@ -883,6 +903,53 @@ export default function OpsConsole(){
 
         {/* SETTINGS PAGE */}
         <TabsContent value="settings" className="space-y-6">
+          <Card className="shadow-sm border-slate-200">
+            <CardHeader className="bg-gradient-to-r from-purple-50 to-transparent">
+              <CardTitle>Outreach.io Setup</CardTitle>
+            </CardHeader>
+            <CardContent className="pt-4 space-y-4">
+              <Alert className="bg-blue-50 border-blue-200">
+                <CircleAlert className="h-4 w-4 text-blue-600" />
+                <AlertDescription className="text-blue-800 text-sm">
+                  <strong>First-time setup:</strong> Create an OAuth application in your Outreach.io account (Settings → API → OAuth Applications). 
+                  Add the credentials below, then click "Connect Outreach Account" on PitchBook or Grata tabs.
+                </AlertDescription>
+              </Alert>
+
+              <div className="space-y-3">
+                <div className="p-4 bg-slate-50 rounded-lg border">
+                  <h4 className="font-semibold text-sm mb-2">Required Secrets (configure in Dashboard)</h4>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex items-center justify-between">
+                      <code className="text-xs bg-white px-2 py-1 rounded">OUTREACH_CLIENT_ID</code>
+                      <Badge variant="outline">Required</Badge>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <code className="text-xs bg-white px-2 py-1 rounded">OUTREACH_CLIENT_SECRET</code>
+                      <Badge variant="outline">Required</Badge>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <code className="text-xs bg-white px-2 py-1 rounded">OUTREACH_REDIRECT_URI</code>
+                      <Badge variant="outline">Auto-configured</Badge>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-4 bg-green-50 rounded-lg border border-green-200">
+                  <h4 className="font-semibold text-sm text-green-900 mb-2">OAuth Scopes Required:</h4>
+                  <div className="space-y-1 text-sm text-green-800">
+                    <div>• <code>prospects.all</code> - Create and update prospects</div>
+                    <div>• <code>sequences.read</code> - View and select sequences</div>
+                  </div>
+                </div>
+
+                <div className="text-xs text-muted-foreground">
+                  After configuring secrets, connect your account from the PitchBook or Grata tab to start syncing prospects directly to Outreach.
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        
           <Card className="shadow-sm border-slate-200">
             <CardHeader className="bg-gradient-to-r from-blue-50 to-transparent">
               <CardTitle>Schema Mapper – PitchBook</CardTitle>
