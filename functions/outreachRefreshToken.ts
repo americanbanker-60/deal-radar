@@ -1,46 +1,74 @@
-/**
- * Refresh expired Outreach access token
- * Returns: { accessToken: string, expiresAt: string }
- */
-export default async function outreachRefreshToken({ connectionId }, { secrets, entities }) {
-  const connection = await entities.OutreachConnection.get(connectionId);
-  
-  if (!connection) {
-    throw new Error("Connection not found");
-  }
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
 
-  const clientId = secrets.OUTREACH_CLIENT_ID;
-  const clientSecret = secrets.OUTREACH_CLIENT_SECRET;
+Deno.serve(async (req) => {
+    try {
+        const base44 = createClientFromRequest(req);
+        const user = await base44.auth.me();
+        
+        if (!user) {
+            return Response.json({ error: 'Unauthorized' }, { status: 401 });
+        }
 
-  const tokenResponse = await fetch("https://api.outreach.io/oauth/token", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
-    body: new URLSearchParams({
-      client_id: clientId,
-      client_secret: clientSecret,
-      grant_type: "refresh_token",
-      refresh_token: connection.refresh_token,
-    }),
-  });
+        const { connectionId } = await req.json();
 
-  if (!tokenResponse.ok) {
-    // Mark connection as expired
-    await entities.OutreachConnection.update(connectionId, { status: "expired" });
-    throw new Error("Failed to refresh token. Please reconnect your account.");
-  }
+        const clientId = Deno.env.get("OUTREACH_CLIENT_ID");
+        const clientSecret = Deno.env.get("OUTREACH_CLIENT_SECRET");
+        
+        if (!clientId || !clientSecret) {
+            return Response.json({ error: 'Outreach credentials not configured' }, { status: 500 });
+        }
 
-  const tokens = await tokenResponse.json();
-  const expiresAt = new Date(Date.now() + (tokens.expires_in * 1000)).toISOString();
+        // Get connection
+        const connection = await base44.asServiceRole.entities.OutreachConnection.filter({
+            id: connectionId,
+            user_email: user.email
+        });
 
-  // Update connection with new tokens
-  await entities.OutreachConnection.update(connectionId, {
-    access_token: tokens.access_token,
-    refresh_token: tokens.refresh_token || connection.refresh_token,
-    expires_at: expiresAt,
-    status: "connected",
-  });
+        if (!connection || connection.length === 0) {
+            return Response.json({ error: 'Connection not found' }, { status: 404 });
+        }
 
-  return { accessToken: tokens.access_token, expiresAt };
-}
+        const conn = connection[0];
+
+        // Refresh token
+        const tokenResponse = await fetch('https://api.outreach.io/oauth/token', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: new URLSearchParams({
+                client_id: clientId,
+                client_secret: clientSecret,
+                refresh_token: conn.refresh_token,
+                grant_type: 'refresh_token',
+            }),
+        });
+
+        if (!tokenResponse.ok) {
+            const error = await tokenResponse.text();
+            // Mark as expired
+            await base44.asServiceRole.entities.OutreachConnection.update(conn.id, {
+                status: 'expired',
+            });
+            return Response.json({ error: 'Failed to refresh token: ' + error }, { status: 500 });
+        }
+
+        const tokens = await tokenResponse.json();
+        const expiresAt = new Date(Date.now() + tokens.expires_in * 1000).toISOString();
+
+        // Update connection
+        await base44.asServiceRole.entities.OutreachConnection.update(conn.id, {
+            access_token: tokens.access_token,
+            refresh_token: tokens.refresh_token || conn.refresh_token,
+            expires_at: expiresAt,
+            status: 'connected',
+        });
+
+        return Response.json({ 
+            success: true,
+            access_token: tokens.access_token 
+        });
+    } catch (error) {
+        return Response.json({ error: error.message }, { status: 500 });
+    }
+});

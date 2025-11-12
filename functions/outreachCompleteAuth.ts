@@ -1,83 +1,91 @@
-/**
- * Complete Outreach OAuth flow with authorization code
- * Returns: { success: boolean, connectionId: string }
- */
-export default async function outreachCompleteAuth({ code, redirectUri }, { secrets, entities, user }) {
-  const clientId = secrets.OUTREACH_CLIENT_ID;
-  const clientSecret = secrets.OUTREACH_CLIENT_SECRET;
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
 
-  if (!clientId || !clientSecret) {
-    throw new Error("Outreach credentials not configured");
-  }
+Deno.serve(async (req) => {
+    try {
+        const base44 = createClientFromRequest(req);
+        const user = await base44.auth.me();
+        
+        if (!user) {
+            return Response.json({ error: 'Unauthorized' }, { status: 401 });
+        }
 
-  // Exchange code for tokens
-  const tokenResponse = await fetch("https://api.outreach.io/oauth/token", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
-    body: new URLSearchParams({
-      client_id: clientId,
-      client_secret: clientSecret,
-      redirect_uri: redirectUri || secrets.OUTREACH_REDIRECT_URI,
-      grant_type: "authorization_code",
-      code: code,
-    }),
-  });
+        const { code, redirectUri } = await req.json();
 
-  if (!tokenResponse.ok) {
-    const error = await tokenResponse.text();
-    throw new Error(`Failed to get access token: ${error}`);
-  }
+        const clientId = Deno.env.get("OUTREACH_CLIENT_ID");
+        const clientSecret = Deno.env.get("OUTREACH_CLIENT_SECRET");
+        
+        if (!clientId || !clientSecret) {
+            return Response.json({ error: 'Outreach credentials not configured' }, { status: 500 });
+        }
 
-  const tokens = await tokenResponse.json();
+        // Exchange code for tokens
+        const tokenResponse = await fetch('https://api.outreach.io/oauth/token', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: new URLSearchParams({
+                client_id: clientId,
+                client_secret: clientSecret,
+                code: code,
+                redirect_uri: redirectUri,
+                grant_type: 'authorization_code',
+            }),
+        });
 
-  // Get user info from Outreach
-  const userResponse = await fetch("https://api.outreach.io/api/v2/users?filter[email]=" + user.email, {
-    headers: {
-      "Authorization": `Bearer ${tokens.access_token}`,
-      "Content-Type": "application/vnd.api+json",
-    },
-  });
+        if (!tokenResponse.ok) {
+            const error = await tokenResponse.text();
+            return Response.json({ error: 'Failed to exchange code for tokens: ' + error }, { status: 500 });
+        }
 
-  let outreachUserId = null;
-  if (userResponse.ok) {
-    const userData = await userResponse.json();
-    if (userData.data && userData.data.length > 0) {
-      outreachUserId = userData.data[0].id;
+        const tokens = await tokenResponse.json();
+
+        // Get Outreach user info
+        const userResponse = await fetch('https://api.outreach.io/api/v2/users?filter[email]=' + user.email, {
+            headers: {
+                'Authorization': `Bearer ${tokens.access_token}`,
+            },
+        });
+
+        let outreachUserId = null;
+        if (userResponse.ok) {
+            const userData = await userResponse.json();
+            if (userData.data && userData.data.length > 0) {
+                outreachUserId = userData.data[0].id;
+            }
+        }
+
+        // Store connection using service role
+        const expiresAt = new Date(Date.now() + tokens.expires_in * 1000).toISOString();
+
+        // Check if connection already exists
+        const existing = await base44.asServiceRole.entities.OutreachConnection.filter({
+            user_email: user.email
+        });
+
+        if (existing && existing.length > 0) {
+            // Update existing
+            await base44.asServiceRole.entities.OutreachConnection.update(existing[0].id, {
+                access_token: tokens.access_token,
+                refresh_token: tokens.refresh_token,
+                expires_at: expiresAt,
+                outreach_user_id: outreachUserId,
+                status: 'connected',
+            });
+        } else {
+            // Create new
+            await base44.asServiceRole.entities.OutreachConnection.create({
+                user_email: user.email,
+                access_token: tokens.access_token,
+                refresh_token: tokens.refresh_token,
+                expires_at: expiresAt,
+                outreach_user_id: outreachUserId,
+                status: 'connected',
+            });
+        }
+
+        return Response.json({ success: true });
+    } catch (error) {
+        return Response.json({ error: error.message }, { status: 500 });
     }
-  }
-
-  // Calculate expiration time
-  const expiresAt = new Date(Date.now() + (tokens.expires_in * 1000)).toISOString();
-
-  // Check if connection already exists
-  const existing = await entities.OutreachConnection.list();
-  const userConnection = existing.find(c => c.user_email === user.email);
-
-  let connectionId;
-  if (userConnection) {
-    // Update existing
-    await entities.OutreachConnection.update(userConnection.id, {
-      access_token: tokens.access_token,
-      refresh_token: tokens.refresh_token,
-      expires_at: expiresAt,
-      outreach_user_id: outreachUserId,
-      status: "connected",
-    });
-    connectionId = userConnection.id;
-  } else {
-    // Create new
-    const connection = await entities.OutreachConnection.create({
-      user_email: user.email,
-      access_token: tokens.access_token,
-      refresh_token: tokens.refresh_token,
-      expires_at: expiresAt,
-      outreach_user_id: outreachUserId,
-      status: "connected",
-    });
-    connectionId = connection.id;
-  }
-
-  return { success: true, connectionId };
-}
+});
