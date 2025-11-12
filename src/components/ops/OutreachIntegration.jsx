@@ -16,7 +16,7 @@ import {
   Link as LinkIcon,
   AlertCircle
 } from "lucide-react";
-import { createPageUrl } from "./utils";
+import { createPageUrl } from "@/utils";
 
 export default function OutreachIntegration({ prospects, onSyncComplete }) {
   const [connected, setConnected] = useState(false);
