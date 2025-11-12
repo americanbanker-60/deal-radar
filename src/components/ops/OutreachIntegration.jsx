@@ -16,6 +16,7 @@ import {
   Link as LinkIcon,
   AlertCircle
 } from "lucide-react";
+import { createPageUrl } from "./utils";
 
 export default function OutreachIntegration({ prospects, onSyncComplete }) {
   const [connected, setConnected] = useState(false);
@@ -62,7 +63,8 @@ export default function OutreachIntegration({ prospects, onSyncComplete }) {
   const connectOutreach = async () => {
     setLoading(true);
     try {
-      const redirectUri = `${window.location.origin}/oauth/outreach/callback`;
+      // Get the full redirect URI including app path
+      const redirectUri = `${window.location.origin}${createPageUrl('OAuthCallback')}`;
       const result = await base44.functions.invoke('outreachInitAuth', { redirectUri });
       
       // Open OAuth flow in popup
@@ -215,7 +217,10 @@ export default function OutreachIntegration({ prospects, onSyncComplete }) {
           <Alert className="bg-amber-50 border-amber-200">
             <AlertCircle className="h-4 w-4 text-amber-600" />
             <AlertDescription className="text-amber-800 text-sm">
-              <strong>Setup Required:</strong> First, create an OAuth application in Outreach.io Settings → API → OAuth Applications, then add your Client ID and Secret in the app Settings tab.
+              <strong>Setup Required:</strong> In Outreach Settings → API → OAuth Applications, set your redirect URI to:<br/>
+              <code className="text-xs bg-white px-2 py-0.5 rounded mt-1 inline-block">
+                {window.location.origin}{createPageUrl('OAuthCallback')}
+              </code>
             </AlertDescription>
           </Alert>
 
