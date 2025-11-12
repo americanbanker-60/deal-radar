@@ -51,8 +51,8 @@ export default function OutreachIntegration({ prospects, onSyncComplete }) {
   const loadSequences = async () => {
     setLoading(true);
     try {
-      const result = await base44.functions.outreachGetSequences({});
-      setSequences(result.sequences);
+      const result = await base44.functions.invoke('outreachGetSequences', {});
+      setSequences(result.data.sequences);
     } catch (error) {
       console.error("Error loading sequences:", error);
     }
@@ -63,7 +63,7 @@ export default function OutreachIntegration({ prospects, onSyncComplete }) {
     setLoading(true);
     try {
       const redirectUri = `${window.location.origin}/oauth/outreach/callback`;
-      const result = await base44.functions.outreachInitAuth({ redirectUri });
+      const result = await base44.functions.invoke('outreachInitAuth', { redirectUri });
       
       // Open OAuth flow in popup
       const width = 600;
@@ -72,7 +72,7 @@ export default function OutreachIntegration({ prospects, onSyncComplete }) {
       const top = window.screen.height / 2 - height / 2;
       
       const popup = window.open(
-        result.authUrl,
+        result.data.authUrl,
         "Outreach Authorization",
         `width=${width},height=${height},left=${left},top=${top}`
       );
@@ -81,12 +81,20 @@ export default function OutreachIntegration({ prospects, onSyncComplete }) {
       const handleMessage = async (event) => {
         if (event.data.type === "outreach-oauth-success" && event.data.code) {
           try {
-            await base44.functions.outreachCompleteAuth({
+            const result = await base44.functions.invoke('outreachCompleteAuth', {
               code: event.data.code,
               redirectUri,
             });
-            setConnected(true);
-            loadSequences();
+            
+            if (result.data.success) {
+              setConnected(true);
+              loadSequences();
+              if (popup && !popup.closed) {
+                popup.close();
+              }
+            } else {
+              alert("Failed to complete authorization: " + (result.data.error || "Unknown error"));
+            }
           } catch (error) {
             alert("Failed to complete authorization: " + error.message);
           }
@@ -131,13 +139,13 @@ export default function OutreachIntegration({ prospects, onSyncComplete }) {
         customSource: customSource,
       };
 
-      const result = await base44.functions.outreachSyncProspects({
+      const result = await base44.functions.invoke('outreachSyncProspects', {
         prospects: outreachProspects,
         sequenceId: selectedSequence || null,
         customFields,
       });
 
-      setSyncResult(result);
+      setSyncResult(result.data);
       
       if (onSyncComplete) {
         onSyncComplete(result);
