@@ -9,11 +9,12 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Slider } from "@/components/ui/slider";
 import { Progress } from "@/components/ui/progress";
 import { Textarea } from "@/components/ui/textarea";
-import { Download, Upload, Filter, BarChart3, Sparkles, Database, Settings, CircleAlert, Workflow, Mail, Loader2 } from "lucide-react";
+import { Download, Upload, Filter, BarChart3, Sparkles, Database, Settings, CircleAlert, Workflow, Mail, Loader2, HelpCircle } from "lucide-react";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Legend } from "recharts";
 
 import SchemaMapper from "../components/ops/SchemaMapper";
 import { useDealsAnalytics, filterTargets, scoreTargets } from "../components/ops/analyticsHelpers";
+import HowToUse from "../components/ops/HowToUse";
 
 /**
  * Base44 PitchBook + Grata Ops Console (v3)
@@ -35,6 +36,7 @@ const DEFAULT_FIELDS = [
 export default function OpsConsole(){
   const [page, setPage] = useState("pitchbook");
   const [loading, setLoading] = useState(false);
+  const [showHowTo, setShowHowTo] = useState(false);
 
   // PitchBook states
   const [pbCompaniesRaw, setPbCompaniesRaw] = useState([]);
@@ -272,15 +274,25 @@ export default function OpsConsole(){
 
   return (
     <div className="w-full mx-auto p-4 md:p-6 space-y-6 bg-gradient-to-br from-slate-50 to-blue-50 min-h-screen">
+      <HowToUse open={showHowTo} onClose={() => setShowHowTo(false)} />
+      
       <div className="flex items-center gap-3 bg-white p-6 rounded-xl shadow-sm border border-slate-200">
         <div className="p-3 bg-blue-600 rounded-lg">
           <Database className="w-6 h-6 text-white" />
         </div>
-        <div>
+        <div className="flex-1">
           <h1 className="text-2xl font-bold text-slate-900">PitchBook + Grata Ops Console</h1>
           <p className="text-sm text-slate-600">Deal sourcing & intelligence platform</p>
         </div>
-        <Badge variant="secondary" className="ml-auto">v3</Badge>
+        <Button
+          variant="outline"
+          onClick={() => setShowHowTo(true)}
+          className="gap-2"
+        >
+          <Sparkles className="w-4 h-4" />
+          How to Use
+        </Button>
+        <Badge variant="secondary">v3</Badge>
       </div>
 
       {loading && (
@@ -301,6 +313,31 @@ export default function OpsConsole(){
 
         {/* PITCHBOOK PAGE */}
         <TabsContent value="pitchbook" className="space-y-6">
+          {pbCompaniesRaw.length === 0 && (
+            <Card className="shadow-sm border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50">
+              <CardContent className="pt-6">
+                <div className="flex items-start gap-4">
+                  <div className="p-3 bg-blue-600 rounded-lg">
+                    <HelpCircle className="w-6 h-6 text-white" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-blue-900 mb-2">Getting Started with PitchBook Data</h3>
+                    <p className="text-sm text-blue-700 mb-3">
+                      Upload your PitchBook company exports to start analyzing acquisition targets. Don't know where to begin?
+                    </p>
+                    <Button
+                      onClick={() => setShowHowTo(true)}
+                      className="bg-blue-600 hover:bg-blue-700"
+                    >
+                      <Sparkles className="w-4 h-4 mr-2" />
+                      View Step-by-Step Guide
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+          
           <div className="grid md:grid-cols-2 gap-4">
             <Card className="shadow-sm border-slate-200">
               <CardHeader className="bg-gradient-to-r from-blue-50 to-transparent">
@@ -653,6 +690,31 @@ export default function OpsConsole(){
 
         {/* GRATA PAGE */}
         <TabsContent value="grata" className="space-y-6">
+          {grCompaniesRaw.length === 0 && (
+            <Card className="shadow-sm border-emerald-200 bg-gradient-to-r from-emerald-50 to-teal-50">
+              <CardContent className="pt-6">
+                <div className="flex items-start gap-4">
+                  <div className="p-3 bg-emerald-600 rounded-lg">
+                    <HelpCircle className="w-6 h-6 text-white" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-emerald-900 mb-2">Getting Started with Grata Data</h3>
+                    <p className="text-sm text-emerald-700 mb-3">
+                      Upload your Grata company exports to discover and score potential targets. Need help exporting from Grata?
+                    </p>
+                    <Button
+                      onClick={() => setShowHowTo(true)}
+                      className="bg-emerald-600 hover:bg-emerald-700"
+                    >
+                      <Sparkles className="w-4 h-4 mr-2" />
+                      View Step-by-Step Guide
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+          
           <div className="grid md:grid-cols-2 gap-4">
             <Card className="shadow-sm border-slate-200">
               <CardHeader className="bg-gradient-to-r from-emerald-50 to-transparent">
