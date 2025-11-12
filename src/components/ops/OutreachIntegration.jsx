@@ -259,7 +259,6 @@ export default function OutreachIntegration({ prospects, onSyncComplete }) {
             </Button>
           </div>
         </div>
-      </CardTitle>
       </CardHeader>
       <CardContent className="pt-6 space-y-4">
         {/* Sequence Selector */}
