@@ -24,10 +24,16 @@ export default function OutreachIntegration({ prospects, onSyncComplete }) {
   const [syncResult, setSyncResult] = useState(null);
   const [error, setError] = useState(null);
   const [redirectUri, setRedirectUri] = useState("");
+  const [debugLogs, setDebugLogs] = useState([]);
   
   // Custom fields for Outreach
   const [customTag, setCustomTag] = useState("BD-Priority");
   const [customSource, setCustomSource] = useState("Ops Console");
+
+  const addLog = (msg) => {
+    console.log(msg);
+    setDebugLogs(prev => [...prev, msg].slice(-10)); // Keep last 10 logs
+  };
 
   useEffect(() => {
     checkConnection();
@@ -47,13 +53,14 @@ export default function OutreachIntegration({ prospects, onSyncComplete }) {
   const connectOutreach = async () => {
     setLoading(true);
     setError(null);
+    setDebugLogs([]);
     
     try {
-      console.log("🔗 Initiating OAuth...");
+      addLog("🔗 Step 1: Requesting OAuth URL from backend...");
       
       const result = await base44.functions.invoke('outreachInitAuth', {});
-      console.log("✅ Auth URL received:", result.data.authUrl);
-      console.log("✅ Redirect URI:", result.data.redirectUri);
+      addLog("✅ Step 2: Auth URL received from backend");
+      addLog("📍 Redirect URI: " + result.data.redirectUri);
       
       // Store redirect URI for display
       setRedirectUri(result.data.redirectUri);
@@ -63,6 +70,8 @@ export default function OutreachIntegration({ prospects, onSyncComplete }) {
       const height = 700;
       const left = window.screen.width / 2 - width / 2;
       const top = window.screen.height / 2 - height / 2;
+      
+      addLog("🪟 Step 3: Opening OAuth popup window...");
       
       const popup = window.open(
         result.data.authUrl,
@@ -74,14 +83,15 @@ export default function OutreachIntegration({ prospects, onSyncComplete }) {
         throw new Error("Popup was blocked. Please allow popups for this site.");
       }
 
-      console.log("✅ Popup opened");
+      addLog("✅ Step 4: Popup opened successfully");
+      addLog("👂 Step 5: Listening for messages from popup...");
 
-      // Listen for OAuth callback with wildcard origin (since callback might come from popup)
+      // Listen for OAuth callback
       const handleMessage = async (event) => {
-        console.log("📨 Received message:", event.data, "from origin:", event.origin);
+        addLog("📨 Message received! Type: " + event.data.type + ", Origin: " + event.origin);
         
         if (event.data.type === "outreach-oauth-error") {
-          console.error("❌ OAuth error received:", event.data.error);
+          addLog("❌ OAuth error received: " + event.data.error);
           setError("OAuth error: " + event.data.error);
           setLoading(false);
           window.removeEventListener("message", handleMessage);
@@ -92,55 +102,64 @@ export default function OutreachIntegration({ prospects, onSyncComplete }) {
         }
 
         if (event.data.type === "outreach-oauth-success" && event.data.code) {
-          console.log("✅ OAuth code received:", event.data.code.substring(0, 10) + "...");
-          console.log("🔄 Completing authorization...");
+          addLog("✅ Step 6: OAuth code received from popup!");
+          addLog("🔄 Step 7: Sending code to backend to complete auth...");
           
           try {
             const completeResult = await base44.functions.invoke('outreachCompleteAuth', {
               code: event.data.code,
             });
             
-            console.log("✅ Auth complete result:", completeResult.data);
+            addLog("✅ Step 8: Backend response received");
+            addLog("📊 Result: " + JSON.stringify(completeResult.data));
             
             if (completeResult.data.success) {
-              console.log("🎉 Successfully connected to Outreach!");
+              addLog("🎉 Step 9: Successfully connected to Outreach!");
               setConnected(true);
               setError(null);
+              setLoading(false);
+              
+              // Close popup
               if (popup && !popup.closed) {
+                addLog("🚪 Closing popup window");
                 popup.close();
               }
             } else {
-              console.error("❌ Auth completion failed:", completeResult.data.error);
+              addLog("❌ Auth completion failed: " + (completeResult.data.error || "Unknown error"));
               setError("Failed to complete authorization: " + (completeResult.data.error || "Unknown error"));
+              setLoading(false);
             }
           } catch (error) {
-            console.error("❌ Error completing auth:", error);
+            addLog("❌ Error completing auth: " + error.message);
             setError("Failed to complete authorization: " + error.message);
+            setLoading(false);
           }
           
-          setLoading(false);
           window.removeEventListener("message", handleMessage);
         }
       };
 
-      // Use wildcard origin for cross-window messaging
+      // Start listening BEFORE opening popup
       window.addEventListener("message", handleMessage);
+      addLog("✅ Message listener attached");
 
-      // Add popup closed detection
+      // Monitor popup state
       const popupCheckInterval = setInterval(() => {
         if (popup.closed) {
           clearInterval(popupCheckInterval);
-          window.removeEventListener("message", handleMessage);
+          addLog("⚠️ Popup was closed");
+          
           if (loading) {
-            console.log("⚠️ Popup was closed before completing auth");
+            addLog("❌ Popup closed before completing auth");
             setLoading(false);
-            setError("Authorization was cancelled or the popup was closed. Please try again.");
+            setError("Authorization was cancelled. Please try again and make sure to approve the authorization in the popup window.");
+            window.removeEventListener("message", handleMessage);
           }
         }
       }, 500);
 
     } catch (error) {
-      console.error("❌ Connection error:", error);
+      addLog("❌ Connection error: " + error.message);
       setError("Failed to connect: " + error.message);
       setLoading(false);
     }
@@ -164,7 +183,7 @@ export default function OutreachIntegration({ prospects, onSyncComplete }) {
         lastName: p.contact?.lastName || "",
         title: p.contact?.title || "",
         company: p.name || "",
-      })).filter(p => p.email); // Only include prospects with email
+      })).filter(p => p.email);
 
       if (outreachProspects.length === 0) {
         setError("No prospects with email addresses found");
@@ -177,8 +196,6 @@ export default function OutreachIntegration({ prospects, onSyncComplete }) {
         customSource: customSource,
       };
 
-      // NOTE: sequenceId is intentionally set to null - prospects are only created/updated,
-      // NOT added to sequences. This prevents accidental email sends.
       const result = await base44.functions.invoke('outreachSyncProspects', {
         prospects: outreachProspects,
         sequenceId: null,
@@ -254,14 +271,13 @@ export default function OutreachIntegration({ prospects, onSyncComplete }) {
           <Alert className="bg-amber-50 border-amber-200">
             <AlertCircle className="h-4 w-4 text-amber-600" />
             <AlertDescription className="text-amber-800 text-sm">
-              <strong>Setup Required:</strong> In Outreach Settings → API → OAuth Applications, make sure your redirect URI is set to the value from your OUTREACH_REDIRECT_URI secret (configured in Dashboard → Settings).
-              {redirectUri && (
-                <>
-                  <br/>
-                  <code className="text-xs bg-white px-2 py-0.5 rounded mt-1 inline-block">
-                    {redirectUri}
-                  </code>
-                </>
+              <strong>Setup Required:</strong> In Outreach Settings → API → OAuth Applications, make sure your redirect URI matches this exactly:
+              {redirectUri ? (
+                <code className="text-xs bg-white px-2 py-0.5 rounded mt-1 block">
+                  {redirectUri}
+                </code>
+              ) : (
+                <span className="text-xs block mt-1">(Will be shown after clicking Connect)</span>
               )}
             </AlertDescription>
           </Alert>
@@ -271,12 +287,20 @@ export default function OutreachIntegration({ prospects, onSyncComplete }) {
               <AlertCircle className="h-4 w-4 text-red-600" />
               <AlertDescription className="text-red-800 text-sm">
                 <strong>Error:</strong> {error}
-                <br/>
-                <span className="text-xs mt-1 block">
-                  Check the browser console (F12) for detailed debugging information.
-                </span>
               </AlertDescription>
             </Alert>
+          )}
+
+          {/* Debug Console */}
+          {debugLogs.length > 0 && (
+            <div className="bg-slate-900 text-green-400 rounded-lg p-3 max-h-48 overflow-y-auto">
+              <div className="text-xs font-mono space-y-1">
+                <div className="text-slate-400 mb-1">Debug Log:</div>
+                {debugLogs.map((log, i) => (
+                  <div key={i}>{log}</div>
+                ))}
+              </div>
+            </div>
           )}
 
           <Button
@@ -287,7 +311,7 @@ export default function OutreachIntegration({ prospects, onSyncComplete }) {
             {loading ? (
               <>
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Completing authorization...
+                Waiting for authorization... (check the popup)
               </>
             ) : (
               <>
@@ -298,12 +322,13 @@ export default function OutreachIntegration({ prospects, onSyncComplete }) {
           </Button>
 
           <div className="text-xs text-slate-500 bg-slate-50 p-3 rounded border">
-            <strong>Troubleshooting:</strong>
-            <ul className="list-disc ml-4 mt-1 space-y-1">
-              <li>Open browser console (F12) to see detailed logs</li>
-              <li>Make sure OUTREACH_REDIRECT_URI matches your Outreach OAuth app settings</li>
-              <li>Allow popups for this site if prompted</li>
-            </ul>
+            <strong>What happens next:</strong>
+            <ol className="list-decimal ml-4 mt-1 space-y-1">
+              <li>A popup window will open with Outreach login</li>
+              <li>Log in and approve the authorization</li>
+              <li>The popup will show a success message and close automatically</li>
+              <li>Watch the debug log above to see each step</li>
+            </ol>
           </div>
         </CardContent>
       </Card>
@@ -339,7 +364,6 @@ export default function OutreachIntegration({ prospects, onSyncComplete }) {
       </CardHeader>
       <CardContent className="pt-6 space-y-4">
         
-        {/* Safety Notice */}
         <Alert className="bg-blue-50 border-blue-200">
           <Shield className="h-4 w-4 text-blue-600" />
           <AlertDescription className="text-blue-800 text-sm">
@@ -358,7 +382,6 @@ export default function OutreachIntegration({ prospects, onSyncComplete }) {
           </Alert>
         )}
 
-        {/* Custom Fields */}
         <div className="grid md:grid-cols-2 gap-4">
           <div className="space-y-2">
             <div className="text-sm font-medium">Custom Tag</div>
@@ -378,7 +401,6 @@ export default function OutreachIntegration({ prospects, onSyncComplete }) {
           </div>
         </div>
 
-        {/* Prospect Count */}
         <div className="bg-slate-50 p-3 rounded-lg border">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -395,7 +417,6 @@ export default function OutreachIntegration({ prospects, onSyncComplete }) {
           </div>
         </div>
 
-        {/* Sync Button */}
         <Button
           onClick={syncToOutreach}
           disabled={syncing || !prospects || prospects.length === 0}
@@ -414,7 +435,6 @@ export default function OutreachIntegration({ prospects, onSyncComplete }) {
           )}
         </Button>
 
-        {/* Sync Results */}
         {syncResult && (
           <div className={`p-4 rounded-lg border ${
             syncResult.success 
