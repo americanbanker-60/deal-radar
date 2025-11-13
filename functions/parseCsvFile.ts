@@ -1,55 +1,75 @@
-/**
- * Parse CSV file from base64 or buffer
- * Returns: { headers: string[], rows: object[] }
- */
-export default async function parseCsvFile({ fileContent }) {
-  // fileContent should be base64 string or text content
-  const text = Buffer.from(fileContent, 'base64').toString('utf8');
-  
-  const lines = text.split(/\r?\n/).filter(line => line.trim());
-  if (lines.length === 0) {
-    return { headers: [], rows: [] };
-  }
-  
-  // Parse CSV manually (handles quotes and commas)
-  const parseCSVLine = (line) => {
-    const result = [];
-    let current = '';
-    let inQuotes = false;
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
+
+Deno.serve(async (req) => {
+    try {
+        const base44 = createClientFromRequest(req);
+        const user = await base44.auth.me();
+        
+        if (!user) {
+            return Response.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        const { fileContent } = await req.json();
+        
+        if (!fileContent) {
+            return Response.json({ error: 'No file content provided' }, { status: 400 });
+        }
+
+        // Decode base64 content
+        const decoded = atob(fileContent);
+        
+        // Parse CSV
+        const lines = decoded.split('\n').filter(line => line.trim());
+        
+        if (lines.length === 0) {
+            return Response.json({ error: 'Empty CSV file' }, { status: 400 });
+        }
+
+        // Extract headers from first line
+        const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
+        
+        // Parse rows
+        const rows = [];
+        for (let i = 1; i < lines.length; i++) {
+            const line = lines[i];
+            const values = parseCSVLine(line);
+            
+            if (values.length === headers.length) {
+                const row = {};
+                headers.forEach((header, index) => {
+                    row[header] = values[index];
+                });
+                rows.push(row);
+            }
+        }
+
+        return Response.json({ headers, rows });
+    } catch (error) {
+        return Response.json({ error: error.message }, { status: 500 });
+    }
+});
+
+// Simple CSV line parser that handles quoted values
+function parseCSVLine(line) {
+    const values = [];
+    let currentValue = '';
+    let insideQuotes = false;
     
     for (let i = 0; i < line.length; i++) {
-      const char = line[i];
-      const nextChar = line[i + 1];
-      
-      if (char === '"') {
-        if (inQuotes && nextChar === '"') {
-          current += '"';
-          i++;
+        const char = line[i];
+        
+        if (char === '"') {
+            insideQuotes = !insideQuotes;
+        } else if (char === ',' && !insideQuotes) {
+            values.push(currentValue.trim().replace(/^"|"$/g, ''));
+            currentValue = '';
         } else {
-          inQuotes = !inQuotes;
+            currentValue += char;
         }
-      } else if (char === ',' && !inQuotes) {
-        result.push(current);
-        current = '';
-      } else {
-        current += char;
-      }
     }
-    result.push(current);
-    return result.map(field => field.trim());
-  };
-  
-  const headers = parseCSVLine(lines[0]);
-  const rows = [];
-  
-  for (let i = 1; i < lines.length; i++) {
-    const values = parseCSVLine(lines[i]);
-    const row = {};
-    headers.forEach((header, idx) => {
-      row[header] = values[idx] || '';
-    });
-    rows.push(row);
-  }
-  
-  return { headers, rows };
+    
+    // Push the last value
+    values.push(currentValue.trim().replace(/^"|"$/g, ''));
+    
+    return values;
 }
