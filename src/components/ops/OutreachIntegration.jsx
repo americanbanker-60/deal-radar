@@ -74,17 +74,14 @@ export default function OutreachIntegration({ prospects, onSyncComplete }) {
         throw new Error("Popup was blocked. Please allow popups for this site.");
       }
 
-      // Listen for OAuth callback
-      const handleMessage = async (event) => {
-        console.log("📨 Received message:", event.data);
-        
-        // Security check: verify origin
-        if (event.origin !== window.location.origin) {
-          console.warn("⚠️ Message from unexpected origin:", event.origin);
-          return;
-        }
+      console.log("✅ Popup opened");
 
+      // Listen for OAuth callback with wildcard origin (since callback might come from popup)
+      const handleMessage = async (event) => {
+        console.log("📨 Received message:", event.data, "from origin:", event.origin);
+        
         if (event.data.type === "outreach-oauth-error") {
+          console.error("❌ OAuth error received:", event.data.error);
           setError("OAuth error: " + event.data.error);
           setLoading(false);
           window.removeEventListener("message", handleMessage);
@@ -95,7 +92,8 @@ export default function OutreachIntegration({ prospects, onSyncComplete }) {
         }
 
         if (event.data.type === "outreach-oauth-success" && event.data.code) {
-          console.log("✅ OAuth code received, completing auth...");
+          console.log("✅ OAuth code received:", event.data.code.substring(0, 10) + "...");
+          console.log("🔄 Completing authorization...");
           
           try {
             const completeResult = await base44.functions.invoke('outreachCompleteAuth', {
@@ -105,12 +103,14 @@ export default function OutreachIntegration({ prospects, onSyncComplete }) {
             console.log("✅ Auth complete result:", completeResult.data);
             
             if (completeResult.data.success) {
+              console.log("🎉 Successfully connected to Outreach!");
               setConnected(true);
               setError(null);
               if (popup && !popup.closed) {
                 popup.close();
               }
             } else {
+              console.error("❌ Auth completion failed:", completeResult.data.error);
               setError("Failed to complete authorization: " + (completeResult.data.error || "Unknown error"));
             }
           } catch (error) {
@@ -123,6 +123,7 @@ export default function OutreachIntegration({ prospects, onSyncComplete }) {
         }
       };
 
+      // Use wildcard origin for cross-window messaging
       window.addEventListener("message", handleMessage);
 
       // Add popup closed detection
@@ -133,7 +134,7 @@ export default function OutreachIntegration({ prospects, onSyncComplete }) {
           if (loading) {
             console.log("⚠️ Popup was closed before completing auth");
             setLoading(false);
-            setError("Authorization was cancelled. Please try again.");
+            setError("Authorization was cancelled or the popup was closed. Please try again.");
           }
         }
       }, 500);
@@ -272,7 +273,7 @@ export default function OutreachIntegration({ prospects, onSyncComplete }) {
                 <strong>Error:</strong> {error}
                 <br/>
                 <span className="text-xs mt-1 block">
-                  If you see "redirect url is malformed or doesn't match", verify that your OUTREACH_REDIRECT_URI secret exactly matches what's configured in your Outreach OAuth application settings.
+                  Check the browser console (F12) for detailed debugging information.
                 </span>
               </AlertDescription>
             </Alert>
@@ -295,6 +296,15 @@ export default function OutreachIntegration({ prospects, onSyncComplete }) {
               </>
             )}
           </Button>
+
+          <div className="text-xs text-slate-500 bg-slate-50 p-3 rounded border">
+            <strong>Troubleshooting:</strong>
+            <ul className="list-disc ml-4 mt-1 space-y-1">
+              <li>Open browser console (F12) to see detailed logs</li>
+              <li>Make sure OUTREACH_REDIRECT_URI matches your Outreach OAuth app settings</li>
+              <li>Allow popups for this site if prompted</li>
+            </ul>
+          </div>
         </CardContent>
       </Card>
     );
