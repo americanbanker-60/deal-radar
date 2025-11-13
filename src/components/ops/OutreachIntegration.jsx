@@ -4,7 +4,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { 
   CheckCircle2, 
@@ -14,15 +13,14 @@ import {
   RefreshCw,
   Users,
   Link as LinkIcon,
-  AlertCircle
+  AlertCircle,
+  Shield
 } from "lucide-react";
 import { createPageUrl } from "@/utils";
 
 export default function OutreachIntegration({ prospects, onSyncComplete }) {
   const [connected, setConnected] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [sequences, setSequences] = useState([]);
-  const [selectedSequence, setSelectedSequence] = useState("");
   const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState(null);
   
@@ -40,24 +38,9 @@ export default function OutreachIntegration({ prospects, onSyncComplete }) {
       const connections = await base44.entities.OutreachConnection.list();
       const userConnection = connections.find(c => c.user_email === user.email && c.status === "connected");
       setConnected(!!userConnection);
-      
-      if (userConnection) {
-        loadSequences();
-      }
     } catch (error) {
       console.error("Error checking connection:", error);
     }
-  };
-
-  const loadSequences = async () => {
-    setLoading(true);
-    try {
-      const result = await base44.functions.invoke('outreachGetSequences', {});
-      setSequences(result.data.sequences);
-    } catch (error) {
-      console.error("Error loading sequences:", error);
-    }
-    setLoading(false);
   };
 
   const connectOutreach = async () => {
@@ -90,7 +73,6 @@ export default function OutreachIntegration({ prospects, onSyncComplete }) {
             
             if (result.data.success) {
               setConnected(true);
-              loadSequences();
               if (popup && !popup.closed) {
                 popup.close();
               }
@@ -141,9 +123,11 @@ export default function OutreachIntegration({ prospects, onSyncComplete }) {
         customSource: customSource,
       };
 
+      // NOTE: sequenceId is intentionally set to null - prospects are only created/updated,
+      // NOT added to sequences. This prevents accidental email sends.
       const result = await base44.functions.invoke('outreachSyncProspects', {
         prospects: outreachProspects,
-        sequenceId: selectedSequence || null,
+        sequenceId: null,
         customFields,
       });
 
@@ -170,8 +154,6 @@ export default function OutreachIntegration({ prospects, onSyncComplete }) {
           status: "disconnected"
         });
         setConnected(false);
-        setSequences([]);
-        setSelectedSequence("");
       }
     } catch (error) {
       alert("Failed to disconnect: " + error.message);
@@ -195,7 +177,7 @@ export default function OutreachIntegration({ prospects, onSyncComplete }) {
             <div className="flex-1">
               <h4 className="font-semibold text-slate-900 mb-1">Direct Prospect Sync</h4>
               <p className="text-sm text-slate-600 mb-3">
-                Connect your Outreach.io account to automatically create prospects and add them to sequences—no CSV exports needed.
+                Connect your Outreach.io account to automatically create and update prospect records—no CSV exports needed.
               </p>
               <div className="bg-slate-50 p-3 rounded-lg border text-sm space-y-2">
                 <div className="flex items-center gap-2">
@@ -204,11 +186,11 @@ export default function OutreachIntegration({ prospects, onSyncComplete }) {
                 </div>
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="w-4 h-4 text-green-600" />
-                  <span>Add to sequences automatically</span>
+                  <span>Include custom tags and scores</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-green-600" />
-                  <span>Include custom tags and scores</span>
+                  <Shield className="w-4 h-4 text-blue-600" />
+                  <span className="font-medium text-blue-700">Safe mode: Does NOT add to sequences or send emails</span>
                 </div>
               </div>
             </div>
@@ -258,7 +240,7 @@ export default function OutreachIntegration({ prospects, onSyncComplete }) {
             <Button
               variant="outline"
               size="sm"
-              onClick={loadSequences}
+              onClick={checkConnection}
               disabled={loading}
             >
               <RefreshCw className="w-4 h-4" />
@@ -274,34 +256,16 @@ export default function OutreachIntegration({ prospects, onSyncComplete }) {
         </div>
       </CardHeader>
       <CardContent className="pt-6 space-y-4">
-        {/* Sequence Selector */}
-        <div className="space-y-2">
-          <div className="text-sm font-medium">Select Sequence (Optional)</div>
-          <Select value={selectedSequence} onValueChange={setSelectedSequence}>
-            <SelectTrigger>
-              <SelectValue placeholder="Choose a sequence or leave blank..." />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={null}>No Sequence (Just create prospects)</SelectItem>
-              {sequences.map(seq => (
-                <SelectItem key={seq.id} value={seq.id}>
-                  {seq.name}
-                  {seq.tags && seq.tags.length > 0 && (
-                    <span className="text-xs text-muted-foreground ml-2">
-                      ({seq.tags.join(", ")})
-                    </span>
-                  )}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {loading && (
-            <div className="text-xs text-muted-foreground flex items-center gap-1">
-              <Loader2 className="w-3 h-3 animate-spin" />
-              Loading sequences...
-            </div>
-          )}
-        </div>
+        
+        {/* Safety Notice */}
+        <Alert className="bg-blue-50 border-blue-200">
+          <Shield className="h-4 w-4 text-blue-600" />
+          <AlertDescription className="text-blue-800 text-sm">
+            <strong>Safe Mode Active:</strong> This will only create/update prospect records in Outreach. 
+            Prospects will <strong>NOT</strong> be added to sequences or receive any emails automatically. 
+            You'll manually add them to sequences in Outreach when ready.
+          </AlertDescription>
+        </Alert>
 
         {/* Custom Fields */}
         <div className="grid md:grid-cols-2 gap-4">
@@ -354,7 +318,7 @@ export default function OutreachIntegration({ prospects, onSyncComplete }) {
           ) : (
             <>
               <ExternalLink className="w-4 h-4 mr-2" />
-              Sync to Outreach.io
+              Create/Update Prospects in Outreach
             </>
           )}
         </Button>
@@ -381,11 +345,11 @@ export default function OutreachIntegration({ prospects, onSyncComplete }) {
                 <div className="space-y-1 text-sm">
                   <div className="flex items-center gap-2">
                     <Badge className="bg-green-600">+{syncResult.created}</Badge>
-                    <span className="text-slate-700">Created</span>
+                    <span className="text-slate-700">Prospects Created</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <Badge className="bg-blue-600">~{syncResult.updated}</Badge>
-                    <span className="text-slate-700">Updated</span>
+                    <span className="text-slate-700">Prospects Updated</span>
                   </div>
                   {syncResult.errors && syncResult.errors.length > 0 && (
                     <div className="mt-2">
@@ -409,6 +373,11 @@ export default function OutreachIntegration({ prospects, onSyncComplete }) {
                     </div>
                   )}
                 </div>
+                <div className="mt-3 p-2 bg-white rounded border border-green-300">
+                  <p className="text-xs text-green-800">
+                    ✓ No prospects were added to sequences. Add them manually in Outreach when ready.
+                  </p>
+                </div>
               </div>
             </div>
           </div>
@@ -417,8 +386,8 @@ export default function OutreachIntegration({ prospects, onSyncComplete }) {
         <div className="text-xs text-muted-foreground flex items-start gap-2">
           <AlertCircle className="w-3 h-3 flex-shrink-0 mt-0.5" />
           <span>
-            Prospects will be created/updated in Outreach with your custom fields. 
-            If a sequence is selected, they'll be automatically added to it.
+            This integration only creates/updates prospect records with your custom fields. 
+            No emails will be sent. You control when to add prospects to sequences in Outreach.
           </span>
         </div>
       </CardContent>
