@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Loader2, CheckCircle2, XCircle } from "lucide-react";
+import { base44 } from "@/api/base44Client";
 
 export default function OAuthCallback() {
   const [status, setStatus] = useState("processing");
@@ -12,93 +13,122 @@ export default function OAuthCallback() {
   };
 
   useEffect(() => {
-    addLog("🔄 OAuthCallback page loaded");
-    addLog("🔄 window.opener exists: " + !!window.opener);
-    addLog("🔄 window.location: " + window.location.href);
-    
-    // Extract code from URL
-    const params = new URLSearchParams(window.location.search);
-    const code = params.get("code");
-    const error = params.get("error");
-
-    addLog("🔄 OAuth code: " + (code ? "✅ Received (" + code.substring(0, 20) + "...)" : "❌ Not found"));
-    addLog("🔄 OAuth error: " + (error || "none"));
-
-    if (error) {
-      addLog("❌ OAuth error: " + error);
-      setStatus("error");
-      setMessage(`OAuth error: ${error}`);
+    const handleAuth = async () => {
+      addLog("🔄 OAuthCallback page loaded");
+      addLog("🔄 Full URL: " + window.location.href);
+      addLog("🔄 Search params: " + window.location.search);
+      addLog("🔄 Hash: " + window.location.hash);
+      addLog("🔄 window.opener exists: " + !!window.opener);
       
-      if (window.opener) {
-        addLog("📤 Sending error message to parent");
-        window.opener.postMessage({ 
-          type: "outreach-oauth-error", 
-          error 
-        }, "*");
+      // Try to get code from query params OR hash fragment
+      const params = new URLSearchParams(window.location.search);
+      const hashParams = new URLSearchParams(window.location.hash.replace('#', '?'));
+      
+      const code = params.get("code") || hashParams.get("code");
+      const error = params.get("error") || hashParams.get("error");
+
+      addLog("🔄 OAuth code: " + (code ? "✅ Found (" + code.substring(0, 20) + "...)" : "❌ Not found"));
+      addLog("🔄 OAuth error: " + (error || "none"));
+
+      if (error) {
+        addLog("❌ OAuth error: " + error);
+        setStatus("error");
+        setMessage(`OAuth error: ${error}`);
+        
+        // Try multiple communication methods
+        sendToParent({ type: "outreach-oauth-error", error });
+        return;
       }
       
-      // Don't auto-close on error, let user see what happened
-      return;
-    }
-    
-    if (code) {
-      addLog("✅ OAuth code received!");
-      setStatus("success");
-      setMessage("Authorization successful! Sending code to parent window...");
-      
-      if (window.opener && !window.opener.closed) {
-        addLog("📤 Sending success message to parent with code");
-        
-        // Send message multiple times to ensure it gets through
-        const sendMessage = () => {
-          try {
-            window.opener.postMessage({ 
-              type: "outreach-oauth-success", 
-              code 
-            }, "*");
-            addLog("✅ Message sent successfully");
-          } catch (e) {
-            addLog("❌ Error sending message: " + e.message);
-          }
-        };
-        
-        // Send immediately
-        sendMessage();
-        
-        // Send again after 100ms
-        setTimeout(sendMessage, 100);
-        
-        // Send again after 300ms
-        setTimeout(sendMessage, 300);
-        
-        // Wait 2 seconds before allowing close
-        setTimeout(() => {
-          addLog("⏰ 2 seconds elapsed, safe to close now");
-          setMessage("✅ Code sent! You can close this window or it will close automatically.");
-          
-          // Auto-close after another 2 seconds
-          setTimeout(() => {
-            addLog("🚪 Attempting to close popup");
-            try {
-              window.close();
-              addLog("✅ Window close initiated");
-            } catch (e) {
-              addLog("❌ Could not close window: " + e.message);
-              setMessage("Please close this window manually.");
-            }
-          }, 2000);
-        }, 2000);
-      } else {
-        addLog("❌ No window.opener available or opener was closed");
+      if (!code) {
+        addLog("❌ No code found in URL - this might be a configuration issue");
         setStatus("error");
-        setMessage("Error: This page should open in a popup. The parent window is not available. Please close this window and try again.");
+        setMessage("No authorization code received. Please check your Outreach OAuth app settings.");
+        
+        addLog("💡 Checking if this is a redirect issue...");
+        addLog("💡 Expected format: ?code=XXXXX");
+        addLog("💡 Actual URL: " + window.location.href);
+        return;
+      }
+
+      // Code found! Try to complete auth
+      addLog("✅ OAuth code received!");
+      setStatus("processing");
+      setMessage("Exchanging code for access token...");
+      
+      try {
+        // Complete auth directly from this window since window.opener might be null
+        addLog("🔄 Calling backend to complete auth...");
+        
+        const result = await base44.functions.invoke('outreachCompleteAuth', { code });
+        
+        addLog("✅ Backend response: " + JSON.stringify(result.data));
+        
+        if (result.data.success) {
+          addLog("🎉 Successfully connected to Outreach!");
+          setStatus("success");
+          setMessage("✅ Authorization successful! Redirecting...");
+          
+          // Send success message through multiple channels
+          sendToParent({ type: "outreach-oauth-success", code });
+          
+          // Redirect back to main app after short delay
+          setTimeout(() => {
+            addLog("🔄 Redirecting to Ops Console...");
+            window.location.href = "/OpsConsole";
+          }, 2000);
+        } else {
+          throw new Error(result.data.error || "Unknown error");
+        }
+      } catch (error) {
+        addLog("❌ Error completing auth: " + error.message);
+        setStatus("error");
+        setMessage("Failed to complete authorization: " + error.message);
+        sendToParent({ type: "outreach-oauth-error", error: error.message });
+      }
+    };
+
+    handleAuth();
+  }, []);
+
+  const sendToParent = (data) => {
+    // Try multiple communication methods
+    
+    // Method 1: window.opener (popup)
+    if (window.opener && !window.opener.closed) {
+      addLog("📤 Sending via window.opener");
+      try {
+        window.opener.postMessage(data, "*");
+        addLog("✅ Sent via window.opener");
+      } catch (e) {
+        addLog("❌ window.opener failed: " + e.message);
       }
     } else {
-      addLog("❌ No code or error in URL");
-      setStatus("error");
-      setMessage("No authorization code received. Please close this window and try again.");
+      addLog("⚠️ window.opener not available");
     }
-  }, []);
+    
+    // Method 2: localStorage (fallback)
+    addLog("📤 Sending via localStorage");
+    try {
+      localStorage.setItem('outreach_auth_result', JSON.stringify({
+        ...data,
+        timestamp: Date.now()
+      }));
+      addLog("✅ Sent via localStorage");
+    } catch (e) {
+      addLog("❌ localStorage failed: " + e.message);
+    }
+    
+    // Method 3: BroadcastChannel (modern browsers)
+    try {
+      const channel = new BroadcastChannel('outreach_auth');
+      channel.postMessage(data);
+      channel.close();
+      addLog("✅ Sent via BroadcastChannel");
+    } catch (e) {
+      addLog("⚠️ BroadcastChannel not available");
+    }
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-50 p-4">
@@ -134,9 +164,29 @@ export default function OAuthCallback() {
             </div>
           </div>
           
-          <p className="text-xs text-slate-500 mt-4">
-            {status === "error" ? "You can close this window manually." : "This window will close automatically in a few seconds."}
-          </p>
+          {status === "error" && (
+            <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg text-left">
+              <div className="text-sm text-red-800 space-y-1">
+                <strong>Troubleshooting:</strong>
+                <ul className="list-disc ml-4 mt-1 space-y-1">
+                  <li>Check that your Outreach OAuth app is set as "Web Application"</li>
+                  <li>Verify the Redirect URI is exactly: <code className="text-xs bg-white px-1 rounded">https://deal-radar.base44.app/OAuthCallback</code></li>
+                  <li>Ensure scopes include: prospects.all, sequences.read</li>
+                  <li>Check the debug console above for the actual URL received</li>
+                </ul>
+              </div>
+            </div>
+          )}
+          
+          {status === "success" ? (
+            <p className="text-xs text-slate-500 mt-4">
+              Redirecting to Ops Console...
+            </p>
+          ) : (
+            <p className="text-xs text-slate-500 mt-4">
+              {status === "error" ? "You can close this window manually." : null}
+            </p>
+          )}
         </div>
       </div>
     </div>

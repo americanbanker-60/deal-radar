@@ -26,18 +26,90 @@ export default function OutreachIntegration({ prospects, onSyncComplete }) {
   const [redirectUri, setRedirectUri] = useState("");
   const [debugLogs, setDebugLogs] = useState([]);
   
-  // Custom fields for Outreach
   const [customTag, setCustomTag] = useState("BD-Priority");
   const [customSource, setCustomSource] = useState("Ops Console");
 
   const addLog = (msg) => {
     console.log(msg);
-    setDebugLogs(prev => [...prev, msg].slice(-10)); // Keep last 10 logs
+    setDebugLogs(prev => [...prev, msg].slice(-10));
   };
 
   useEffect(() => {
     checkConnection();
-  }, []);
+    
+    // Listen for auth results from multiple sources
+    const handleMessage = (event) => {
+      if (event.data.type === "outreach-oauth-success") {
+        addLog("📨 Received success message via postMessage");
+        setConnected(true);
+        setLoading(false);
+        setError(null);
+      } else if (event.data.type === "outreach-oauth-error") {
+        addLog("📨 Received error message via postMessage");
+        setError(event.data.error);
+        setLoading(false);
+      }
+    };
+    
+    const handleStorage = () => {
+      const result = localStorage.getItem('outreach_auth_result');
+      if (result) {
+        try {
+          const data = JSON.parse(result);
+          // Only process recent results (within last 10 seconds)
+          if (Date.now() - data.timestamp < 10000) {
+            addLog("📨 Received result via localStorage");
+            if (data.type === "outreach-oauth-success") {
+              setConnected(true);
+              setLoading(false);
+              setError(null);
+            } else if (data.type === "outreach-oauth-error") {
+              setError(data.error);
+              setLoading(false);
+            }
+            localStorage.removeItem('outreach_auth_result');
+          }
+        } catch (e) {
+          console.error("Error parsing localStorage result:", e);
+        }
+      }
+    };
+    
+    // BroadcastChannel listener
+    let channel;
+    try {
+      channel = new BroadcastChannel('outreach_auth');
+      channel.onmessage = (event) => {
+        addLog("📨 Received result via BroadcastChannel");
+        if (event.data.type === "outreach-oauth-success") {
+          setConnected(true);
+          setLoading(false);
+          setError(null);
+        } else if (event.data.type === "outreach-oauth-error") {
+          setError(event.data.error);
+          setLoading(false);
+        }
+      };
+    } catch (e) {
+      console.log("BroadcastChannel not available");
+    }
+    
+    window.addEventListener("message", handleMessage);
+    window.addEventListener("storage", handleStorage);
+    
+    // Poll localStorage while loading
+    let pollInterval;
+    if (loading) {
+      pollInterval = setInterval(handleStorage, 500);
+    }
+    
+    return () => {
+      window.removeEventListener("message", handleMessage);
+      window.removeEventListener("storage", handleStorage);
+      if (channel) channel.close();
+      if (pollInterval) clearInterval(pollInterval);
+    };
+  }, [loading]);
 
   const checkConnection = async () => {
     try {
@@ -45,6 +117,10 @@ export default function OutreachIntegration({ prospects, onSyncComplete }) {
       const connections = await base44.entities.OutreachConnection.list();
       const userConnection = connections.find(c => c.user_email === user.email && c.status === "connected");
       setConnected(!!userConnection);
+      
+      if (userConnection) {
+        addLog("✅ Found existing Outreach connection");
+      }
     } catch (error) {
       console.error("Error checking connection:", error);
     }
@@ -55,6 +131,9 @@ export default function OutreachIntegration({ prospects, onSyncComplete }) {
     setError(null);
     setDebugLogs([]);
     
+    // Clear any old auth results
+    localStorage.removeItem('outreach_auth_result');
+    
     try {
       addLog("🔗 Step 1: Requesting OAuth URL from backend...");
       
@@ -62,10 +141,8 @@ export default function OutreachIntegration({ prospects, onSyncComplete }) {
       addLog("✅ Step 2: Auth URL received from backend");
       addLog("📍 Redirect URI: " + result.data.redirectUri);
       
-      // Store redirect URI for display
       setRedirectUri(result.data.redirectUri);
       
-      // Open OAuth flow in popup
       const width = 600;
       const height = 700;
       const left = window.screen.width / 2 - width / 2;
@@ -84,64 +161,7 @@ export default function OutreachIntegration({ prospects, onSyncComplete }) {
       }
 
       addLog("✅ Step 4: Popup opened successfully");
-      addLog("👂 Step 5: Listening for messages from popup...");
-
-      // Listen for OAuth callback
-      const handleMessage = async (event) => {
-        addLog("📨 Message received! Type: " + event.data.type + ", Origin: " + event.origin);
-        
-        if (event.data.type === "outreach-oauth-error") {
-          addLog("❌ OAuth error received: " + event.data.error);
-          setError("OAuth error: " + event.data.error);
-          setLoading(false);
-          window.removeEventListener("message", handleMessage);
-          if (popup && !popup.closed) {
-            popup.close();
-          }
-          return;
-        }
-
-        if (event.data.type === "outreach-oauth-success" && event.data.code) {
-          addLog("✅ Step 6: OAuth code received from popup!");
-          addLog("🔄 Step 7: Sending code to backend to complete auth...");
-          
-          try {
-            const completeResult = await base44.functions.invoke('outreachCompleteAuth', {
-              code: event.data.code,
-            });
-            
-            addLog("✅ Step 8: Backend response received");
-            addLog("📊 Result: " + JSON.stringify(completeResult.data));
-            
-            if (completeResult.data.success) {
-              addLog("🎉 Step 9: Successfully connected to Outreach!");
-              setConnected(true);
-              setError(null);
-              setLoading(false);
-              
-              // Close popup
-              if (popup && !popup.closed) {
-                addLog("🚪 Closing popup window");
-                popup.close();
-              }
-            } else {
-              addLog("❌ Auth completion failed: " + (completeResult.data.error || "Unknown error"));
-              setError("Failed to complete authorization: " + (completeResult.data.error || "Unknown error"));
-              setLoading(false);
-            }
-          } catch (error) {
-            addLog("❌ Error completing auth: " + error.message);
-            setError("Failed to complete authorization: " + error.message);
-            setLoading(false);
-          }
-          
-          window.removeEventListener("message", handleMessage);
-        }
-      };
-
-      // Start listening BEFORE opening popup
-      window.addEventListener("message", handleMessage);
-      addLog("✅ Message listener attached");
+      addLog("👂 Step 5: Waiting for authorization (check popup window)...");
 
       // Monitor popup state
       const popupCheckInterval = setInterval(() => {
@@ -149,12 +169,20 @@ export default function OutreachIntegration({ prospects, onSyncComplete }) {
           clearInterval(popupCheckInterval);
           addLog("⚠️ Popup was closed");
           
-          if (loading) {
-            addLog("❌ Popup closed before completing auth");
-            setLoading(false);
-            setError("Authorization was cancelled. Please try again and make sure to approve the authorization in the popup window.");
-            window.removeEventListener("message", handleMessage);
-          }
+          // Give localStorage/BroadcastChannel a moment to update
+          setTimeout(() => {
+            if (loading) {
+              addLog("❌ No auth result received after popup closed");
+              setLoading(false);
+              
+              // Check connection one more time
+              checkConnection().then((isConnected) => {
+                if (!isConnected) {
+                  setError("Authorization was not completed. Please try again and make sure to approve the authorization in Outreach.");
+                }
+              });
+            }
+          }, 1000);
         }
       }, 500);
 
@@ -176,7 +204,6 @@ export default function OutreachIntegration({ prospects, onSyncComplete }) {
     setError(null);
 
     try {
-      // Transform prospects to Outreach format
       const outreachProspects = prospects.map(p => ({
         email: p.contact?.email || "",
         firstName: p.contact?.firstName || "",
@@ -271,14 +298,12 @@ export default function OutreachIntegration({ prospects, onSyncComplete }) {
           <Alert className="bg-amber-50 border-amber-200">
             <AlertCircle className="h-4 w-4 text-amber-600" />
             <AlertDescription className="text-amber-800 text-sm">
-              <strong>Setup Required:</strong> In Outreach Settings → API → OAuth Applications, make sure your redirect URI matches this exactly:
-              {redirectUri ? (
-                <code className="text-xs bg-white px-2 py-0.5 rounded mt-1 block">
-                  {redirectUri}
-                </code>
-              ) : (
-                <span className="text-xs block mt-1">(Will be shown after clicking Connect)</span>
-              )}
+              <strong>Required Settings in Outreach:</strong>
+              <ul className="list-disc ml-4 mt-2 space-y-1">
+                <li><strong>Application Type:</strong> Web Application</li>
+                <li><strong>Redirect URI:</strong> <code className="text-xs bg-white px-1 rounded">https://deal-radar.base44.app/OAuthCallback</code></li>
+                <li><strong>Scopes:</strong> prospects.all, sequences.read</li>
+              </ul>
             </AlertDescription>
           </Alert>
 
@@ -291,7 +316,6 @@ export default function OutreachIntegration({ prospects, onSyncComplete }) {
             </Alert>
           )}
 
-          {/* Debug Console */}
           {debugLogs.length > 0 && (
             <div className="bg-slate-900 text-green-400 rounded-lg p-3 max-h-48 overflow-y-auto">
               <div className="text-xs font-mono space-y-1">
@@ -311,7 +335,7 @@ export default function OutreachIntegration({ prospects, onSyncComplete }) {
             {loading ? (
               <>
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Waiting for authorization... (check the popup)
+                Waiting for authorization...
               </>
             ) : (
               <>
@@ -324,10 +348,10 @@ export default function OutreachIntegration({ prospects, onSyncComplete }) {
           <div className="text-xs text-slate-500 bg-slate-50 p-3 rounded border">
             <strong>What happens next:</strong>
             <ol className="list-decimal ml-4 mt-1 space-y-1">
-              <li>A popup window will open with Outreach login</li>
-              <li>Log in and approve the authorization</li>
-              <li>The popup will show a success message and close automatically</li>
-              <li>Watch the debug log above to see each step</li>
+              <li>Popup opens with Outreach login</li>
+              <li>Log in and click "Authorize"</li>
+              <li>Popup will automatically redirect back and close</li>
+              <li>Connection status will update here</li>
             </ol>
           </div>
         </CardContent>
