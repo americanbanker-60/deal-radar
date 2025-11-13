@@ -1,3 +1,4 @@
+
 import React, { useMemo, useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -81,27 +82,31 @@ export default function OpsConsole(){
         
         let result;
         if (ext === "csv") {
-          result = await base44.functions.parseCsvFile({ fileContent: content });
+          result = await base44.functions.invoke('parseCsvFile', { fileContent: content });
         } else {
-          result = await base44.functions.parseExcelFile({ fileContent: content });
+          result = await base44.functions.invoke('parseExcelFile', { fileContent: content });
         }
         
+        // Extract data from Axios response
+        const data = result.data;
+        
         if (kind === "pb-companies") { 
-          setPbCompaniesRaw(result.rows); 
-          setPbHeaders(result.headers); 
+          setPbCompaniesRaw(data.rows); 
+          setPbHeaders(data.headers); 
         }
         if (kind === "pb-deals") { 
-          setPbDealsRaw(result.rows); 
+          setPbDealsRaw(data.rows); 
         }
         if (kind === "gr-companies") { 
-          setGrCompaniesRaw(result.rows); 
-          setGrHeaders(result.headers); 
+          setGrCompaniesRaw(data.rows); 
+          setGrHeaders(data.headers); 
         }
         setLoading(false);
       };
       reader.readAsDataURL(file);
     } catch (error) {
       console.error("File upload error:", error);
+      alert("Failed to upload file: " + error.message);
       setLoading(false);
     }
   };
@@ -211,7 +216,7 @@ export default function OpsConsole(){
         }
       ];
 
-      const result = await base44.functions.generatePptx({
+      const result = await base44.functions.invoke('generatePptx', {
         title: `${label} – Deal Radar`,
         slides
       });
@@ -227,7 +232,7 @@ export default function OpsConsole(){
   const exportExcel = async (filename, data) => {
     setLoading(true);
     try {
-      const result = await base44.functions.exportToExcel({
+      const result = await base44.functions.invoke('exportToExcel', {
         data,
         filename
       });
@@ -242,7 +247,7 @@ export default function OpsConsole(){
   const exportCSV = async (filename, data) => {
     setLoading(true);
     try {
-      const result = await base44.functions.dataToCsv({ data });
+      const result = await base44.functions.invoke('dataToCsv', { data });
       downloadText(filename, result.csv);
     } catch (error) {
       console.error("CSV export error:", error);
