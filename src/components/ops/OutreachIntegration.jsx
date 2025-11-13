@@ -23,6 +23,7 @@ export default function OutreachIntegration({ prospects, onSyncComplete }) {
   const [loading, setLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState(null);
+  const [error, setError] = useState(null);
   
   // Custom fields for Outreach
   const [customTag, setCustomTag] = useState("BD-Priority");
@@ -45,10 +46,15 @@ export default function OutreachIntegration({ prospects, onSyncComplete }) {
 
   const connectOutreach = async () => {
     setLoading(true);
+    setError(null);
+    
     try {
       // Get the full redirect URI including app path
       const redirectUri = `${window.location.origin}${createPageUrl('OAuthCallback')}`;
+      console.log("🔗 Initiating OAuth with redirect URI:", redirectUri);
+      
       const result = await base44.functions.invoke('outreachInitAuth', { redirectUri });
+      console.log("✅ Auth URL received:", result.data.authUrl);
       
       // Open OAuth flow in popup
       const width = 600;
@@ -62,45 +68,91 @@ export default function OutreachIntegration({ prospects, onSyncComplete }) {
         `width=${width},height=${height},left=${left},top=${top}`
       );
 
+      if (!popup) {
+        throw new Error("Popup was blocked. Please allow popups for this site.");
+      }
+
       // Listen for OAuth callback
       const handleMessage = async (event) => {
+        console.log("📨 Received message:", event.data);
+        
+        // Security check: verify origin
+        if (event.origin !== window.location.origin) {
+          console.warn("⚠️ Message from unexpected origin:", event.origin);
+          return;
+        }
+
+        if (event.data.type === "outreach-oauth-error") {
+          setError("OAuth error: " + event.data.error);
+          setLoading(false);
+          window.removeEventListener("message", handleMessage);
+          if (popup && !popup.closed) {
+            popup.close();
+          }
+          return;
+        }
+
         if (event.data.type === "outreach-oauth-success" && event.data.code) {
+          console.log("✅ OAuth code received, completing auth...");
+          
           try {
-            const result = await base44.functions.invoke('outreachCompleteAuth', {
+            const completeResult = await base44.functions.invoke('outreachCompleteAuth', {
               code: event.data.code,
               redirectUri,
             });
             
-            if (result.data.success) {
+            console.log("✅ Auth complete result:", completeResult.data);
+            
+            if (completeResult.data.success) {
               setConnected(true);
+              setError(null);
               if (popup && !popup.closed) {
                 popup.close();
               }
             } else {
-              alert("Failed to complete authorization: " + (result.data.error || "Unknown error"));
+              setError("Failed to complete authorization: " + (completeResult.data.error || "Unknown error"));
             }
           } catch (error) {
-            alert("Failed to complete authorization: " + error.message);
+            console.error("❌ Error completing auth:", error);
+            setError("Failed to complete authorization: " + error.message);
           }
+          
+          setLoading(false);
           window.removeEventListener("message", handleMessage);
         }
       };
 
       window.addEventListener("message", handleMessage);
+
+      // Add popup closed detection
+      const popupCheckInterval = setInterval(() => {
+        if (popup.closed) {
+          clearInterval(popupCheckInterval);
+          window.removeEventListener("message", handleMessage);
+          if (loading) {
+            console.log("⚠️ Popup was closed before completing auth");
+            setLoading(false);
+            setError("Authorization was cancelled. Please try again.");
+          }
+        }
+      }, 500);
+
     } catch (error) {
-      alert("Failed to connect: " + error.message);
+      console.error("❌ Connection error:", error);
+      setError("Failed to connect: " + error.message);
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const syncToOutreach = async () => {
     if (!prospects || prospects.length === 0) {
-      alert("No prospects to sync");
+      setError("No prospects to sync");
       return;
     }
 
     setSyncing(true);
     setSyncResult(null);
+    setError(null);
 
     try {
       // Transform prospects to Outreach format
@@ -113,7 +165,7 @@ export default function OutreachIntegration({ prospects, onSyncComplete }) {
       })).filter(p => p.email); // Only include prospects with email
 
       if (outreachProspects.length === 0) {
-        alert("No prospects with email addresses found");
+        setError("No prospects with email addresses found");
         setSyncing(false);
         return;
       }
@@ -137,7 +189,8 @@ export default function OutreachIntegration({ prospects, onSyncComplete }) {
         onSyncComplete(result);
       }
     } catch (error) {
-      alert("Sync failed: " + error.message);
+      console.error("❌ Sync error:", error);
+      setError("Sync failed: " + error.message);
     }
     
     setSyncing(false);
@@ -156,7 +209,7 @@ export default function OutreachIntegration({ prospects, onSyncComplete }) {
         setConnected(false);
       }
     } catch (error) {
-      alert("Failed to disconnect: " + error.message);
+      setError("Failed to disconnect: " + error.message);
     }
   };
 
@@ -206,6 +259,15 @@ export default function OutreachIntegration({ prospects, onSyncComplete }) {
             </AlertDescription>
           </Alert>
 
+          {error && (
+            <Alert className="bg-red-50 border-red-200">
+              <AlertCircle className="h-4 w-4 text-red-600" />
+              <AlertDescription className="text-red-800 text-sm">
+                {error}
+              </AlertDescription>
+            </Alert>
+          )}
+
           <Button
             onClick={connectOutreach}
             disabled={loading}
@@ -214,7 +276,7 @@ export default function OutreachIntegration({ prospects, onSyncComplete }) {
             {loading ? (
               <>
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Connecting...
+                Completing authorization...
               </>
             ) : (
               <>
@@ -266,6 +328,15 @@ export default function OutreachIntegration({ prospects, onSyncComplete }) {
             You'll manually add them to sequences in Outreach when ready.
           </AlertDescription>
         </Alert>
+
+        {error && (
+          <Alert className="bg-red-50 border-red-200">
+            <AlertCircle className="h-4 w-4 text-red-600" />
+            <AlertDescription className="text-red-800 text-sm">
+              {error}
+            </AlertDescription>
+          </Alert>
+        )}
 
         {/* Custom Fields */}
         <div className="grid md:grid-cols-2 gap-4">
