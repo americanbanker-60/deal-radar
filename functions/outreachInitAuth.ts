@@ -9,11 +9,10 @@ Deno.serve(async (req) => {
             return Response.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const { redirectUri } = await req.json();
-
         const clientId = Deno.env.get("OUTREACH_CLIENT_ID");
+        const redirectUri = Deno.env.get("OUTREACH_REDIRECT_URI");
         
-        if (!clientId) {
+        if (!clientId || !redirectUri) {
             return Response.json({ error: 'Outreach credentials not configured' }, { status: 500 });
         }
 
@@ -23,7 +22,7 @@ Deno.serve(async (req) => {
             `response_type=code&` +
             `scope=prospects.all sequences.read`;
 
-        return Response.json({ authUrl });
+        return Response.json({ authUrl, redirectUri });
     } catch (error) {
         return Response.json({ error: error.message }, { status: 500 });
     }

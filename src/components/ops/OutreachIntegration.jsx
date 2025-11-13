@@ -16,7 +16,6 @@ import {
   AlertCircle,
   Shield
 } from "lucide-react";
-import { createPageUrl } from "@/utils";
 
 export default function OutreachIntegration({ prospects, onSyncComplete }) {
   const [connected, setConnected] = useState(false);
@@ -24,6 +23,7 @@ export default function OutreachIntegration({ prospects, onSyncComplete }) {
   const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState(null);
   const [error, setError] = useState(null);
+  const [redirectUri, setRedirectUri] = useState("");
   
   // Custom fields for Outreach
   const [customTag, setCustomTag] = useState("BD-Priority");
@@ -49,12 +49,14 @@ export default function OutreachIntegration({ prospects, onSyncComplete }) {
     setError(null);
     
     try {
-      // Get the full redirect URI including app path
-      const redirectUri = `${window.location.origin}${createPageUrl('OAuthCallback')}`;
-      console.log("🔗 Initiating OAuth with redirect URI:", redirectUri);
+      console.log("🔗 Initiating OAuth...");
       
-      const result = await base44.functions.invoke('outreachInitAuth', { redirectUri });
+      const result = await base44.functions.invoke('outreachInitAuth', {});
       console.log("✅ Auth URL received:", result.data.authUrl);
+      console.log("✅ Redirect URI:", result.data.redirectUri);
+      
+      // Store redirect URI for display
+      setRedirectUri(result.data.redirectUri);
       
       // Open OAuth flow in popup
       const width = 600;
@@ -98,7 +100,6 @@ export default function OutreachIntegration({ prospects, onSyncComplete }) {
           try {
             const completeResult = await base44.functions.invoke('outreachCompleteAuth', {
               code: event.data.code,
-              redirectUri,
             });
             
             console.log("✅ Auth complete result:", completeResult.data);
@@ -252,10 +253,15 @@ export default function OutreachIntegration({ prospects, onSyncComplete }) {
           <Alert className="bg-amber-50 border-amber-200">
             <AlertCircle className="h-4 w-4 text-amber-600" />
             <AlertDescription className="text-amber-800 text-sm">
-              <strong>Setup Required:</strong> In Outreach Settings → API → OAuth Applications, set your redirect URI to:<br/>
-              <code className="text-xs bg-white px-2 py-0.5 rounded mt-1 inline-block">
-                {window.location.origin}{createPageUrl('OAuthCallback')}
-              </code>
+              <strong>Setup Required:</strong> In Outreach Settings → API → OAuth Applications, make sure your redirect URI is set to the value from your OUTREACH_REDIRECT_URI secret (configured in Dashboard → Settings).
+              {redirectUri && (
+                <>
+                  <br/>
+                  <code className="text-xs bg-white px-2 py-0.5 rounded mt-1 inline-block">
+                    {redirectUri}
+                  </code>
+                </>
+              )}
             </AlertDescription>
           </Alert>
 
@@ -263,7 +269,11 @@ export default function OutreachIntegration({ prospects, onSyncComplete }) {
             <Alert className="bg-red-50 border-red-200">
               <AlertCircle className="h-4 w-4 text-red-600" />
               <AlertDescription className="text-red-800 text-sm">
-                {error}
+                <strong>Error:</strong> {error}
+                <br/>
+                <span className="text-xs mt-1 block">
+                  If you see "redirect url is malformed or doesn't match", verify that your OUTREACH_REDIRECT_URI secret exactly matches what's configured in your Outreach OAuth application settings.
+                </span>
               </AlertDescription>
             </Alert>
           )}

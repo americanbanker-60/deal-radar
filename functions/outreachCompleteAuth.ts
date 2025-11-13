@@ -9,12 +9,13 @@ Deno.serve(async (req) => {
             return Response.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const { code, redirectUri } = await req.json();
+        const { code } = await req.json();
 
         const clientId = Deno.env.get("OUTREACH_CLIENT_ID");
         const clientSecret = Deno.env.get("OUTREACH_CLIENT_SECRET");
+        const redirectUri = Deno.env.get("OUTREACH_REDIRECT_URI");
         
-        if (!clientId || !clientSecret) {
+        if (!clientId || !clientSecret || !redirectUri) {
             return Response.json({ error: 'Outreach credentials not configured' }, { status: 500 });
         }
 
