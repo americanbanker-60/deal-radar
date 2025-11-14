@@ -40,6 +40,7 @@ export default function OpsConsole(){
   const [page, setPage] = useState("pitchbook");
   const [loading, setLoading] = useState(false);
   const [showHowTo, setShowHowTo] = useState(false);
+  const [uploadError, setUploadError] = useState(null);
 
   // PitchBook states
   const [pbCompaniesRaw, setPbCompaniesRaw] = useState([]);
@@ -73,41 +74,82 @@ export default function OpsConsole(){
   const [emailBody, setEmailBody] = useState("");
 
   const onUpload = async (file, kind) => {
+    console.log("📤 Starting upload:", file.name, "kind:", kind);
     setLoading(true);
+    setUploadError(null);
+    
     try {
       const reader = new FileReader();
       reader.onload = async (e) => {
-        const content = e.target.result.split(',')[1]; // Get base64 content
-        const ext = file.name.toLowerCase().split(".").pop();
-        
-        let result;
-        if (ext === "csv") {
-          result = await base44.functions.invoke('parseCsvFile', { fileContent: content });
-        } else {
-          result = await base44.functions.invoke('parseExcelFile', { fileContent: content });
+        try {
+          console.log("📖 File loaded, processing...");
+          const content = e.target.result.split(',')[1]; // Get base64 content
+          const ext = file.name.toLowerCase().split(".").pop();
+          
+          console.log("📋 File extension:", ext);
+          console.log("📦 Content length:", content.length);
+          
+          let result;
+          if (ext === "csv") {
+            console.log("🔄 Calling parseCsvFile...");
+            result = await base44.functions.invoke('parseCsvFile', { fileContent: content });
+          } else {
+            console.log("🔄 Calling parseExcelFile...");
+            result = await base44.functions.invoke('parseExcelFile', { fileContent: content });
+          }
+          
+          console.log("✅ Function returned:", result);
+          
+          // Extract data from Axios response
+          const data = result.data;
+          
+          console.log("📊 Parsed data:", {
+            headers: data.headers?.length,
+            rows: data.rows?.length
+          });
+          
+          if (!data.headers || !data.rows) {
+            throw new Error("Invalid data format returned from parser. Headers or rows are missing.");
+          }
+          
+          if (kind === "pb-companies") { 
+            console.log("✅ Setting PitchBook companies:", data.rows.length);
+            setPbCompaniesRaw(data.rows); 
+            setPbHeaders(data.headers); 
+          }
+          if (kind === "pb-deals") { 
+            console.log("✅ Setting PitchBook deals:", data.rows.length);
+            setPbDealsRaw(data.rows); 
+          }
+          if (kind === "gr-companies") { 
+            console.log("✅ Setting Grata companies:", data.rows.length);
+            setGrCompaniesRaw(data.rows); 
+            setGrHeaders(data.headers); 
+          }
+          
+          setLoading(false);
+          alert(`✅ Successfully uploaded ${data.rows.length} rows!`);
+        } catch (innerError) {
+          console.error("❌ Processing error:", innerError);
+          setUploadError(innerError.message);
+          setLoading(false);
+          alert("Failed to process file: " + innerError.message);
         }
-        
-        // Extract data from Axios response
-        const data = result.data;
-        
-        if (kind === "pb-companies") { 
-          setPbCompaniesRaw(data.rows); 
-          setPbHeaders(data.headers); 
-        }
-        if (kind === "pb-deals") { 
-          setPbDealsRaw(data.rows); 
-        }
-        if (kind === "gr-companies") { 
-          setGrCompaniesRaw(data.rows); 
-          setGrHeaders(data.headers); 
-        }
-        setLoading(false);
       };
+      
+      reader.onerror = (error) => {
+        console.error("❌ FileReader error:", error);
+        setUploadError("Failed to read file.");
+        setLoading(false);
+        alert("Failed to read file.");
+      };
+      
       reader.readAsDataURL(file);
     } catch (error) {
-      console.error("File upload error:", error);
-      alert("Failed to upload file: " + error.message);
+      console.error("❌ Upload error:", error);
+      setUploadError(error.message);
       setLoading(false);
+      alert("Failed to upload file: " + error.message);
     }
   };
 
@@ -155,6 +197,7 @@ export default function OpsConsole(){
       alert("Copied to clipboard!");
     } catch(e) {
       console.error("Copy failed:", e);
+      alert("Failed to copy to clipboard.");
     } 
   };
 
@@ -221,7 +264,7 @@ export default function OpsConsole(){
         slides
       });
 
-      window.open(result.fileUrl, '_blank');
+      window.open(result.data.fileUrl, '_blank');
     } catch (error) {
       console.error("PPTX generation error:", error);
       alert("Failed to generate PPTX");
@@ -236,7 +279,7 @@ export default function OpsConsole(){
         data,
         filename
       });
-      window.open(result.fileUrl, '_blank');
+      window.open(result.data.fileUrl, '_blank');
     } catch (error) {
       console.error("Excel export error:", error);
       alert("Failed to export Excel");
@@ -248,7 +291,7 @@ export default function OpsConsole(){
     setLoading(true);
     try {
       const result = await base44.functions.invoke('dataToCsv', { data });
-      downloadText(filename, result.csv);
+      downloadText(filename, result.data.csv);
     } catch (error) {
       console.error("CSV export error:", error);
       alert("Failed to export CSV");
@@ -301,6 +344,15 @@ export default function OpsConsole(){
         </Button>
         <Badge variant="secondary">v3</Badge>
       </div>
+
+      {uploadError && (
+        <Alert className="bg-red-50 border-red-200">
+          <CircleAlert className="h-4 w-4 text-red-600" />
+          <AlertDescription className="text-red-800">
+            <strong>Upload Error:</strong> {uploadError}
+          </AlertDescription>
+        </Alert>
+      )}
 
       {loading && (
         <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-50 flex items-center justify-center">
