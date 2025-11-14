@@ -10,7 +10,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Slider } from "@/components/ui/slider";
 import { Progress } from "@/components/ui/progress";
 import { Textarea } from "@/components/ui/textarea";
-import { Download, Upload, Filter, BarChart3, Sparkles, Database, Settings, CircleAlert, Workflow, Mail, Loader2, HelpCircle } from "lucide-react";
+import { Download, Upload, Filter, BarChart3, Sparkles, Database, Settings, CircleAlert, Workflow, Mail, Loader2, HelpCircle, CheckCircle2, X } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Legend } from "recharts";
 
@@ -41,6 +41,7 @@ export default function OpsConsole(){
   const [loading, setLoading] = useState(false);
   const [showHowTo, setShowHowTo] = useState(false);
   const [uploadError, setUploadError] = useState(null);
+  const [successMessage, setSuccessMessage] = useState(null);
 
   // PitchBook states
   const [pbCompaniesRaw, setPbCompaniesRaw] = useState([]);
@@ -72,6 +73,11 @@ export default function OpsConsole(){
   // Email draft
   const [emailSubject, setEmailSubject] = useState("BD Targets & Market Snapshot");
   const [emailBody, setEmailBody] = useState("");
+
+  const showSuccess = (message) => {
+    setSuccessMessage(message);
+    setTimeout(() => setSuccessMessage(null), 5000);
+  };
 
   const onUpload = async (file, kind) => {
     console.log("📤 Starting upload:", file.name, "kind:", kind);
@@ -109,7 +115,7 @@ export default function OpsConsole(){
           });
           
           if (!data.headers || !data.rows) {
-            throw new Error("Invalid data format returned from parser. Headers or rows are missing.");
+            throw new Error("Invalid data format returned from parser");
           }
           
           if (kind === "pb-companies") { 
@@ -128,12 +134,11 @@ export default function OpsConsole(){
           }
           
           setLoading(false);
-          alert(`✅ Successfully uploaded ${data.rows.length} rows!`);
+          showSuccess(`Successfully uploaded ${data.rows.length} rows!`);
         } catch (innerError) {
           console.error("❌ Processing error:", innerError);
           setUploadError(innerError.message);
           setLoading(false);
-          alert("Failed to process file: " + innerError.message);
         }
       };
       
@@ -141,7 +146,6 @@ export default function OpsConsole(){
         console.error("❌ FileReader error:", error);
         setUploadError("Failed to read file.");
         setLoading(false);
-        alert("Failed to read file.");
       };
       
       reader.readAsDataURL(file);
@@ -149,7 +153,6 @@ export default function OpsConsole(){
       console.error("❌ Upload error:", error);
       setUploadError(error.message);
       setLoading(false);
-      alert("Failed to upload file: " + error.message);
     }
   };
 
@@ -194,24 +197,27 @@ export default function OpsConsole(){
   const copy = async (text) => { 
     try { 
       await navigator.clipboard.writeText(text);
-      alert("Copied to clipboard!");
+      showSuccess("Copied to clipboard!");
     } catch(e) {
       console.error("Copy failed:", e);
-      alert("Failed to copy to clipboard.");
+      setUploadError("Failed to copy to clipboard.");
     } 
   };
 
   const postToSlack = async (text) => {
-    if (!slackWebhook) return alert("Add a Slack Incoming Webhook in Settings.");
+    if (!slackWebhook) {
+      setUploadError("Please add a Slack Incoming Webhook in Settings.");
+      return;
+    }
     try { 
       await fetch(slackWebhook, { 
         method: "POST", 
         headers: { "Content-Type": "application/json" }, 
         body: JSON.stringify({ text })
       }); 
-      alert("Posted to Slack."); 
+      showSuccess("Posted to Slack."); 
     } catch(e) { 
-      alert("Slack post failed. Check webhook."); 
+      setUploadError("Slack post failed. Check webhook URL."); 
     }
   };
 
@@ -267,7 +273,7 @@ export default function OpsConsole(){
       window.open(result.data.fileUrl, '_blank');
     } catch (error) {
       console.error("PPTX generation error:", error);
-      alert("Failed to generate PPTX");
+      setUploadError("Failed to generate PPTX: " + error.message);
     }
     setLoading(false);
   };
@@ -282,7 +288,7 @@ export default function OpsConsole(){
       window.open(result.data.fileUrl, '_blank');
     } catch (error) {
       console.error("Excel export error:", error);
-      alert("Failed to export Excel");
+      setUploadError("Failed to export Excel: " + error.message);
     }
     setLoading(false);
   };
@@ -294,7 +300,7 @@ export default function OpsConsole(){
       downloadText(filename, result.data.csv);
     } catch (error) {
       console.error("CSV export error:", error);
-      alert("Failed to export CSV");
+      setUploadError("Failed to export CSV: " + error.message);
     }
     setLoading(false);
   };
@@ -345,12 +351,39 @@ export default function OpsConsole(){
         <Badge variant="secondary">v3</Badge>
       </div>
 
+      {/* Success Message */}
+      {successMessage && (
+        <Alert className="bg-green-50 border-green-200 relative">
+          <CheckCircle2 className="h-4 w-4 text-green-600" />
+          <AlertDescription className="text-green-800">
+            {successMessage}
+          </AlertDescription>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="absolute top-2 right-2 h-6 w-6"
+            onClick={() => setSuccessMessage(null)}
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        </Alert>
+      )}
+
+      {/* Error Message */}
       {uploadError && (
-        <Alert className="bg-red-50 border-red-200">
+        <Alert className="bg-red-50 border-red-200 relative">
           <CircleAlert className="h-4 w-4 text-red-600" />
           <AlertDescription className="text-red-800">
-            <strong>Upload Error:</strong> {uploadError}
+            <strong>Error:</strong> {uploadError}
           </AlertDescription>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="absolute top-2 right-2 h-6 w-6"
+            onClick={() => setUploadError(null)}
+          >
+            <X className="h-4 w-4" />
+          </Button>
         </Alert>
       )}
 
