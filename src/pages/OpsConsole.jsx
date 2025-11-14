@@ -1,4 +1,3 @@
-
 import React, { useMemo, useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,24 +11,22 @@ import { Progress } from "@/components/ui/progress";
 import { Textarea } from "@/components/ui/textarea";
 import { Download, Upload, Filter, BarChart3, Sparkles, Database, Settings, CircleAlert, Workflow, Mail, Loader2, HelpCircle, CheckCircle2, X } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Legend } from "recharts";
 
 import SchemaMapper from "../components/ops/SchemaMapper";
-import { useDealsAnalytics, filterTargets, scoreTargets } from "../components/ops/analyticsHelpers";
+import { filterTargets, scoreTargets } from "../components/ops/analyticsHelpers";
 import HowToUse from "../components/ops/HowToUse";
 import OutreachIntegration from "../components/ops/OutreachIntegration";
 
 /**
- * Base44 PitchBook + Grata Ops Console (v3)
- * -----------------------------------------
+ * Grata Ops Console
+ * -----------------
  * Features:
- *  - Excel import (.xlsx) alongside CSV for PitchBook & Grata
+ *  - Excel/CSV import for Grata company data
  *  - Grata range handling: revenue/employee ranges → midpoint
- *  - Outreach.io export with custom fields: Source, Vertical, Tag
- *  - Slack insights (webhook) + copy-to-clipboard
- *  - PPTX export with KPIs + insights + top targets
+ *  - Outreach.io direct sync with custom fields
+ *  - Export to CSV/XLSX/PPTX
  *  - Email draft generator with copy buttons
- *  - Schema mapper (per-dataset)
+ *  - Schema mapper with auto-save
  */
 
 const DEFAULT_FIELDS = [
@@ -37,17 +34,11 @@ const DEFAULT_FIELDS = [
 ];
 
 export default function OpsConsole(){
-  const [page, setPage] = useState("pitchbook");
+  const [page, setPage] = useState("grata");
   const [loading, setLoading] = useState(false);
   const [showHowTo, setShowHowTo] = useState(false);
   const [uploadError, setUploadError] = useState(null);
   const [successMessage, setSuccessMessage] = useState(null);
-
-  // PitchBook states
-  const [pbCompaniesRaw, setPbCompaniesRaw] = useState([]);
-  const [pbDealsRaw, setPbDealsRaw] = useState([]);
-  const [pbHeaders, setPbHeaders] = useState([]);
-  const [pbMap, setPbMap] = useState({});
 
   // Grata states
   const [grCompaniesRaw, setGrCompaniesRaw] = useState([]);
@@ -77,16 +68,11 @@ export default function OpsConsole(){
   // Load saved mappings and settings from localStorage on mount
   useEffect(() => {
     try {
-      const savedPbMap = localStorage.getItem('ops_console_pb_map');
       const savedGrMap = localStorage.getItem('ops_console_gr_map');
       const savedSlackWebhook = localStorage.getItem('ops_console_slack_webhook');
       const savedVertical = localStorage.getItem('ops_console_vertical');
       const savedTag = localStorage.getItem('ops_console_tag');
       
-      if (savedPbMap) {
-        setPbMap(JSON.parse(savedPbMap));
-        console.log("✅ Loaded saved PitchBook mappings");
-      }
       if (savedGrMap) {
         setGrMap(JSON.parse(savedGrMap));
         console.log("✅ Loaded saved Grata mappings");
@@ -104,14 +90,6 @@ export default function OpsConsole(){
       console.error("Error loading saved settings:", error);
     }
   }, []);
-
-  // Save PitchBook mapping whenever it changes
-  useEffect(() => {
-    if (Object.keys(pbMap).length > 0) {
-      localStorage.setItem('ops_console_pb_map', JSON.stringify(pbMap));
-      console.log("💾 Saved PitchBook mappings");
-    }
-  }, [pbMap]);
 
   // Save Grata mapping whenever it changes
   useEffect(() => {
@@ -180,15 +158,6 @@ export default function OpsConsole(){
             throw new Error("Invalid data format returned from parser");
           }
           
-          if (kind === "pb-companies") { 
-            console.log("✅ Setting PitchBook companies:", data.rows.length);
-            setPbCompaniesRaw(data.rows); 
-            setPbHeaders(data.headers); 
-          }
-          if (kind === "pb-deals") { 
-            console.log("✅ Setting PitchBook deals:", data.rows.length);
-            setPbDealsRaw(data.rows); 
-          }
           if (kind === "gr-companies") { 
             console.log("✅ Setting Grata companies:", data.rows.length);
             setGrCompaniesRaw(data.rows); 
@@ -196,8 +165,7 @@ export default function OpsConsole(){
           }
           
           setLoading(false);
-          const currentMap = (kind === "pb-companies") ? pbMap : grMap;
-          showSuccess(`Successfully uploaded ${data.rows.length} rows! ${Object.keys(currentMap).length > 0 ? '✓ Using saved column mappings' : '⚠️ Go to Settings to map columns'}`);
+          showSuccess(`Successfully uploaded ${data.rows.length} rows! ${Object.keys(grMap).length > 0 ? '✓ Using saved column mappings' : '⚠️ Go to Settings to map columns'}`);
         } catch (innerError) {
           console.error("❌ Processing error:", innerError);
           setUploadError(innerError.message);
@@ -207,7 +175,7 @@ export default function OpsConsole(){
       
       reader.onerror = (error) => {
         console.error("❌ FileReader error:", error);
-        setUploadError("Failed to read file.");
+        setUploadError("Failed to read file");
         setLoading(false);
       };
       
@@ -219,24 +187,11 @@ export default function OpsConsole(){
     }
   };
 
-  const normalizedPB = useMemo(() => 
-    pbCompaniesRaw.map((r) => normalizeRow(r, pbMap, { preferRangeMidpoint: false })), 
-    [pbCompaniesRaw, pbMap]
-  );
-  
   const normalizedGR = useMemo(() => 
     grCompaniesRaw.map((r) => normalizeRow(r, grMap, { preferRangeMidpoint: true })), 
     [grCompaniesRaw, grMap]
   );
 
-  const pbScored = useMemo(() => 
-    scoreTargets(
-      filterTargets(normalizedPB, { regionFilter, minRev, maxRev, minEbitda, maxEbitda, ownerPref }), 
-      { fitKeywords }
-    ), 
-    [normalizedPB, regionFilter, minRev, maxRev, minEbitda, maxEbitda, ownerPref, fitKeywords]
-  );
-  
   const grScored = useMemo(() => 
     scoreTargets(
       filterTargets(normalizedGR, { regionFilter, minRev, maxRev, minEbitda, maxEbitda, ownerPref }), 
@@ -244,8 +199,6 @@ export default function OpsConsole(){
     ), 
     [normalizedGR, regionFilter, minRev, maxRev, minEbitda, maxEbitda, ownerPref, fitKeywords]
   );
-
-  const pbDealsKpis = useDealsAnalytics(pbDealsRaw);
 
   const downloadText = (filename, text) => {
     const blob = new Blob([text], { type: "text/csv;charset=utf-8;" });
@@ -263,7 +216,7 @@ export default function OpsConsole(){
       showSuccess("Copied to clipboard!");
     } catch(e) {
       console.error("Copy failed:", e);
-      setUploadError("Failed to copy to clipboard.");
+      setUploadError("Failed to copy to clipboard");
     } 
   };
 
@@ -278,43 +231,38 @@ export default function OpsConsole(){
         headers: { "Content-Type": "application/json" }, 
         body: JSON.stringify({ text })
       }); 
-      showSuccess("Posted to Slack."); 
+      showSuccess("Posted to Slack!");
     } catch(e) { 
-      setUploadError("Slack post failed. Check webhook URL."); 
+      setUploadError("Slack post failed. Check webhook URL.");
     }
   };
 
-  const insightsFor = (label, scored, kpis) => {
+  const insightsFor = (label, scored) => {
     const top = scored.slice(0, 10);
     const names = top.map((t) => t.name).filter(Boolean).slice(0,5).join(", ");
-    const medMult = kpis && !isNaN(kpis.medianMultiple) ? `${kpis.medianMultiple.toFixed(1)}x` : "n/a";
     const lines = [
       `${label}: ${scored.length} qualified founder-owned targets; top 5: ${names || "(add data)"}.`,
-      kpis ? `24m median EV/EBITDA from uploaded comps: ${medMult}.` : null,
-      kpis ? `${kpis.dealCount} add-ons in last 24m; most active buyers on dashboard.` : null,
       `Prioritized ${top.length} targets with Likely Seller Score ≥ ${scoreThreshold}.`,
-    ].filter(Boolean);
+    ];
     return `• ${lines.join("\n• ")}`;
   };
 
-  const generateOutputs = (label, scored, kpis) => {
-    const text = insightsFor(label, scored, kpis);
+  const generateOutputs = (label, scored) => {
+    const text = insightsFor(label, scored);
     setInsights(text);
     setEmailBody(`Hi team,\n\n${text}\n\nAttached are the cleaned targets and snapshot.\n\n- ${label} export generated from Ops Console`);
   };
 
-  const exportPPT = async (label, scored, kpis) => {
+  const exportPPT = async (label, scored) => {
     setLoading(true);
     try {
       const slides = [
         {
-          title: "Key KPIs (last 24 months)",
+          title: "Key KPIs",
           bullets: [
-            kpis ? `Deals: ${kpis.dealCount}` : null,
-            kpis && !isNaN(kpis.medianMultiple) ? `Median EV/EBITDA: ${kpis.medianMultiple.toFixed(1)}x` : null,
             `Qualified Targets: ${scored.length}`,
             `Score Threshold: ${scoreThreshold}`
-          ].filter(Boolean)
+          ]
         },
         {
           title: "Top Targets",
@@ -324,7 +272,7 @@ export default function OpsConsole(){
         },
         {
           title: "Insights",
-          content: insightsFor(label, scored, kpis)
+          content: insightsFor(label, scored)
         }
       ];
 
@@ -396,11 +344,11 @@ export default function OpsConsole(){
       <HowToUse open={showHowTo} onClose={() => setShowHowTo(false)} />
       
       <div className="flex items-center gap-3 bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-        <div className="p-3 bg-blue-600 rounded-lg">
+        <div className="p-3 bg-emerald-600 rounded-lg">
           <Database className="w-6 h-6 text-white" />
         </div>
         <div className="flex-1">
-          <h1 className="text-2xl font-bold text-slate-900">PitchBook + Grata Ops Console</h1>
+          <h1 className="text-2xl font-bold text-slate-900">Grata Ops Console</h1>
           <p className="text-sm text-slate-600">Deal sourcing & intelligence platform</p>
         </div>
         <Button
@@ -411,7 +359,6 @@ export default function OpsConsole(){
           <Sparkles className="w-4 h-4" />
           How to Use
         </Button>
-        <Badge variant="secondary">v3</Badge>
       </div>
 
       {/* Success Message */}
@@ -453,7 +400,7 @@ export default function OpsConsole(){
       {loading && (
         <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-50 flex items-center justify-center">
           <div className="bg-white p-6 rounded-xl shadow-xl flex items-center gap-3">
-            <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
+            <Loader2 className="w-6 h-6 animate-spin text-emerald-600" />
             <span className="font-medium">Processing...</span>
           </div>
         </div>
@@ -461,28 +408,27 @@ export default function OpsConsole(){
 
       <Tabs value={page} onValueChange={setPage}>
         <TabsList className="bg-white border border-slate-200">
-          <TabsTrigger value="pitchbook">PitchBook</TabsTrigger>
-          <TabsTrigger value="grata">Grata</TabsTrigger>
+          <TabsTrigger value="grata">Targets</TabsTrigger>
           <TabsTrigger value="settings"><Settings className="w-4 h-4 mr-1"/>Settings</TabsTrigger>
         </TabsList>
 
-        {/* PITCHBOOK PAGE */}
-        <TabsContent value="pitchbook" className="space-y-6">
-          {pbCompaniesRaw.length === 0 && (
-            <Card className="shadow-sm border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50">
+        {/* GRATA PAGE */}
+        <TabsContent value="grata" className="space-y-6">
+          {grCompaniesRaw.length === 0 && (
+            <Card className="shadow-sm border-emerald-200 bg-gradient-to-r from-emerald-50 to-teal-50">
               <CardContent className="pt-6">
                 <div className="flex items-start gap-4">
-                  <div className="p-3 bg-blue-600 rounded-lg">
+                  <div className="p-3 bg-emerald-600 rounded-lg">
                     <HelpCircle className="w-6 h-6 text-white" />
                   </div>
                   <div className="flex-1">
-                    <h3 className="font-semibold text-blue-900 mb-2">Getting Started with PitchBook Data</h3>
-                    <p className="text-sm text-blue-700 mb-3">
-                      Upload your PitchBook company exports to start analyzing acquisition targets. Don't know where to begin?
+                    <h3 className="font-semibold text-emerald-900 mb-2">Getting Started with Grata Data</h3>
+                    <p className="text-sm text-emerald-700 mb-3">
+                      Upload your Grata company exports to discover and score potential targets. Need help exporting from Grata?
                     </p>
                     <Button
                       onClick={() => setShowHowTo(true)}
-                      className="bg-blue-600 hover:bg-blue-700"
+                      className="bg-emerald-600 hover:bg-emerald-700"
                     >
                       <Sparkles className="w-4 h-4 mr-2" />
                       View Step-by-Step Guide
@@ -495,42 +441,45 @@ export default function OpsConsole(){
           
           <div className="grid md:grid-cols-2 gap-4">
             <Card className="shadow-sm border-slate-200">
-              <CardHeader className="bg-gradient-to-r from-blue-50 to-transparent">
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  <Upload className="w-5 h-5 text-blue-600"/>
-                  Upload Companies (.csv/.xlsx)
+              <CardHeader className="bg-gradient-to-r from-emerald-50 to-transparent">
+                <CardTitle className="flex items-center gap-2">
+                  <Upload className="w-5 h-5 text-emerald-600"/>
+                  Upload Grata Companies (.csv/.xlsx)
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3 pt-4">
                 <Input 
                   type="file" 
                   accept=".csv,.xlsx" 
-                  onChange={(e) => e.target.files && onUpload(e.target.files[0], "pb-companies")}
+                  onChange={(e) => e.target.files && onUpload(e.target.files[0], "gr-companies")}
                   className="cursor-pointer"
                 />
                 <div className="text-xs text-muted-foreground flex items-start gap-2">
                   <CircleAlert className="w-3 h-3 mt-0.5 flex-shrink-0" />
-                  Use Settings → Schema Mapper to map headers.
+                  Schema Mapper in Settings handles ranges → midpoint.
                 </div>
               </CardContent>
             </Card>
             
             <Card className="shadow-sm border-slate-200">
-              <CardHeader className="bg-gradient-to-r from-purple-50 to-transparent">
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  <Upload className="w-5 h-5 text-purple-600"/>
-                  Upload Deals (.csv/.xlsx)
+              <CardHeader className="bg-gradient-to-r from-indigo-50 to-transparent">
+                <CardTitle className="flex items-center gap-2">
+                  <Workflow className="w-5 h-5 text-indigo-600"/>
+                  Workflow
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-3 pt-4">
-                <Input 
-                  type="file" 
-                  accept=".csv,.xlsx" 
-                  onChange={(e) => e.target.files && onUpload(e.target.files[0], "pb-deals")}
-                  className="cursor-pointer"
-                />
-                <div className="text-xs text-muted-foreground">
-                  Optional: for deal flow analytics
+              <CardContent className="space-y-2 text-sm text-muted-foreground pt-4">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
+                  Upload → Map headers (Settings)
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                  Apply filters → Score targets
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-purple-500"></div>
+                  Export or sync to Outreach
                 </div>
               </CardContent>
             </Card>
@@ -540,7 +489,7 @@ export default function OpsConsole(){
             <CardHeader className="bg-gradient-to-r from-amber-50 to-transparent">
               <CardTitle className="flex items-center gap-2">
                 <Filter className="w-5 h-5 text-amber-600"/>
-                Filters + Outreach Fields
+                Filters & Settings
               </CardTitle>
             </CardHeader>
             <CardContent className="grid md:grid-cols-3 gap-4 pt-4">
@@ -630,305 +579,10 @@ export default function OpsConsole(){
             </CardContent>
           </Card>
 
-          {/* KPIs */}
-          <div className="grid md:grid-cols-3 gap-4">
-            <Card className="shadow-sm border-slate-200 hover:shadow-md transition-shadow">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium text-slate-600">Total Qualified Targets</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-4xl font-bold text-blue-600">{pbScored.length}</div>
-                <div className="text-xs text-muted-foreground mt-2">After filters</div>
-              </CardContent>
-            </Card>
-            
-            <Card className="shadow-sm border-slate-200 hover:shadow-md transition-shadow">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium text-slate-600">24-mo Deal Count</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-4xl font-bold text-purple-600">{pbDealsKpis.dealCount || 0}</div>
-                <div className="text-xs text-muted-foreground mt-2">From deals</div>
-              </CardContent>
-            </Card>
-            
-            <Card className="shadow-sm border-slate-200 hover:shadow-md transition-shadow">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium text-slate-600">Median EV/EBITDA</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-4xl font-bold text-amber-600">
-                  {isNaN(pbDealsKpis.medianMultiple) ? "—" : `${pbDealsKpis.medianMultiple.toFixed(1)}x`}
-                </div>
-                <div className="text-xs text-muted-foreground mt-2">Computed</div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Charts */}
-          <div className="grid md:grid-cols-2 gap-4">
-            <Card className="shadow-sm border-slate-200">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <BarChart3 className="w-5 h-5 text-blue-600"/>
-                  Deal Volume (24m)
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="h-64">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={pbDealsKpis.series}>
-                      <defs>
-                        <linearGradient id="colorDeals" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
-                          <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                      <XAxis dataKey="date" stroke="#64748b" />
-                      <YAxis allowDecimals={false} stroke="#64748b" />
-                      <Tooltip />
-                      <Area 
-                        type="monotone" 
-                        dataKey="deals" 
-                        stroke="#3b82f6" 
-                        fill="url(#colorDeals)" 
-                        strokeWidth={2} 
-                      />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                </div>
-              </CardContent>
-            </Card>
-            
-            <Card className="shadow-sm border-slate-200">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <BarChart3 className="w-5 h-5 text-purple-600"/>
-                  Top Buyers (24m)
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="h-64">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={pbDealsKpis.buyerSeries}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                      <XAxis dataKey="buyer" hide />
-                      <YAxis allowDecimals={false} stroke="#64748b" />
-                      <Tooltip />
-                      <Legend />
-                      <Bar dataKey="count" name="Deals" fill="#a855f7" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Targets Table */}
-          <Card className="shadow-sm border-slate-200">
-            <CardHeader>
-              <CardTitle>Targets (PitchBook – ranked)</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="text-left border-b-2 border-slate-200 bg-slate-50">
-                      <th className="py-3 px-4 font-semibold">Name</th>
-                      <th className="py-3 px-4 font-semibold">HQ</th>
-                      <th className="py-3 px-4 font-semibold">Revenue</th>
-                      <th className="py-3 px-4 font-semibold">EBITDA</th>
-                      <th className="py-3 px-4 font-semibold">Employees</th>
-                      <th className="py-3 px-4 font-semibold">Ownership</th>
-                      <th className="py-3 px-4 font-semibold">Last Fin.</th>
-                      <th className="py-3 px-4 font-semibold">Score</th>
-                      <th className="py-3 px-4 font-semibold">Priority</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {pbScored.map((t, i) => (
-                      <tr key={i} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
-                        <td className="py-3 px-4 max-w-[260px] truncate font-medium">{t.name}</td>
-                        <td className="py-3 px-4 text-slate-600">{t.hq}</td>
-                        <td className="py-3 px-4 text-slate-600">{isNaN(t.revenue) ? "—" : `$${t.revenue}M`}</td>
-                        <td className="py-3 px-4 text-slate-600">{isNaN(t.ebitda) ? "—" : `$${t.ebitda}M`}</td>
-                        <td className="py-3 px-4 text-slate-600">{isNaN(t.employees) ? "—" : Math.round(t.employees)}</td>
-                        <td className="py-3 px-4 text-slate-600">{t.ownership}</td>
-                        <td className="py-3 px-4 text-slate-600">{t.lastFinancingYear || "—"}</td>
-                        <td className="py-3 px-4">
-                          <div className="flex items-center gap-2">
-                            <div className="w-24">
-                              <Progress value={t.score} className="h-2" />
-                            </div>
-                            <span className="text-xs font-medium">{t.score}</span>
-                          </div>
-                        </td>
-                        <td className="py-3 px-4">
-                          {t.score >= scoreThreshold ? (
-                            <Badge className="bg-green-100 text-green-700 border-green-200">Priority</Badge>
-                          ) : (
-                            <span className="text-xs text-muted-foreground">—</span>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              
-              <div className="space-y-4 mt-6 pt-4 border-t border-slate-200">
-                <div className="flex flex-wrap gap-2">
-                  <Button 
-                    variant="secondary" 
-                    onClick={() => exportCSV("pb_cleaned_scored_targets.csv", pbScored)}
-                    disabled={loading}
-                  >
-                    <Download className="w-4 h-4 mr-2"/>CSV
-                  </Button>
-                  <Button 
-                    variant="secondary" 
-                    onClick={() => exportExcel("pb_cleaned_scored_targets.xlsx", pbScored)}
-                    disabled={loading}
-                  >
-                    <Download className="w-4 h-4 mr-2"/>XLSX
-                  </Button>
-                  <Button 
-                    variant="secondary" 
-                    onClick={() => exportCSV("pb_outreach_prospects.csv", outreachCsv(pbScored, { source:"PitchBook", vertical, tag }))}
-                    disabled={loading}
-                  >
-                    <Download className="w-4 h-4 mr-2"/>Outreach CSV
-                  </Button>
-                  <Button 
-                    onClick={() => generateOutputs("PitchBook", pbScored, pbDealsKpis)}
-                    className="bg-blue-600 hover:bg-blue-700"
-                  >
-                    <Sparkles className="w-4 h-4 mr-2"/>Generate Insights + Email
-                  </Button>
-                  <Button 
-                    onClick={() => exportPPT("PitchBook", pbScored, pbDealsKpis)}
-                    disabled={loading}
-                    className="bg-purple-600 hover:bg-purple-700"
-                  >
-                    <Download className="w-4 h-4 mr-2"/>Export PPTX
-                  </Button>
-                </div>
-                
-                <OutreachIntegration 
-                  prospects={pbScored.filter(t => t.score >= scoreThreshold)} 
-                  onSyncComplete={(result) => {
-                    console.log("Sync complete:", result);
-                  }}
-                />
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Email Draft */}
-          {insights && (
-            <Card className="shadow-sm border-slate-200">
-              <CardHeader className="bg-gradient-to-r from-green-50 to-transparent">
-                <CardTitle className="flex items-center gap-2">
-                  <Mail className="w-5 h-5 text-green-600"/>
-                  Email Draft
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3 pt-4">
-                <div className="space-y-2">
-                  <div className="text-sm font-medium">Subject</div>
-                  <Input value={emailSubject} onChange={(e) => setEmailSubject(e.target.value)} />
-                </div>
-                <div className="space-y-2">
-                  <div className="text-sm font-medium">Body</div>
-                  <Textarea value={emailBody} onChange={(e) => setEmailBody(e.target.value)} className="h-40" />
-                </div>
-                <div className="flex gap-2">
-                  <Button variant="secondary" onClick={() => copy(emailSubject)}>Copy Subject</Button>
-                  <Button onClick={() => copy(emailBody)} className="bg-green-600 hover:bg-green-700">Copy Body</Button>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-        </TabsContent>
-
-        {/* GRATA PAGE */}
-        <TabsContent value="grata" className="space-y-6">
-          {grCompaniesRaw.length === 0 && (
-            <Card className="shadow-sm border-emerald-200 bg-gradient-to-r from-emerald-50 to-teal-50">
-              <CardContent className="pt-6">
-                <div className="flex items-start gap-4">
-                  <div className="p-3 bg-emerald-600 rounded-lg">
-                    <HelpCircle className="w-6 h-6 text-white" />
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="font-semibold text-emerald-900 mb-2">Getting Started with Grata Data</h3>
-                    <p className="text-sm text-emerald-700 mb-3">
-                      Upload your Grata company exports to discover and score potential targets. Need help exporting from Grata?
-                    </p>
-                    <Button
-                      onClick={() => setShowHowTo(true)}
-                      className="bg-emerald-600 hover:bg-emerald-700"
-                    >
-                      <Sparkles className="w-4 h-4 mr-2" />
-                      View Step-by-Step Guide
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-          
-          <div className="grid md:grid-cols-2 gap-4">
-            <Card className="shadow-sm border-slate-200">
-              <CardHeader className="bg-gradient-to-r from-emerald-50 to-transparent">
-                <CardTitle className="flex items-center gap-2">
-                  <Upload className="w-5 h-5 text-emerald-600"/>
-                  Upload Grata Companies (.csv/.xlsx)
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3 pt-4">
-                <Input 
-                  type="file" 
-                  accept=".csv,.xlsx" 
-                  onChange={(e) => e.target.files && onUpload(e.target.files[0], "gr-companies")}
-                  className="cursor-pointer"
-                />
-                <div className="text-xs text-muted-foreground flex items-start gap-2">
-                  <CircleAlert className="w-3 h-3 mt-0.5 flex-shrink-0" />
-                  Schema Mapper (Grata) in Settings handles ranges → midpoint.
-                </div>
-              </CardContent>
-            </Card>
-            
-            <Card className="shadow-sm border-slate-200">
-              <CardHeader className="bg-gradient-to-r from-indigo-50 to-transparent">
-                <CardTitle className="flex items-center gap-2">
-                  <Workflow className="w-5 h-5 text-indigo-600"/>
-                  Workflow
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2 text-sm text-muted-foreground pt-4">
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
-                  Upload → Map headers
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-blue-500"></div>
-                  Filters → Score (Grata weights range data)
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-purple-500"></div>
-                  Export Outreach & CSV/XLSX → Insights/PPT/Email
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
           <Card className="shadow-sm border-slate-200">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
-                <CardTitle>Targets (Grata – ranked)</CardTitle>
+                <CardTitle>Scored Targets</CardTitle>
                 <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">
                   {grScored.length} qualified
                 </Badge>
@@ -1065,7 +719,7 @@ export default function OpsConsole(){
                 <CircleAlert className="h-4 w-4 text-blue-600" />
                 <AlertDescription className="text-blue-800 text-sm">
                   <strong>First-time setup:</strong> Create an OAuth application in your Outreach.io account (Settings → API → OAuth Applications). 
-                  Add the credentials below, then click "Connect Outreach Account" on PitchBook or Grata tabs.
+                  Add the credentials in Dashboard → Secrets, then connect on the Targets tab.
                 </AlertDescription>
               </Alert>
 
@@ -1095,25 +749,7 @@ export default function OpsConsole(){
                     <div>• <code>sequences.read</code> - View and select sequences</div>
                   </div>
                 </div>
-
-                <div className="text-xs text-muted-foreground">
-                  After configuring secrets, connect your account from the PitchBook or Grata tab to start syncing prospects directly to Outreach.
-                </div>
               </div>
-            </CardContent>
-          </Card>
-        
-          <Card className="shadow-sm border-slate-200">
-            <CardHeader className="bg-gradient-to-r from-blue-50 to-transparent">
-              <CardTitle>Schema Mapper – PitchBook</CardTitle>
-            </CardHeader>
-            <CardContent className="pt-4">
-              <SchemaMapper 
-                headers={pbHeaders} 
-                mapping={pbMap} 
-                setMapping={setPbMap} 
-                internalFields={DEFAULT_FIELDS} 
-              />
             </CardContent>
           </Card>
 
@@ -1145,7 +781,7 @@ export default function OpsConsole(){
                 />
                 <div className="text-xs text-muted-foreground flex items-start gap-2">
                   <CircleAlert className="w-3 h-3 mt-0.5 flex-shrink-0" />
-                  Create a Slack Incoming Webhook (per channel). We can upgrade to a Slack App/OAuth later.
+                  Create a Slack Incoming Webhook (per channel).
                 </div>
               </div>
               
@@ -1178,7 +814,7 @@ export default function OpsConsole(){
   );
 }
 
-// Helper functions extracted from original
+// Helper functions
 function normalizeRow(row, map, opts) {
   const pick = (k) => map[k] ? row[map[k]] : undefined;
   const name = pick("Company Name") || row.Company || row["Company"] || row["Name"] || "";
