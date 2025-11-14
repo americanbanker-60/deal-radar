@@ -1,3 +1,4 @@
+
 import React, { useMemo, useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,7 +10,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Slider } from "@/components/ui/slider";
 import { Progress } from "@/components/ui/progress";
 import { Textarea } from "@/components/ui/textarea";
-import { Download, Upload, Filter, BarChart3, Sparkles, Database, Settings, CircleAlert, Workflow, Mail, Loader2, HelpCircle, CheckCircle2, X } from "lucide-react";
+import { Download, Upload, Filter, BarChart3, Sparkles, Database, Settings, CircleAlert, Workflow, Mail, Loader2, HelpCircle, CheckCircle2, X, AlertTriangle } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 import SchemaMapper from "../components/ops/SchemaMapper";
@@ -45,13 +46,13 @@ export default function OpsConsole(){
   const [grMap, setGrMap] = useState({});
 
   // Shared filters & settings
-  const [regionFilter, setRegionFilter] = useState("United States");
-  const [minRev, setMinRev] = useState(10);
-  const [maxRev, setMaxRev] = useState(200);
-  const [minEbitda, setMinEbitda] = useState(1);
-  const [maxEbitda, setMaxEbitda] = useState(50);
-  const [ownerPref, setOwnerPref] = useState("Founder-owned");
-  const [scoreThreshold, setScoreThreshold] = useState(65);
+  const [regionFilter, setRegionFilter] = useState("");
+  const [minRev, setMinRev] = useState(0);
+  const [maxRev, setMaxRev] = useState(10000);
+  const [minEbitda, setMinEbitda] = useState(0);
+  const [maxEbitda, setMaxEbitda] = useState(10000);
+  const [ownerPref, setOwnerPref] = useState("Any");
+  const [scoreThreshold, setScoreThreshold] = useState(50);
   const [insights, setInsights] = useState("");
 
   // Outreach custom fields
@@ -174,18 +175,32 @@ export default function OpsConsole(){
     }
   };
   
-  const normalizedGR = useMemo(() => 
-    grCompaniesRaw.map((r) => normalizeRow(r, grMap, { preferRangeMidpoint: true })), 
-    [grCompaniesRaw, grMap]
-  );
+  const normalizedGR = useMemo(() => {
+    const normalized = grCompaniesRaw.map((r) => normalizeRow(r, grMap, { preferRangeMidpoint: true }));
+    console.log("🔄 Normalized data:", {
+      total: normalized.length,
+      sample: normalized[0]
+    });
+    return normalized;
+  }, [grCompaniesRaw, grMap]);
   
-  const grScored = useMemo(() => 
-    scoreTargets(
-      filterTargets(normalizedGR, { regionFilter, minRev, maxRev, minEbitda, maxEbitda, ownerPref }), 
-      { fitKeywords }
-    ), 
-    [normalizedGR, regionFilter, minRev, maxRev, minEbitda, maxEbitda, ownerPref, fitKeywords]
-  );
+  const filteredGR = useMemo(() => {
+    const filtered = filterTargets(normalizedGR, { regionFilter, minRev, maxRev, minEbitda, maxEbitda, ownerPref });
+    console.log("🔄 Filtered data:", {
+      total: filtered.length,
+      filters: { regionFilter, minRev, maxRev, minEbitda, maxEbitda, ownerPref }
+    });
+    return filtered;
+  }, [normalizedGR, regionFilter, minRev, maxRev, minEbitda, maxEbitda, ownerPref]);
+  
+  const grScored = useMemo(() => {
+    const scored = scoreTargets(filteredGR, { fitKeywords });
+    console.log("🔄 Scored data:", {
+      total: scored.length,
+      fitKeywords
+    });
+    return scored;
+  }, [filteredGR, fitKeywords]);
 
   const downloadText = (filename, text) => {
     const blob = new Blob([text], { type: "text/csv;charset=utf-8;" });
@@ -374,6 +389,54 @@ export default function OpsConsole(){
             </Card>
           )}
           
+          {/* Debug Pipeline */}
+          {grCompaniesRaw.length > 0 && (
+            <Card className="shadow-sm border-amber-200 bg-gradient-to-r from-amber-50 to-yellow-50">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <AlertTriangle className="w-5 h-5 text-amber-600" />
+                  Data Pipeline Debug
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-4 gap-4">
+                  <div className="text-center">
+                    <div className="text-3xl font-bold text-blue-600">{grCompaniesRaw.length}</div>
+                    <div className="text-xs text-slate-600 mt-1">Rows Uploaded</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-3xl font-bold text-purple-600">{normalizedGR.length}</div>
+                    <div className="text-xs text-slate-600 mt-1">After Mapping</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-3xl font-bold text-indigo-600">{filteredGR.length}</div>
+                    <div className="text-xs text-slate-600 mt-1">After Filters</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-3xl font-bold text-emerald-600">{grScored.length}</div>
+                    <div className="text-xs text-slate-600 mt-1">Final Scored</div>
+                  </div>
+                </div>
+                {filteredGR.length === 0 && normalizedGR.length > 0 && (
+                  <Alert className="mt-4 bg-amber-50 border-amber-200">
+                    <AlertTriangle className="h-4 w-4 text-amber-600" />
+                    <AlertDescription className="text-amber-800 text-sm">
+                      <strong>All rows filtered out!</strong> Your filters might be too restrictive. Try adjusting Region, Revenue, EBITDA, or Ownership filters below.
+                    </AlertDescription>
+                  </Alert>
+                )}
+                {normalizedGR.length === 0 && grCompaniesRaw.length > 0 && (
+                  <Alert className="mt-4 bg-red-50 border-red-200">
+                    <AlertTriangle className="h-4 w-4 text-red-600" />
+                    <AlertDescription className="text-red-800 text-sm">
+                      <strong>Column mapping issue!</strong> Go to Settings and map your columns to internal fields.
+                    </AlertDescription>
+                  </Alert>
+                )}
+              </CardContent>
+            </Card>
+          )}
+          
           <div className="grid md:grid-cols-2 gap-4">
             <Card className="shadow-sm border-slate-200">
               <CardHeader className="bg-gradient-to-r from-emerald-50 to-transparent">
@@ -429,8 +492,12 @@ export default function OpsConsole(){
             </CardHeader>
             <CardContent className="grid md:grid-cols-3 gap-4 pt-4">
               <div className="space-y-2">
-                <div className="text-sm font-medium">Region contains</div>
-                <Input value={regionFilter} onChange={(e) => setRegionFilter(e.target.value)}/>
+                <div className="text-sm font-medium">Region contains (leave blank for all)</div>
+                <Input 
+                  value={regionFilter} 
+                  onChange={(e) => setRegionFilter(e.target.value)}
+                  placeholder="e.g., United States"
+                />
               </div>
               
               <div className="space-y-2">
@@ -438,8 +505,8 @@ export default function OpsConsole(){
                 <Select value={ownerPref} onValueChange={setOwnerPref}>
                   <SelectTrigger><SelectValue/></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Founder-owned">Founder-owned</SelectItem>
                     <SelectItem value="Any">Any</SelectItem>
+                    <SelectItem value="Founder-owned">Founder-owned</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -584,27 +651,28 @@ export default function OpsConsole(){
                   <Button 
                     variant="secondary" 
                     onClick={() => exportCSV("grata_cleaned_scored_targets.csv", grScored)}
-                    disabled={loading}
+                    disabled={loading || grScored.length === 0}
                   >
                     <Download className="w-4 h-4 mr-2"/>CSV
                   </Button>
                   <Button 
                     variant="secondary" 
                     onClick={() => exportExcel("grata_cleaned_scored_targets.xlsx", grScored)}
-                    disabled={loading}
+                    disabled={loading || grScored.length === 0}
                   >
                     <Download className="w-4 h-4 mr-2"/>XLSX
                   </Button>
                   <Button 
                     variant="secondary" 
                     onClick={() => exportCSV("grata_outreach_prospects.csv", outreachCsv(grScored, { source:"Grata", vertical, tag }))}
-                    disabled={loading}
+                    disabled={loading || grScored.length === 0}
                   >
                     <Download className="w-4 h-4 mr-2"/>Outreach CSV
                   </Button>
                   <Button 
                     onClick={() => generateOutputs("Grata", grScored)}
                     className="bg-emerald-600 hover:bg-emerald-700"
+                    disabled={grScored.length === 0}
                   >
                     <Sparkles className="w-4 h-4 mr-2"/>Generate Insights + Email
                   </Button>
@@ -658,7 +726,7 @@ export default function OpsConsole(){
                 <CircleAlert className="h-4 w-4 text-blue-600" />
                 <AlertDescription className="text-blue-800 text-sm">
                   <strong>First-time setup:</strong> Create an OAuth application in your Outreach.io account (Settings → API → OAuth Applications). 
-                  The credentials are already configured. Click "Connect Outreach Account" on the Grata Data tab to start syncing.
+                  The credentials are_console_client_secretalready configured. Click "Connect Outreach Account" on the Grata Data tab to start syncing.
                 </AlertDescription>
               </Alert>
 
