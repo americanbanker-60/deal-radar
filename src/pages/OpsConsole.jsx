@@ -1,4 +1,3 @@
-
 import React, { useMemo, useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,19 +17,8 @@ import { filterTargets, scoreTargets } from "../components/ops/analyticsHelpers"
 import HowToUse from "../components/ops/HowToUse";
 import OutreachIntegration from "../components/ops/OutreachIntegration";
 
-/**
- * Base44 Grata Ops Console
- * -------------------------
- * Features:
- *  - Excel import (.xlsx) and CSV for Grata
- *  - Grata range handling: revenue/employee ranges → midpoint
- *  - Outreach.io direct integration
- *  - Email draft generator
- *  - Schema mapper
- */
-
 const DEFAULT_FIELDS = [
-  "Company Name","URL","HQ Location","Ownership","Founders / Executives","Revenue","EBITDA","EBITDA Margin","Last Financing Year","Website","LinkedIn","Investors","City","State","Country","Industry","Subsector","Employee Count","Employee Range","Revenue Range","Email","First Name","Last Name","Job Title","Phone"
+  "Company Name","URL","HQ Location","Ownership","Founders / Executives","Revenue","Last Financing Year","Website","LinkedIn","Investors","City","State","Country","Industry","Subsector","Employee Count","Employee Range","Revenue Range","Email","First Name","Last Name","Job Title","Phone"
 ];
 
 export default function OpsConsole(){
@@ -49,8 +37,6 @@ export default function OpsConsole(){
   const [regionFilter, setRegionFilter] = useState("");
   const [minRev, setMinRev] = useState(0);
   const [maxRev, setMaxRev] = useState(10000);
-  const [minEbitda, setMinEbitda] = useState(0);
-  const [maxEbitda, setMaxEbitda] = useState(10000);
   const [ownerPref, setOwnerPref] = useState("Any");
   const [scoreThreshold, setScoreThreshold] = useState(50);
   const [insights, setInsights] = useState("");
@@ -185,13 +171,13 @@ export default function OpsConsole(){
   }, [grCompaniesRaw, grMap]);
   
   const filteredGR = useMemo(() => {
-    const filtered = filterTargets(normalizedGR, { regionFilter, minRev, maxRev, minEbitda, maxEbitda, ownerPref });
+    const filtered = filterTargets(normalizedGR, { regionFilter, minRev, maxRev, minEbitda: 0, maxEbitda: 999999, ownerPref });
     console.log("🔄 Filtered data:", {
       total: filtered.length,
-      filters: { regionFilter, minRev, maxRev, minEbitda, maxEbitda, ownerPref }
+      filters: { regionFilter, minRev, maxRev, ownerPref }
     });
     return filtered;
-  }, [normalizedGR, regionFilter, minRev, maxRev, minEbitda, maxEbitda, ownerPref]);
+  }, [normalizedGR, regionFilter, minRev, maxRev, ownerPref]);
   
   const grScored = useMemo(() => {
     const scored = scoreTargets(filteredGR, { fitKeywords });
@@ -226,7 +212,7 @@ export default function OpsConsole(){
     const top = scored.slice(0, 10);
     const names = top.map((t) => t.name).filter(Boolean).slice(0,5).join(", ");
     const lines = [
-      `${label}: ${scored.length} qualified founder-owned targets; top 5: ${names || "(add data)"}.`,
+      `${label}: ${scored.length} qualified targets; top 5: ${names || "(add data)"}.`,
       `Prioritized ${top.length} targets with Likely Seller Score ≥ ${scoreThreshold}.`,
     ].filter(Boolean);
     return `• ${lines.join("\n• ")}`;
@@ -421,7 +407,7 @@ export default function OpsConsole(){
                   <Alert className="mt-4 bg-amber-50 border-amber-200">
                     <AlertTriangle className="h-4 w-4 text-amber-600" />
                     <AlertDescription className="text-amber-800 text-sm">
-                      <strong>All rows filtered out!</strong> Your filters might be too restrictive. Try adjusting Region, Revenue, EBITDA, or Ownership filters below.
+                      <strong>All rows filtered out!</strong> Your filters might be too restrictive. Try adjusting Region, Revenue, or Ownership filters below.
                     </AlertDescription>
                   </Alert>
                 )}
@@ -543,24 +529,6 @@ export default function OpsConsole(){
               </div>
               
               <div className="space-y-2">
-                <div className="text-sm font-medium">EBITDA range ($MM)</div>
-                <div className="flex gap-2">
-                  <Input 
-                    type="number" 
-                    value={minEbitda} 
-                    onChange={(e) => setMinEbitda(parseFloat(e.target.value))}
-                    placeholder="Min"
-                  />
-                  <Input 
-                    type="number" 
-                    value={maxEbitda} 
-                    onChange={(e) => setMaxEbitda(parseFloat(e.target.value))}
-                    placeholder="Max"
-                  />
-                </div>
-              </div>
-              
-              <div className="space-y-2">
                 <div className="text-sm font-medium">Strategic Fit Keywords (+10)</div>
                 <Input 
                   placeholder="ex: urgent care, pediatric" 
@@ -609,7 +577,6 @@ export default function OpsConsole(){
                       <th className="py-3 px-4 font-semibold">Name</th>
                       <th className="py-3 px-4 font-semibold">HQ</th>
                       <th className="py-3 px-4 font-semibold">Revenue</th>
-                      <th className="py-3 px-4 font-semibold">EBITDA</th>
                       <th className="py-3 px-4 font-semibold">Employees</th>
                       <th className="py-3 px-4 font-semibold">Ownership</th>
                       <th className="py-3 px-4 font-semibold">Score</th>
@@ -622,7 +589,6 @@ export default function OpsConsole(){
                         <td className="py-3 px-4 max-w-[260px] truncate font-medium">{t.name}</td>
                         <td className="py-3 px-4 text-slate-600">{t.hq}</td>
                         <td className="py-3 px-4 text-slate-600">{isNaN(t.revenue) ? "—" : `$${t.revenue}M`}</td>
-                        <td className="py-3 px-4 text-slate-600">{isNaN(t.ebitda) ? "—" : `$${t.ebitda}M`}</td>
                         <td className="py-3 px-4 text-slate-600">{isNaN(t.employees) ? "—" : Math.round(t.employees)}</td>
                         <td className="py-3 px-4 text-slate-600">{t.ownership}</td>
                         <td className="py-3 px-4">
@@ -726,7 +692,7 @@ export default function OpsConsole(){
                 <CircleAlert className="h-4 w-4 text-blue-600" />
                 <AlertDescription className="text-blue-800 text-sm">
                   <strong>First-time setup:</strong> Create an OAuth application in your Outreach.io account (Settings → API → OAuth Applications). 
-                  The credentials are_console_client_secretalready configured. Click "Connect Outreach Account" on the Grata Data tab to start syncing.
+                  The credentials are already configured. Click "Connect Outreach Account" on the Grata Data tab to start syncing.
                 </AlertDescription>
               </Alert>
 
@@ -819,10 +785,8 @@ function normalizeRow(row, map, opts) {
   const employeeCountRaw = pick("Employee Count") || row.Employees;
 
   const revenue = opts?.preferRangeMidpoint && revenueRange ? midpointFromRange(revenueRange) : toNumber(pick("Revenue"));
-  const ebitda = toNumber(pick("EBITDA"));
-  const margin = isNaN(toNumber(pick("EBITDA Margin"))) && revenue ? (ebitda / revenue) * 100 : toNumber(pick("EBITDA Margin"));
-  const lastFinancingYear = pick("Last Financing Year") || yearFrom(String(pick("Notes")||""));
   const employees = opts?.preferRangeMidpoint && empRange ? midpointFromRange(empRange) : toNumber(employeeCountRaw);
+  const lastFinancingYear = pick("Last Financing Year") || yearFrom(String(pick("Notes")||""));
 
   return {
     name,
@@ -833,8 +797,6 @@ function normalizeRow(row, map, opts) {
     industry: pick("Industry") || row.Industry || "Healthcare Services",
     subsector: pick("Subsector") || row.Subsector || "",
     revenue: isNaN(Number(revenue)) ? undefined : Math.round(Number(revenue) / 1_000_000),
-    ebitda: isNaN(Number(ebitda)) ? undefined : Math.round(Number(ebitda) / 1_000_000),
-    margin,
     employees: employees,
     ownership: pick("Ownership") || row.Ownership || "Unknown",
     lastFinancingYear: lastFinancingYear ? parseInt(String(lastFinancingYear),10) : undefined,
