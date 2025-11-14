@@ -18,15 +18,14 @@ import HowToUse from "../components/ops/HowToUse";
 import OutreachIntegration from "../components/ops/OutreachIntegration";
 
 /**
- * Grata Ops Console
- * -----------------
+ * Base44 Grata Ops Console
+ * -------------------------
  * Features:
- *  - Excel/CSV import for Grata company data
+ *  - Excel import (.xlsx) and CSV for Grata
  *  - Grata range handling: revenue/employee ranges → midpoint
- *  - Outreach.io direct sync with custom fields
- *  - Export to CSV/XLSX/PPTX
- *  - Email draft generator with copy buttons
- *  - Schema mapper with auto-save
+ *  - Outreach.io direct integration
+ *  - Email draft generator
+ *  - Schema mapper
  */
 
 const DEFAULT_FIELDS = [
@@ -53,7 +52,6 @@ export default function OpsConsole(){
   const [maxEbitda, setMaxEbitda] = useState(50);
   const [ownerPref, setOwnerPref] = useState("Founder-owned");
   const [scoreThreshold, setScoreThreshold] = useState(65);
-  const [slackWebhook, setSlackWebhook] = useState("");
   const [insights, setInsights] = useState("");
 
   // Outreach custom fields
@@ -69,16 +67,12 @@ export default function OpsConsole(){
   useEffect(() => {
     try {
       const savedGrMap = localStorage.getItem('ops_console_gr_map');
-      const savedSlackWebhook = localStorage.getItem('ops_console_slack_webhook');
       const savedVertical = localStorage.getItem('ops_console_vertical');
       const savedTag = localStorage.getItem('ops_console_tag');
       
       if (savedGrMap) {
         setGrMap(JSON.parse(savedGrMap));
         console.log("✅ Loaded saved Grata mappings");
-      }
-      if (savedSlackWebhook) {
-        setSlackWebhook(savedSlackWebhook);
       }
       if (savedVertical) {
         setVertical(savedVertical);
@@ -100,12 +94,6 @@ export default function OpsConsole(){
   }, [grMap]);
 
   // Save settings
-  useEffect(() => {
-    if (slackWebhook) {
-      localStorage.setItem('ops_console_slack_webhook', slackWebhook);
-    }
-  }, [slackWebhook]);
-
   useEffect(() => {
     localStorage.setItem('ops_console_vertical', vertical);
   }, [vertical]);
@@ -129,7 +117,7 @@ export default function OpsConsole(){
       reader.onload = async (e) => {
         try {
           console.log("📖 File loaded, processing...");
-          const content = e.target.result.split(',')[1]; // Get base64 content
+          const content = e.target.result.split(',')[1];
           const ext = file.name.toLowerCase().split(".").pop();
           
           console.log("📋 File extension:", ext);
@@ -146,7 +134,6 @@ export default function OpsConsole(){
           
           console.log("✅ Function returned:", result);
           
-          // Extract data from Axios response
           const data = result.data;
           
           console.log("📊 Parsed data:", {
@@ -186,12 +173,12 @@ export default function OpsConsole(){
       setLoading(false);
     }
   };
-
+  
   const normalizedGR = useMemo(() => 
     grCompaniesRaw.map((r) => normalizeRow(r, grMap, { preferRangeMidpoint: true })), 
     [grCompaniesRaw, grMap]
   );
-
+  
   const grScored = useMemo(() => 
     scoreTargets(
       filterTargets(normalizedGR, { regionFilter, minRev, maxRev, minEbitda, maxEbitda, ownerPref }), 
@@ -220,30 +207,13 @@ export default function OpsConsole(){
     } 
   };
 
-  const postToSlack = async (text) => {
-    if (!slackWebhook) {
-      setUploadError("Please add a Slack Incoming Webhook in Settings.");
-      return;
-    }
-    try { 
-      await fetch(slackWebhook, { 
-        method: "POST", 
-        headers: { "Content-Type": "application/json" }, 
-        body: JSON.stringify({ text })
-      }); 
-      showSuccess("Posted to Slack!");
-    } catch(e) { 
-      setUploadError("Slack post failed. Check webhook URL.");
-    }
-  };
-
   const insightsFor = (label, scored) => {
     const top = scored.slice(0, 10);
     const names = top.map((t) => t.name).filter(Boolean).slice(0,5).join(", ");
     const lines = [
       `${label}: ${scored.length} qualified founder-owned targets; top 5: ${names || "(add data)"}.`,
       `Prioritized ${top.length} targets with Likely Seller Score ≥ ${scoreThreshold}.`,
-    ];
+    ].filter(Boolean);
     return `• ${lines.join("\n• ")}`;
   };
 
@@ -251,42 +221,6 @@ export default function OpsConsole(){
     const text = insightsFor(label, scored);
     setInsights(text);
     setEmailBody(`Hi team,\n\n${text}\n\nAttached are the cleaned targets and snapshot.\n\n- ${label} export generated from Ops Console`);
-  };
-
-  const exportPPT = async (label, scored) => {
-    setLoading(true);
-    try {
-      const slides = [
-        {
-          title: "Key KPIs",
-          bullets: [
-            `Qualified Targets: ${scored.length}`,
-            `Score Threshold: ${scoreThreshold}`
-          ]
-        },
-        {
-          title: "Top Targets",
-          content: scored.slice(0,10).map((r, i) => 
-            `${i+1}. ${r.name} — Rev ${isNaN(r.revenue) ? "—" : r.revenue + "MM"}, EBITDA ${isNaN(r.ebitda) ? "—" : r.ebitda + "MM"}, Score ${r.score}`
-          ).join("\n")
-        },
-        {
-          title: "Insights",
-          content: insightsFor(label, scored)
-        }
-      ];
-
-      const result = await base44.functions.invoke('generatePptx', {
-        title: `${label} – Deal Radar`,
-        slides
-      });
-
-      window.open(result.data.fileUrl, '_blank');
-    } catch (error) {
-      console.error("PPTX generation error:", error);
-      setUploadError("Failed to generate PPTX: " + error.message);
-    }
-    setLoading(false);
   };
 
   const exportExcel = async (filename, data) => {
@@ -359,6 +293,7 @@ export default function OpsConsole(){
           <Sparkles className="w-4 h-4" />
           How to Use
         </Button>
+        <Badge variant="secondary">v3</Badge>
       </div>
 
       {/* Success Message */}
@@ -408,7 +343,7 @@ export default function OpsConsole(){
 
       <Tabs value={page} onValueChange={setPage}>
         <TabsList className="bg-white border border-slate-200">
-          <TabsTrigger value="grata">Targets</TabsTrigger>
+          <TabsTrigger value="grata">Grata Data</TabsTrigger>
           <TabsTrigger value="settings"><Settings className="w-4 h-4 mr-1"/>Settings</TabsTrigger>
         </TabsList>
 
@@ -471,15 +406,15 @@ export default function OpsConsole(){
               <CardContent className="space-y-2 text-sm text-muted-foreground pt-4">
                 <div className="flex items-center gap-2">
                   <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
-                  Upload → Map headers (Settings)
+                  Upload → Map headers in Settings
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="w-2 h-2 rounded-full bg-blue-500"></div>
-                  Apply filters → Score targets
+                  Set filters → Review scored targets
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="w-2 h-2 rounded-full bg-purple-500"></div>
-                  Export or sync to Outreach
+                  Sync to Outreach or export to CSV/XLSX
                 </div>
               </CardContent>
             </Card>
@@ -489,7 +424,7 @@ export default function OpsConsole(){
             <CardHeader className="bg-gradient-to-r from-amber-50 to-transparent">
               <CardTitle className="flex items-center gap-2">
                 <Filter className="w-5 h-5 text-amber-600"/>
-                Filters & Settings
+                Filters + Outreach Fields
               </CardTitle>
             </CardHeader>
             <CardContent className="grid md:grid-cols-3 gap-4 pt-4">
@@ -579,10 +514,21 @@ export default function OpsConsole(){
             </CardContent>
           </Card>
 
+          {/* KPI */}
+          <Card className="shadow-sm border-slate-200 hover:shadow-md transition-shadow">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium text-slate-600">Total Qualified Targets</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-4xl font-bold text-emerald-600">{grScored.length}</div>
+              <div className="text-xs text-muted-foreground mt-2">After filters</div>
+            </CardContent>
+          </Card>
+
           <Card className="shadow-sm border-slate-200">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
-                <CardTitle>Scored Targets</CardTitle>
+                <CardTitle>Targets (Grata – ranked)</CardTitle>
                 <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">
                   {grScored.length} qualified
                 </Badge>
@@ -662,13 +608,6 @@ export default function OpsConsole(){
                   >
                     <Sparkles className="w-4 h-4 mr-2"/>Generate Insights + Email
                   </Button>
-                  <Button 
-                    onClick={() => exportPPT("Grata", grScored)}
-                    disabled={loading}
-                    className="bg-indigo-600 hover:bg-indigo-700"
-                  >
-                    <Download className="w-4 h-4 mr-2"/>Export PPTX
-                  </Button>
                 </div>
                 
                 <OutreachIntegration 
@@ -719,25 +658,25 @@ export default function OpsConsole(){
                 <CircleAlert className="h-4 w-4 text-blue-600" />
                 <AlertDescription className="text-blue-800 text-sm">
                   <strong>First-time setup:</strong> Create an OAuth application in your Outreach.io account (Settings → API → OAuth Applications). 
-                  Add the credentials in Dashboard → Secrets, then connect on the Targets tab.
+                  The credentials are already configured. Click "Connect Outreach Account" on the Grata Data tab to start syncing.
                 </AlertDescription>
               </Alert>
 
               <div className="space-y-3">
                 <div className="p-4 bg-slate-50 rounded-lg border">
-                  <h4 className="font-semibold text-sm mb-2">Required Secrets (configure in Dashboard)</h4>
+                  <h4 className="font-semibold text-sm mb-2">Configured Secrets</h4>
                   <div className="space-y-2 text-sm">
                     <div className="flex items-center justify-between">
                       <code className="text-xs bg-white px-2 py-1 rounded">OUTREACH_CLIENT_ID</code>
-                      <Badge variant="outline">Required</Badge>
+                      <Badge className="bg-green-100 text-green-700">Configured</Badge>
                     </div>
                     <div className="flex items-center justify-between">
                       <code className="text-xs bg-white px-2 py-1 rounded">OUTREACH_CLIENT_SECRET</code>
-                      <Badge variant="outline">Required</Badge>
+                      <Badge className="bg-green-100 text-green-700">Configured</Badge>
                     </div>
                     <div className="flex items-center justify-between">
                       <code className="text-xs bg-white px-2 py-1 rounded">OUTREACH_REDIRECT_URI</code>
-                      <Badge variant="outline">Auto-configured</Badge>
+                      <Badge className="bg-green-100 text-green-700">Configured</Badge>
                     </div>
                   </div>
                 </div>
@@ -749,10 +688,14 @@ export default function OpsConsole(){
                     <div>• <code>sequences.read</code> - View and select sequences</div>
                   </div>
                 </div>
+
+                <div className="text-xs text-muted-foreground">
+                  Connect your account from the Grata Data tab to start syncing prospects directly to Outreach.
+                </div>
               </div>
             </CardContent>
           </Card>
-
+        
           <Card className="shadow-sm border-slate-200">
             <CardHeader className="bg-gradient-to-r from-emerald-50 to-transparent">
               <CardTitle>Schema Mapper – Grata</CardTitle>
@@ -769,22 +712,9 @@ export default function OpsConsole(){
 
           <Card className="shadow-sm border-slate-200">
             <CardHeader className="bg-gradient-to-r from-purple-50 to-transparent">
-              <CardTitle>Integrations & Defaults</CardTitle>
+              <CardTitle>Default Settings</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4 pt-4">
-              <div className="space-y-2">
-                <div className="text-sm font-medium">Slack Incoming Webhook URL</div>
-                <Input 
-                  placeholder="https://hooks.slack.com/services/..." 
-                  value={slackWebhook} 
-                  onChange={(e) => setSlackWebhook(e.target.value)} 
-                />
-                <div className="text-xs text-muted-foreground flex items-start gap-2">
-                  <CircleAlert className="w-3 h-3 mt-0.5 flex-shrink-0" />
-                  Create a Slack Incoming Webhook (per channel).
-                </div>
-              </div>
-              
               <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
                 <div className="text-sm font-medium text-blue-900 mb-2">Outreach.io CSV Export</div>
                 <div className="text-xs text-blue-700">
@@ -799,9 +729,6 @@ export default function OpsConsole(){
                   <div className="flex gap-2">
                     <Button variant="secondary" onClick={() => copy(insights)}>
                       Copy Insights
-                    </Button>
-                    <Button onClick={() => postToSlack(insights)} className="bg-purple-600 hover:bg-purple-700">
-                      Post to Slack
                     </Button>
                   </div>
                 </div>
