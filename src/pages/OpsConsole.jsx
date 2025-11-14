@@ -74,6 +74,68 @@ export default function OpsConsole(){
   const [emailSubject, setEmailSubject] = useState("BD Targets & Market Snapshot");
   const [emailBody, setEmailBody] = useState("");
 
+  // Load saved mappings and settings from localStorage on mount
+  useEffect(() => {
+    try {
+      const savedPbMap = localStorage.getItem('ops_console_pb_map');
+      const savedGrMap = localStorage.getItem('ops_console_gr_map');
+      const savedSlackWebhook = localStorage.getItem('ops_console_slack_webhook');
+      const savedVertical = localStorage.getItem('ops_console_vertical');
+      const savedTag = localStorage.getItem('ops_console_tag');
+      
+      if (savedPbMap) {
+        setPbMap(JSON.parse(savedPbMap));
+        console.log("✅ Loaded saved PitchBook mappings");
+      }
+      if (savedGrMap) {
+        setGrMap(JSON.parse(savedGrMap));
+        console.log("✅ Loaded saved Grata mappings");
+      }
+      if (savedSlackWebhook) {
+        setSlackWebhook(savedSlackWebhook);
+      }
+      if (savedVertical) {
+        setVertical(savedVertical);
+      }
+      if (savedTag) {
+        setTag(savedTag);
+      }
+    } catch (error) {
+      console.error("Error loading saved settings:", error);
+    }
+  }, []);
+
+  // Save PitchBook mapping whenever it changes
+  useEffect(() => {
+    if (Object.keys(pbMap).length > 0) {
+      localStorage.setItem('ops_console_pb_map', JSON.stringify(pbMap));
+      console.log("💾 Saved PitchBook mappings");
+    }
+  }, [pbMap]);
+
+  // Save Grata mapping whenever it changes
+  useEffect(() => {
+    if (Object.keys(grMap).length > 0) {
+      localStorage.setItem('ops_console_gr_map', JSON.stringify(grMap));
+      console.log("💾 Saved Grata mappings");
+    }
+  }, [grMap]);
+
+  // Save settings
+  useEffect(() => {
+    if (slackWebhook) {
+      localStorage.setItem('ops_console_slack_webhook', slackWebhook);
+    }
+  }, [slackWebhook]);
+
+  useEffect(() => {
+    localStorage.setItem('ops_console_vertical', vertical);
+  }, [vertical]);
+
+  useEffect(() => {
+    localStorage.setItem('ops_console_tag', tag);
+  }, [tag]);
+
   const showSuccess = (message) => {
     setSuccessMessage(message);
     setTimeout(() => setSuccessMessage(null), 5000);
@@ -134,7 +196,8 @@ export default function OpsConsole(){
           }
           
           setLoading(false);
-          showSuccess(`Successfully uploaded ${data.rows.length} rows!`);
+          const currentMap = (kind === "pb-companies") ? pbMap : grMap;
+          showSuccess(`Successfully uploaded ${data.rows.length} rows! ${Object.keys(currentMap).length > 0 ? '✓ Using saved column mappings' : '⚠️ Go to Settings to map columns'}`);
         } catch (innerError) {
           console.error("❌ Processing error:", innerError);
           setUploadError(innerError.message);
