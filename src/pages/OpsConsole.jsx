@@ -1254,7 +1254,7 @@ Return JSON:
                   <div><strong>35 pts:</strong> Employee count proximity to peer median (PRIMARY)</div>
                   <div><strong>25 pts:</strong> Clinic/location count match (if crawled)</div>
                   <div><strong>15 pts:</strong> Revenue proximity to peer median (SECONDARY)</div>
-                  <div><strong>15 pts:</b> Website status (working = full points, broken = 0)</div>
+                  <div><strong>15 pts:</strong> Website status (working = full points, broken = 0)</div>
                   <div><strong>10 pts:</strong> Strategic fit keywords match</div>
                 </div>
               </div>
