@@ -14,7 +14,7 @@ import { Download, Upload, Filter, Sparkles, Database, Settings, CircleAlert, Wo
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Link } from "react-router-dom";
-import { createPageUrl } from "./utils";
+import { createPageUrl } from "../utils";
 
 import SchemaMapper from "../components/ops/SchemaMapper";
 import { filterTargets, scoreTargets } from "../components/ops/analyticsHelpers";
@@ -823,7 +823,7 @@ Return JSON:
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="w-2 h-2 rounded-full bg-amber-500"></div>
-                  Filter & score → Sync to Outreach
+                  Filter & score → Save to database
                 </div>
               </CardContent>
             </Card>
@@ -1254,7 +1254,7 @@ Return JSON:
                   <div><strong>35 pts:</strong> Employee count proximity to peer median (PRIMARY)</div>
                   <div><strong>25 pts:</strong> Clinic/location count match (if crawled)</div>
                   <div><strong>15 pts:</strong> Revenue proximity to peer median (SECONDARY)</div>
-                  <div><strong>15 pts:</strong> Website status (working = full points, broken = 0)</div>
+                  <div><strong>15 pts:</b> Website status (working = full points, broken = 0)</div>
                   <div><strong>10 pts:</strong> Strategic fit keywords match</div>
                 </div>
               </div>
