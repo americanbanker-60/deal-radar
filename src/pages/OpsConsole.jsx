@@ -9,7 +9,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Slider } from "@/components/ui/slider";
 import { Progress } from "@/components/ui/progress";
 import { Textarea } from "@/components/ui/textarea";
-import { Download, Upload, Filter, Sparkles, Database, Settings, CircleAlert, Workflow, Mail, Loader2, HelpCircle, CheckCircle2, X, AlertTriangle, Globe, MapPin } from "lucide-react";
+import { Download, Upload, Filter, Sparkles, Database, Settings, CircleAlert, Workflow, Mail, Loader2, HelpCircle, CheckCircle2, X, AlertTriangle, Globe, MapPin, Building2 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 import SchemaMapper from "../components/ops/SchemaMapper";
@@ -21,11 +21,65 @@ const DEFAULT_FIELDS = [
   "Company Name","URL","HQ Location","Ownership","Founders / Executives","Revenue","Last Financing Year","Website","LinkedIn","Investors","City","State","Country","Industry","Subsector","Employee Count","Employee Range","Revenue Range","Email","First Name","Last Name","Job Title","Phone"
 ];
 
+const SECTOR_OPTIONS = `HS: Allergy, Ear, Nose and Throat
+HS: Anesthesiology
+HS: ASC
+HS: Behavioral - ABA
+HS: Behavioral - IDD
+HS: Behavioral - Interventional Pysch
+HS: Behavioral - Mental
+HS: Behavioral - Psych
+HS: Behavioral - Psych / Residential
+HS: Behavioral - SUD
+HS: Cardiology
+HS: Compound Pharmacy
+HS: Dentistry
+HS: Dermatology
+HS: DME
+HS: DPC
+HS: Employer | Self Insured Services
+HS: Functional Medicine / Wellness
+HS: Gastroenterology
+HS: General
+HS: Health Systems
+HS: Home Care
+HS: Imaging
+HS: Infusion Center
+HS: Lab
+HS: Medical Transportation
+HS: MedSpa & Aesthetics
+HS: Nephrology
+HS: Neurology
+HS: Optometry
+HS: Ortho
+HS: PAC - Home Health
+HS: PAC - Hospice
+HS: PAC - Skilled Nursing (SNF)
+HS: Pain Management
+HS: Pediatrics
+HS: Physical Therapy
+HS: Podiatry
+HS: PPM
+HS: Primary Care
+HS: Sleep
+HS: Speech Pathology
+HS: Staffing
+HS: Urgent Care
+HS: Urology
+HS: Vascular & Vein
+HS: Veterinary
+HS: Veterinary / Animal Health
+HS: Vision
+HS: Women's Health
+HS: Wound Care`;
+
 export default function OpsConsole(){
   const [page, setPage] = useState("grata");
   const [loading, setLoading] = useState(false);
   const [crawling, setCrawling] = useState(false);
+  const [enriching, setEnriching] = useState(false);
   const [crawlProgress, setCrawlProgress] = useState({ current: 0, total: 0 });
+  const [enrichProgress, setEnrichProgress] = useState({ current: 0, total: 0 });
   const [showHowTo, setShowHowTo] = useState(false);
   const [uploadError, setUploadError] = useState(null);
   const [successMessage, setSuccessMessage] = useState(null);
@@ -244,6 +298,97 @@ Return your response as JSON with this exact structure:
     setCrawlProgress({ current: 0, total: 0 });
     showSuccess(`Crawled ${enrichedRows.length} company websites!`);
   };
+
+  const enrichNamesAndSectors = async () => {
+    if (normalizedGR.length === 0) {
+      setUploadError("No companies to enrich. Please upload data first.");
+      return;
+    }
+
+    setEnriching(true);
+    setEnrichProgress({ current: 0, total: normalizedGR.length });
+
+    const enrichedRows = [];
+
+    for (let i = 0; i < normalizedGR.length; i++) {
+      const company = normalizedGR[i];
+      setEnrichProgress({ current: i + 1, total: normalizedGR.length });
+
+      try {
+        const prompt = `Given the full company name: "${company.name}"
+
+Generate two fields following these exact rules:
+
+**Company Short Name Rules:**
+- Remove leading articles: The, A, An
+- Remove legal terms: LLC, Inc, Incorporated, Corporation, Corp, Company, Co, Group, Holdings, Partners, Services, MSO, PC, PLLC, PA
+- Retain core unique identifiers + specialty term
+- Use Title Case
+- Do NOT add new words
+- Should look natural in an email subject line
+- If uncertain, use a conservative shortened version
+
+**Sector Focus Rules:**
+- Use "HS: {Sector Name}" format
+- Choose from this list ONLY:
+${SECTOR_OPTIONS}
+- Infer from company name keywords
+- If ambiguous, use "HS: General"
+
+Examples:
+- "The River Pediatrics Group" → Short Name: "River Pediatrics", Sector: "HS: Pediatrics"
+- "Blue Oak Cardiology, LLC" → Short Name: "Blue Oak Cardiology", Sector: "HS: Cardiology"
+- "Willow Grove Behavioral Health Services" → Short Name: "Willow Grove Behavioral Health", Sector: "HS: Behavioral - Mental"
+
+Return JSON:
+{
+  "companyShortName": "...",
+  "sectorFocus": "..."
+}`;
+
+        const result = await base44.integrations.Core.InvokeLLM({
+          prompt,
+          response_json_schema: {
+            type: "object",
+            properties: {
+              companyShortName: { type: "string" },
+              sectorFocus: { type: "string" }
+            }
+          }
+        });
+
+        enrichedRows.push({
+          ...company,
+          companyShortName: result.companyShortName || company.name,
+          sectorFocus: result.sectorFocus || "HS: General"
+        });
+      } catch (error) {
+        console.error(`Error enriching ${company.name}:`, error);
+        enrichedRows.push({
+          ...company,
+          companyShortName: company.name,
+          sectorFocus: "HS: General"
+        });
+      }
+    }
+
+    // Update the raw data with enriched information
+    const enrichedMap = new Map(enrichedRows.map(r => [r.name, r]));
+    const updatedRaw = grCompaniesRaw.map(raw => {
+      const normalized = normalizeRow(raw, grMap, { preferRangeMidpoint: true });
+      const enriched = enrichedMap.get(normalized.name);
+      if (enriched) {
+        raw._companyShortName = enriched.companyShortName;
+        raw._sectorFocus = enriched.sectorFocus;
+      }
+      return raw;
+    });
+
+    setGrCompaniesRaw(updatedRaw);
+    setEnriching(false);
+    setEnrichProgress({ current: 0, total: 0 });
+    showSuccess(`Enriched ${enrichedRows.length} company names and sectors!`);
+  };
   
   const normalizedGR = useMemo(() => {
     const normalized = grCompaniesRaw.map((r) => normalizeRow(r, grMap, { preferRangeMidpoint: true }));
@@ -341,6 +486,8 @@ Return your response as JSON with this exact structure:
       "First Name": r.contact?.firstName || "",
       "Last Name": r.contact?.lastName || "",
       Company: r.name || "",
+      "Company Short Name": r.companyShortName || r.name,
+      "Sector Focus": r.sectorFocus || "",
       "Job Title": r.contact?.title || "",
       "Account Name": r.name || "",
       Source: opts.source,
@@ -382,7 +529,6 @@ Return your response as JSON with this exact structure:
         <Badge variant="secondary">v3</Badge>
       </div>
 
-      {/* Success Message */}
       {successMessage && (
         <Alert className="bg-green-50 border-green-200 relative">
           <CheckCircle2 className="h-4 w-4 text-green-600" />
@@ -400,7 +546,6 @@ Return your response as JSON with this exact structure:
         </Alert>
       )}
 
-      {/* Error Message */}
       {uploadError && (
         <Alert className="bg-red-50 border-red-200 relative">
           <CircleAlert className="h-4 w-4 text-red-600" />
@@ -442,13 +587,27 @@ Return your response as JSON with this exact structure:
         </div>
       )}
 
+      {enriching && (
+        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-50 flex items-center justify-center">
+          <div className="bg-white p-6 rounded-xl shadow-xl">
+            <div className="flex items-center gap-3 mb-4">
+              <Loader2 className="w-6 h-6 animate-spin text-purple-600" />
+              <span className="font-medium">Enriching Names & Sectors...</span>
+            </div>
+            <Progress value={(enrichProgress.current / enrichProgress.total) * 100} className="w-64" />
+            <div className="text-sm text-slate-600 mt-2 text-center">
+              {enrichProgress.current} / {enrichProgress.total} companies
+            </div>
+          </div>
+        </div>
+      )}
+
       <Tabs value={page} onValueChange={setPage}>
         <TabsList className="bg-white border border-slate-200">
           <TabsTrigger value="grata">Grata Data</TabsTrigger>
           <TabsTrigger value="settings"><Settings className="w-4 h-4 mr-1"/>Settings</TabsTrigger>
         </TabsList>
 
-        {/* GRATA PAGE */}
         <TabsContent value="grata" className="space-y-6">
           {grCompaniesRaw.length === 0 && (
             <Card className="shadow-sm border-emerald-200 bg-gradient-to-r from-emerald-50 to-teal-50">
@@ -475,7 +634,6 @@ Return your response as JSON with this exact structure:
             </Card>
           )}
           
-          {/* Debug Pipeline */}
           {grCompaniesRaw.length > 0 && (
             <Card className="shadow-sm border-amber-200 bg-gradient-to-r from-amber-50 to-yellow-50">
               <CardHeader className="pb-3">
@@ -558,11 +716,15 @@ Return your response as JSON with this exact structure:
                   Upload → Map headers in Settings
                 </div>
                 <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-purple-500"></div>
+                  Enrich names & sectors with AI
+                </div>
+                <div className="flex items-center gap-2">
                   <div className="w-2 h-2 rounded-full bg-blue-500"></div>
                   Crawl websites for clinic counts
                 </div>
                 <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-purple-500"></div>
+                  <div className="w-2 h-2 rounded-full bg-amber-500"></div>
                   Filter & score → Sync to Outreach
                 </div>
               </CardContent>
@@ -570,27 +732,51 @@ Return your response as JSON with this exact structure:
           </div>
 
           {grCompaniesRaw.length > 0 && (
-            <Card className="shadow-sm border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50">
-              <CardHeader className="pb-3">
-                <CardTitle className="flex items-center gap-2">
-                  <Globe className="w-5 h-5 text-blue-600"/>
-                  Website Intelligence
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-slate-700 mb-3">
-                  Automatically crawl company websites to extract clinic/location counts and verify website status. This enhances scoring accuracy.
-                </p>
-                <Button
-                  onClick={crawlWebsites}
-                  disabled={crawling || normalizedGR.length === 0}
-                  className="bg-blue-600 hover:bg-blue-700"
-                >
-                  <Globe className="w-4 h-4 mr-2" />
-                  Crawl All Websites
-                </Button>
-              </CardContent>
-            </Card>
+            <div className="grid md:grid-cols-2 gap-4">
+              <Card className="shadow-sm border-purple-200 bg-gradient-to-r from-purple-50 to-pink-50">
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2">
+                    <Building2 className="w-5 h-5 text-purple-600"/>
+                    Company Names & Sectors
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-slate-700 mb-3">
+                    AI generates clean short names and assigns sectors for Outreach campaigns.
+                  </p>
+                  <Button
+                    onClick={enrichNamesAndSectors}
+                    disabled={enriching || normalizedGR.length === 0}
+                    className="bg-purple-600 hover:bg-purple-700"
+                  >
+                    <Building2 className="w-4 h-4 mr-2" />
+                    Enrich Names & Sectors
+                  </Button>
+                </CardContent>
+              </Card>
+
+              <Card className="shadow-sm border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50">
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2">
+                    <Globe className="w-5 h-5 text-blue-600"/>
+                    Website Intelligence
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-slate-700 mb-3">
+                    Automatically crawl websites to extract clinic/location counts and verify site health.
+                  </p>
+                  <Button
+                    onClick={crawlWebsites}
+                    disabled={crawling || normalizedGR.length === 0}
+                    className="bg-blue-600 hover:bg-blue-700"
+                  >
+                    <Globe className="w-4 h-4 mr-2" />
+                    Crawl All Websites
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
           )}
 
           <Card className="shadow-sm border-slate-200">
@@ -673,7 +859,6 @@ Return your response as JSON with this exact structure:
             </CardContent>
           </Card>
 
-          {/* KPI */}
           <Card className="shadow-sm border-slate-200 hover:shadow-md transition-shadow">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium text-slate-600">Total Qualified Targets</CardTitle>
@@ -699,6 +884,8 @@ Return your response as JSON with this exact structure:
                   <thead>
                     <tr className="text-left border-b-2 border-slate-200 bg-slate-50">
                       <th className="py-3 px-4 font-semibold">Name</th>
+                      <th className="py-3 px-4 font-semibold">Short Name</th>
+                      <th className="py-3 px-4 font-semibold">Sector</th>
                       <th className="py-3 px-4 font-semibold">HQ</th>
                       <th className="py-3 px-4 font-semibold">Revenue</th>
                       <th className="py-3 px-4 font-semibold">Employees</th>
@@ -711,7 +898,13 @@ Return your response as JSON with this exact structure:
                   <tbody>
                     {grScored.map((t, i) => (
                       <tr key={i} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
-                        <td className="py-3 px-4 max-w-[260px] truncate font-medium">{t.name}</td>
+                        <td className="py-3 px-4 max-w-[200px] truncate font-medium">{t.name}</td>
+                        <td className="py-3 px-4 text-slate-600">{t.companyShortName || "—"}</td>
+                        <td className="py-3 px-4">
+                          {t.sectorFocus && (
+                            <Badge variant="outline" className="text-xs">{t.sectorFocus}</Badge>
+                          )}
+                        </td>
                         <td className="py-3 px-4 text-slate-600">{t.hq}</td>
                         <td className="py-3 px-4 text-slate-600">{isNaN(t.revenue) ? "—" : `$${t.revenue}M`}</td>
                         <td className="py-3 px-4 text-slate-600">{isNaN(t.employees) ? "—" : Math.round(t.employees)}</td>
@@ -795,7 +988,6 @@ Return your response as JSON with this exact structure:
             </CardContent>
           </Card>
 
-          {/* Email Draft */}
           {insights && (
             <Card className="shadow-sm border-slate-200">
               <CardHeader className="bg-gradient-to-r from-green-50 to-transparent">
@@ -822,7 +1014,6 @@ Return your response as JSON with this exact structure:
           )}
         </TabsContent>
 
-        {/* SETTINGS PAGE */}
         <TabsContent value="settings" className="space-y-6">
           <Card className="shadow-sm border-slate-200">
             <CardHeader className="bg-gradient-to-r from-purple-50 to-transparent">
@@ -949,6 +1140,8 @@ function normalizeRow(row, map, opts) {
     notes: row.Notes || "",
     websiteStatus: row._websiteStatus,
     clinicCount: row._clinicCount,
+    companyShortName: row._companyShortName,
+    sectorFocus: row._sectorFocus,
     contact: {
       email: pick("Email") || row.Email || "",
       firstName: pick("First Name") || row["First Name"] || "",
