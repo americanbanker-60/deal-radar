@@ -1,0 +1,268 @@
+import React, { useState, useMemo } from "react";
+import { base44 } from "@/api/base44Client";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
+import { Progress } from "@/components/ui/progress";
+import { Database, Filter, Download, Trash2, MapPin, Globe, Building2, Search } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+
+export default function SavedTargets() {
+  const [selectedCampaign, setSelectedCampaign] = useState("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const queryClient = useQueryClient();
+
+  const { data: targets = [], isLoading } = useQuery({
+    queryKey: ['bdTargets'],
+    queryFn: () => base44.entities.BDTarget.list('-created_date'),
+  });
+
+  const deleteTargetMutation = useMutation({
+    mutationFn: (id) => base44.entities.BDTarget.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['bdTargets'] });
+    },
+  });
+
+  const updateStatusMutation = useMutation({
+    mutationFn: ({ id, status }) => base44.entities.BDTarget.update(id, { status }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['bdTargets'] });
+    },
+  });
+
+  const campaigns = useMemo(() => {
+    const unique = [...new Set(targets.map(t => t.campaign))];
+    return unique.sort();
+  }, [targets]);
+
+  const filteredTargets = useMemo(() => {
+    return targets.filter(t => {
+      const campaignMatch = selectedCampaign === "all" || t.campaign === selectedCampaign;
+      const statusMatch = statusFilter === "all" || t.status === statusFilter;
+      const searchMatch = !searchQuery || 
+        (t.name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (t.companyShortName || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (t.hq || "").toLowerCase().includes(searchQuery.toLowerCase());
+      return campaignMatch && statusMatch && searchMatch;
+    });
+  }, [targets, selectedCampaign, statusFilter, searchQuery]);
+
+  const exportCSV = async () => {
+    const data = filteredTargets.map(t => ({
+      Campaign: t.campaign,
+      "Company Name": t.name,
+      "Short Name": t.companyShortName,
+      "Sector Focus": t.sectorFocus,
+      HQ: t.hq,
+      Revenue: t.revenue ? `$${t.revenue}M` : "",
+      Employees: t.employees,
+      Clinics: t.clinicCount,
+      Score: t.score,
+      Status: t.status,
+      Email: t.contactEmail,
+      "First Name": t.contactFirstName,
+      "Last Name": t.contactLastName,
+      Title: t.contactTitle,
+      Website: t.website,
+    }));
+
+    const result = await base44.functions.invoke('dataToCsv', { data });
+    const blob = new Blob([result.data.csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `saved-targets-${selectedCampaign}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <Database className="w-12 h-12 text-emerald-600 mx-auto mb-4 animate-pulse" />
+          <p className="text-slate-600">Loading saved targets...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="w-full mx-auto p-4 md:p-6 space-y-6 bg-gradient-to-br from-slate-50 to-blue-50 min-h-screen">
+      <div className="flex items-center gap-3 bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+        <div className="p-3 bg-emerald-600 rounded-lg">
+          <Database className="w-6 h-6 text-white" />
+        </div>
+        <div className="flex-1">
+          <h1 className="text-2xl font-bold text-slate-900">Saved BD Targets</h1>
+          <p className="text-sm text-slate-600">{targets.length} companies across {campaigns.length} campaigns</p>
+        </div>
+        <Button onClick={exportCSV} disabled={filteredTargets.length === 0}>
+          <Download className="w-4 h-4 mr-2" />
+          Export CSV
+        </Button>
+      </div>
+
+      <Card className="shadow-sm border-slate-200">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Filter className="w-5 h-5" />
+            Filters
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="grid md:grid-cols-4 gap-4">
+          <div className="space-y-2">
+            <div className="text-sm font-medium">Campaign</div>
+            <Select value={selectedCampaign} onValueChange={setSelectedCampaign}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Campaigns</SelectItem>
+                {campaigns.map(c => (
+                  <SelectItem key={c} value={c}>{c}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <div className="text-sm font-medium">Status</div>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="new">New</SelectItem>
+                <SelectItem value="contacted">Contacted</SelectItem>
+                <SelectItem value="qualified">Qualified</SelectItem>
+                <SelectItem value="disqualified">Disqualified</SelectItem>
+                <SelectItem value="closed">Closed</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2 md:col-span-2">
+            <div className="text-sm font-medium">Search</div>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <Input
+                placeholder="Search by name or location..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {filteredTargets.length === 0 ? (
+        <Card className="shadow-sm border-emerald-200">
+          <CardContent className="pt-6 text-center">
+            <Database className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+            <p className="text-slate-600">No saved targets yet. Go to Ops Console to add companies.</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <Card className="shadow-sm border-slate-200">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle>Saved Companies</CardTitle>
+              <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">
+                {filteredTargets.length} results
+              </Badge>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left border-b-2 border-slate-200 bg-slate-50">
+                    <th className="py-3 px-4 font-semibold">Campaign</th>
+                    <th className="py-3 px-4 font-semibold">Name</th>
+                    <th className="py-3 px-4 font-semibold">Short Name</th>
+                    <th className="py-3 px-4 font-semibold">Sector</th>
+                    <th className="py-3 px-4 font-semibold">HQ</th>
+                    <th className="py-3 px-4 font-semibold">Employees</th>
+                    <th className="py-3 px-4 font-semibold">Clinics</th>
+                    <th className="py-3 px-4 font-semibold">Score</th>
+                    <th className="py-3 px-4 font-semibold">Status</th>
+                    <th className="py-3 px-4 font-semibold">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredTargets.map((t) => (
+                    <tr key={t.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
+                      <td className="py-3 px-4">
+                        <Badge variant="outline" className="text-xs">{t.campaign}</Badge>
+                      </td>
+                      <td className="py-3 px-4 max-w-[200px] truncate font-medium">{t.name}</td>
+                      <td className="py-3 px-4 text-slate-600">{t.companyShortName || "—"}</td>
+                      <td className="py-3 px-4">
+                        {t.sectorFocus && (
+                          <Badge variant="outline" className="text-xs">{t.sectorFocus}</Badge>
+                        )}
+                      </td>
+                      <td className="py-3 px-4 text-slate-600">{t.hq}</td>
+                      <td className="py-3 px-4 text-slate-600">{t.employees || "—"}</td>
+                      <td className="py-3 px-4 text-slate-600">
+                        {t.clinicCount ? (
+                          <div className="flex items-center gap-1">
+                            <MapPin className="w-3 h-3 text-blue-600" />
+                            {t.clinicCount}
+                          </div>
+                        ) : "—"}
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="flex items-center gap-2">
+                          <div className="w-16">
+                            <Progress value={t.score} className="h-2" />
+                          </div>
+                          <span className="text-xs font-medium">{t.score}</span>
+                        </div>
+                      </td>
+                      <td className="py-3 px-4">
+                        <Select
+                          value={t.status}
+                          onValueChange={(status) => updateStatusMutation.mutate({ id: t.id, status })}
+                        >
+                          <SelectTrigger className="h-8 text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="new">New</SelectItem>
+                            <SelectItem value="contacted">Contacted</SelectItem>
+                            <SelectItem value="qualified">Qualified</SelectItem>
+                            <SelectItem value="disqualified">Disqualified</SelectItem>
+                            <SelectItem value="closed">Closed</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </td>
+                      <td className="py-3 px-4">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => deleteTargetMutation.mutate(t.id)}
+                          className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}

@@ -1,3 +1,4 @@
+
 import React, { useMemo, useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,8 +10,11 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Slider } from "@/components/ui/slider";
 import { Progress } from "@/components/ui/progress";
 import { Textarea } from "@/components/ui/textarea";
-import { Download, Upload, Filter, Sparkles, Database, Settings, CircleAlert, Workflow, Mail, Loader2, HelpCircle, CheckCircle2, X, AlertTriangle, Globe, MapPin, Building2 } from "lucide-react";
+import { Download, Upload, Filter, Sparkles, Database, Settings, CircleAlert, Workflow, Mail, Loader2, HelpCircle, CheckCircle2, X, AlertTriangle, Globe, MapPin, Building2, Save } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Link } from "react-router-dom";
+import { createPageUrl } from "./utils";
 
 import SchemaMapper from "../components/ops/SchemaMapper";
 import { filterTargets, scoreTargets } from "../components/ops/analyticsHelpers";
@@ -105,6 +109,11 @@ export default function OpsConsole(){
   // Email draft
   const [emailSubject, setEmailSubject] = useState("BD Targets & Market Snapshot");
   const [emailBody, setEmailBody] = useState("");
+
+  // New states for saving targets
+  const [selectedTargets, setSelectedTargets] = useState(new Set());
+  const [campaignName, setCampaignName] = useState("");
+  const [saving, setSaving] = useState(false);
 
   // Load saved mappings and settings from localStorage on mount
   useEffect(() => {
@@ -390,6 +399,89 @@ Return JSON:
     showSuccess(`Enriched ${enrichedRows.length} company names and sectors!`);
   };
   
+  const saveToDatabase = async () => {
+    if (selectedTargets.size === 0) {
+      setUploadError("Please select companies to save");
+      return;
+    }
+
+    if (!campaignName.trim()) {
+      setUploadError("Please enter a campaign name");
+      return;
+    }
+
+    setSaving(true);
+    
+    try {
+      // Get existing targets to check for duplicates
+      const existingTargets = await base44.entities.BDTarget.list();
+      const existingUrls = new Set(existingTargets.map(t => t.website?.toLowerCase()).filter(Boolean));
+
+      const targetsToSave = grScored
+        .filter((_, index) => selectedTargets.has(index))
+        .filter(t => t.website && !existingUrls.has(t.website.toLowerCase())) // Only save if website exists and is not a duplicate
+        .map(t => ({
+          campaign: campaignName.trim(),
+          name: t.name,
+          companyShortName: t.companyShortName,
+          sectorFocus: t.sectorFocus,
+          website: t.website,
+          websiteStatus: t.websiteStatus,
+          hq: t.hq,
+          industry: t.industry,
+          subsector: t.subsector,
+          revenue: t.revenue,
+          employees: t.employees,
+          clinicCount: t.clinicCount,
+          ownership: t.ownership,
+          score: t.score,
+          contactEmail: t.contact?.email,
+          contactFirstName: t.contact?.firstName,
+          contactLastName: t.contact?.lastName,
+          contactTitle: t.contact?.title,
+          contactPhone: t.contact?.phone,
+          linkedin: t.linkedin,
+          notes: t.notes,
+          status: "new"
+        }));
+
+      if (targetsToSave.length === 0) {
+        setUploadError("All selected companies already exist in database or lack a website for de-duplication.");
+        setSaving(false);
+        return;
+      }
+
+      await base44.entities.BDTarget.bulkCreate(targetsToSave);
+      
+      showSuccess(`Saved ${targetsToSave.length} companies to "${campaignName}"! ${selectedTargets.size - targetsToSave.length} duplicates skipped.`);
+      setSelectedTargets(new Set());
+      setCampaignName("");
+    } catch (error) {
+      console.error("Save error:", error);
+      setUploadError("Failed to save: " + error.message);
+    }
+    
+    setSaving(false);
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedTargets.size === grScored.length) {
+      setSelectedTargets(new Set());
+    } else {
+      setSelectedTargets(new Set(grScored.map((_, i) => i)));
+    }
+  };
+
+  const toggleTarget = (index) => {
+    const newSelected = new Set(selectedTargets);
+    if (newSelected.has(index)) {
+      newSelected.delete(index);
+    } else {
+      newSelected.add(index);
+    }
+    setSelectedTargets(newSelected);
+  };
+  
   const normalizedGR = useMemo(() => {
     const normalized = grCompaniesRaw.map((r) => normalizeRow(r, grMap, { preferRangeMidpoint: true }));
     console.log("🔄 Normalized data:", {
@@ -518,6 +610,12 @@ Return JSON:
           <h1 className="text-2xl font-bold text-slate-900">Grata Ops Console</h1>
           <p className="text-sm text-slate-600">Top-of-funnel deal sourcing for bootstrapped companies</p>
         </div>
+        <Link to={createPageUrl("SavedTargets")}>
+          <Button variant="outline">
+            <Database className="w-4 h-4 mr-2" />
+            View Saved Targets
+          </Button>
+        </Link>
         <Button
           variant="outline"
           onClick={() => setShowHowTo(true)}
@@ -869,13 +967,70 @@ Return JSON:
             </CardContent>
           </Card>
 
+          {grScored.length > 0 && (
+            <Card className="shadow-sm border-purple-200 bg-gradient-to-r from-purple-50 to-pink-50">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2">
+                  <Save className="w-5 h-5 text-purple-600"/>
+                  Save to Database
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="space-y-2">
+                  <div className="text-sm font-medium">Campaign Name</div>
+                  <Input
+                    placeholder="e.g., California Urgent Care Q1 2025"
+                    value={campaignName}
+                    onChange={(e) => setCampaignName(e.target.value)}
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline">{selectedTargets.size} selected</Badge>
+                  <Button
+                    onClick={saveToDatabase}
+                    disabled={saving || selectedTargets.size === 0 || !campaignName.trim()}
+                    className="bg-purple-600 hover:bg-purple-700"
+                  >
+                    {saving ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Saving...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="w-4 h-4 mr-2" />
+                        Save {selectedTargets.size} Companies
+                      </>
+                    )}
+                  </Button>
+                </div>
+                <Alert className="bg-blue-50 border-blue-200">
+                  <CircleAlert className="h-4 w-4 text-blue-600" />
+                  <AlertDescription className="text-blue-800 text-xs">
+                    Duplicates (based on website URL) are automatically skipped. Companies without a website will also be skipped.
+                  </AlertDescription>
+                </Alert>
+              </CardContent>
+            </Card>
+          )}
+
           <Card className="shadow-sm border-slate-200">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <CardTitle>Targets (Grata – ranked by fit)</CardTitle>
-                <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">
-                  {grScored.length} qualified
-                </Badge>
+                <div className="flex items-center gap-2">
+                  {grScored.length > 0 && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={toggleSelectAll}
+                    >
+                      {selectedTargets.size === grScored.length ? "Deselect All" : "Select All"}
+                    </Button>
+                  )}
+                  <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">
+                    {grScored.length} qualified
+                  </Badge>
+                </div>
               </div>
             </CardHeader>
             <CardContent>
@@ -883,6 +1038,12 @@ Return JSON:
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="text-left border-b-2 border-slate-200 bg-slate-50">
+                      <th className="py-3 px-4 font-semibold w-12">
+                        <Checkbox
+                          checked={selectedTargets.size === grScored.length && grScored.length > 0}
+                          onCheckedChange={toggleSelectAll}
+                        />
+                      </th>
                       <th className="py-3 px-4 font-semibold">Name</th>
                       <th className="py-3 px-4 font-semibold">Short Name</th>
                       <th className="py-3 px-4 font-semibold">Sector</th>
@@ -898,6 +1059,12 @@ Return JSON:
                   <tbody>
                     {grScored.map((t, i) => (
                       <tr key={i} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
+                        <td className="py-3 px-4">
+                          <Checkbox
+                            checked={selectedTargets.has(i)}
+                            onCheckedChange={() => toggleTarget(i)}
+                          />
+                        </td>
                         <td className="py-3 px-4 max-w-[200px] truncate font-medium">{t.name}</td>
                         <td className="py-3 px-4 text-slate-600">{t.companyShortName || "—"}</td>
                         <td className="py-3 px-4">
