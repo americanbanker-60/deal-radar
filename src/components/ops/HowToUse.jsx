@@ -13,14 +13,14 @@ import {
   ChevronRight,
   ArrowRight,
   Database,
-  BarChart3,
   FileSpreadsheet,
-  Presentation,
   Users,
   Target,
   Settings,
   TrendingUp,
-  X
+  X,
+  Globe,
+  MapPin
 } from "lucide-react";
 import {
   Dialog,
@@ -34,50 +34,49 @@ export default function HowToUse({ open, onClose }) {
 
   const steps = [
     {
-      title: "Welcome to Your Deal Sourcing Command Center",
+      title: "Welcome to Grata Ops Console",
       icon: Target,
       color: "blue",
       content: (
         <div className="space-y-4">
           <div className="text-center py-6">
-            <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl mb-4">
+            <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl mb-4">
               <Target className="w-10 h-10 text-white" />
             </div>
-            <h3 className="text-2xl font-bold mb-2">What This App Does</h3>
+            <h3 className="text-2xl font-bold mb-2">Top-of-Funnel Deal Sourcing</h3>
             <p className="text-slate-600 max-w-2xl mx-auto">
-              Transform raw company data from PitchBook and Grata into prioritized acquisition targets, 
-              complete with scoring, analytics, and ready-to-use exports for your outreach campaigns.
+              Transform Grata company data into prioritized acquisition targets. Focus on bootstrapped, privately-held companies with intelligent scoring based on employee count, location counts, and strategic fit.
             </p>
           </div>
 
           <div className="grid md:grid-cols-2 gap-4 mt-8">
+            <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-lg">
+              <div className="flex items-center gap-2 mb-2">
+                <Database className="w-5 h-5 text-emerald-600" />
+                <h4 className="font-semibold text-emerald-900">Grata Data Import</h4>
+              </div>
+              <p className="text-sm text-emerald-700">
+                Import from Grata, automatically handle revenue/employee ranges, and normalize data formats
+              </p>
+            </div>
+
             <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
               <div className="flex items-center gap-2 mb-2">
-                <Database className="w-5 h-5 text-blue-600" />
-                <h4 className="font-semibold text-blue-900">Unified Data Platform</h4>
+                <Globe className="w-5 h-5 text-blue-600" />
+                <h4 className="font-semibold text-blue-900">Website Intelligence</h4>
               </div>
               <p className="text-sm text-blue-700">
-                Import company lists from multiple sources, normalize data formats, and handle ranges automatically
+                AI crawls websites to extract clinic/location counts and verify site health
               </p>
             </div>
 
             <div className="p-4 bg-purple-50 border border-purple-200 rounded-lg">
               <div className="flex items-center gap-2 mb-2">
                 <TrendingUp className="w-5 h-5 text-purple-600" />
-                <h4 className="font-semibold text-purple-900">Intelligent Scoring</h4>
+                <h4 className="font-semibold text-purple-900">Size & Fit Scoring</h4>
               </div>
               <p className="text-sm text-purple-700">
-                AI-powered "Likely Seller Score" ranks targets based on revenue, EBITDA, ownership, and strategic fit
-              </p>
-            </div>
-
-            <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-              <div className="flex items-center gap-2 mb-2">
-                <BarChart3 className="w-5 h-5 text-green-600" />
-                <h4 className="font-semibold text-green-900">Deal Intelligence</h4>
-              </div>
-              <p className="text-sm text-green-700">
-                Analyze recent M&A activity with automatic valuation multiples and buyer trend analysis
+                Scores based on employee count (primary), clinic counts, and strategic keywords
               </p>
             </div>
 
@@ -87,7 +86,7 @@ export default function HowToUse({ open, onClose }) {
                 <h4 className="font-semibold text-amber-900">Outreach Ready</h4>
               </div>
               <p className="text-sm text-amber-700">
-                One-click exports to Outreach.io, Excel, and PowerPoint with custom tags and insights
+                One-click sync to Outreach.io or export CSV/Excel with enriched data
               </p>
             </div>
           </div>
@@ -95,66 +94,7 @@ export default function HowToUse({ open, onClose }) {
       )
     },
     {
-      title: "Step 1: Get Your Data from PitchBook",
-      icon: Download,
-      color: "blue",
-      content: (
-        <div className="space-y-6">
-          <div className="bg-gradient-to-r from-blue-50 to-blue-100 p-6 rounded-lg border border-blue-200">
-            <h4 className="font-semibold text-blue-900 mb-3 flex items-center gap-2">
-              <Database className="w-5 h-5" />
-              In PitchBook Platform:
-            </h4>
-            <ol className="space-y-3 text-sm text-blue-800">
-              <li className="flex items-start gap-3">
-                <Badge className="mt-0.5 bg-blue-600">1</Badge>
-                <div>
-                  <strong>Search for companies:</strong> Use filters like "Healthcare Services" + "Founder-owned" + "$10M-$200M Revenue"
-                </div>
-              </li>
-              <li className="flex items-start gap-3">
-                <Badge className="mt-0.5 bg-blue-600">2</Badge>
-                <div>
-                  <strong>Select your targets:</strong> Choose the companies you want to analyze (tip: 50-500 companies work best)
-                </div>
-              </li>
-              <li className="flex items-start gap-3">
-                <Badge className="mt-0.5 bg-blue-600">3</Badge>
-                <div>
-                  <strong>Export to Excel or CSV:</strong> Click Export → choose all relevant columns (Company Name, Revenue, EBITDA, HQ Location, Ownership, etc.)
-                </div>
-              </li>
-              <li className="flex items-start gap-3">
-                <Badge className="mt-0.5 bg-blue-600">4</Badge>
-                <div>
-                  <strong>Optional - Export deals data:</strong> Search recent M&A deals in your sector, export with EV, EBITDA, Multiples, Buyer info
-                </div>
-              </li>
-            </ol>
-          </div>
-
-          <div className="bg-amber-50 p-4 rounded-lg border border-amber-200">
-            <div className="flex items-start gap-3">
-              <Sparkles className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
-              <div className="text-sm text-amber-800">
-                <strong>Pro Tip:</strong> Include contact information (Email, First Name, Last Name, Job Title) if you want to create Outreach.io prospect lists directly
-              </div>
-            </div>
-          </div>
-
-          <div className="border-t pt-4">
-            <h4 className="font-semibold mb-2 text-sm text-slate-700">Recommended PitchBook Columns:</h4>
-            <div className="flex flex-wrap gap-2">
-              {["Company Name", "Revenue", "EBITDA", "HQ Location", "Ownership", "Industry", "Employees", "Website", "LinkedIn", "Last Financing Year"].map(col => (
-                <Badge key={col} variant="outline" className="text-xs">{col}</Badge>
-              ))}
-            </div>
-          </div>
-        </div>
-      )
-    },
-    {
-      title: "Step 2: Get Your Data from Grata",
+      title: "Step 1: Export Data from Grata",
       icon: Download,
       color: "emerald",
       content: (
@@ -168,35 +108,35 @@ export default function HowToUse({ open, onClose }) {
               <li className="flex items-start gap-3">
                 <Badge className="mt-0.5 bg-emerald-600">1</Badge>
                 <div>
-                  <strong>Create your search:</strong> Use Grata's AI search with criteria like industry, location, revenue ranges, employee counts
+                  <strong>Create your search:</strong> Use Grata's AI search with criteria like "Healthcare Services" + "Bootstrapped" + "50-500 employees"
                 </div>
               </li>
               <li className="flex items-start gap-3">
                 <Badge className="mt-0.5 bg-emerald-600">2</Badge>
                 <div>
-                  <strong>Review results:</strong> Grata typically provides 100-1000+ companies with estimated ranges
+                  <strong>Review results:</strong> Grata provides estimated ranges for revenue and employees (e.g., "$5M-$10M", "50-100 employees")
                 </div>
               </li>
               <li className="flex items-start gap-3">
                 <Badge className="mt-0.5 bg-emerald-600">3</Badge>
                 <div>
-                  <strong>Export to CSV or Excel:</strong> Download your company list with all available fields
+                  <strong>Export to CSV or Excel:</strong> Download your company list with all available fields (website URLs are crucial for crawling)
                 </div>
               </li>
               <li className="flex items-start gap-3">
                 <Badge className="mt-0.5 bg-emerald-600">4</Badge>
                 <div>
-                  <strong>Include contact data:</strong> If available, export decision-maker contacts for outreach campaigns
+                  <strong>Include contact data:</strong> Export decision-maker contacts (CEO, Founder) for outreach campaigns
                 </div>
               </li>
             </ol>
           </div>
 
-          <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
+          <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
             <div className="flex items-start gap-3">
-              <TrendingUp className="w-5 h-5 text-purple-600 flex-shrink-0 mt-0.5" />
-              <div className="text-sm text-purple-800">
-                <strong>Grata Advantage:</strong> This app automatically converts Grata's revenue and employee ranges (like "$5M-$10M") to midpoints for accurate scoring
+              <Sparkles className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+              <div className="text-sm text-blue-800">
+                <strong>Pro Tip:</strong> This app automatically converts ranges to midpoints, so "$5M-$10M" becomes $7.5M for accurate peer comparisons
               </div>
             </div>
           </div>
@@ -204,7 +144,7 @@ export default function HowToUse({ open, onClose }) {
           <div className="border-t pt-4">
             <h4 className="font-semibold mb-2 text-sm text-slate-700">Key Grata Fields to Include:</h4>
             <div className="flex flex-wrap gap-2">
-              {["Company Name", "Revenue Range", "Employee Range", "Location", "Industry", "Website", "Email", "First Name", "Last Name"].map(col => (
+              {["Company Name", "Revenue Range", "Employee Range", "Location", "Industry", "Website", "Email", "First Name", "Last Name", "Job Title"].map(col => (
                 <Badge key={col} variant="outline" className="text-xs">{col}</Badge>
               ))}
             </div>
@@ -213,7 +153,7 @@ export default function HowToUse({ open, onClose }) {
       )
     },
     {
-      title: "Step 3: Upload & Map Your Data",
+      title: "Step 2: Upload & Map Your Data",
       icon: Upload,
       color: "indigo",
       content: (
@@ -221,25 +161,25 @@ export default function HowToUse({ open, onClose }) {
           <div className="bg-gradient-to-r from-indigo-50 to-indigo-100 p-6 rounded-lg border border-indigo-200">
             <h4 className="font-semibold text-indigo-900 mb-3 flex items-center gap-2">
               <Upload className="w-5 h-5" />
-              Upload Your Files:
+              Upload Your File:
             </h4>
             <ol className="space-y-3 text-sm text-indigo-800">
               <li className="flex items-start gap-3">
                 <Badge className="mt-0.5 bg-indigo-600">1</Badge>
                 <div>
-                  <strong>Go to PitchBook or Grata tab:</strong> Choose which data source you're uploading
+                  <strong>Go to Grata Data tab:</strong> Click "Upload Grata Companies"
                 </div>
               </li>
               <li className="flex items-start gap-3">
                 <Badge className="mt-0.5 bg-indigo-600">2</Badge>
                 <div>
-                  <strong>Click "Upload Companies":</strong> Select your CSV or XLSX file (both formats supported)
+                  <strong>Select your file:</strong> CSV or XLSX formats supported
                 </div>
               </li>
               <li className="flex items-start gap-3">
                 <Badge className="mt-0.5 bg-indigo-600">3</Badge>
                 <div>
-                  <strong>Upload Deals (optional):</strong> For PitchBook, also upload recent M&A deals to see market multiples
+                  <strong>Check Debug Panel:</strong> Verify how many rows were uploaded and processed
                 </div>
               </li>
             </ol>
@@ -251,14 +191,14 @@ export default function HowToUse({ open, onClose }) {
               Map Your Columns (Settings Tab):
             </h4>
             <p className="text-sm text-slate-700 mb-3">
-              Your file columns might have different names than our system expects. Map them in Settings:
+              Your Grata export columns might differ from our internal fields. Map them once in Settings:
             </p>
             <div className="bg-white p-4 rounded border">
               <div className="space-y-2 text-sm">
                 <div className="flex items-center justify-between p-2 bg-slate-50 rounded">
                   <span className="text-slate-600">Our Field:</span>
                   <ArrowRight className="w-4 h-4 text-slate-400" />
-                  <span className="text-slate-600">Your Column:</span>
+                  <span className="text-slate-600">Your Grata Column:</span>
                 </div>
                 <div className="flex items-center justify-between p-2 hover:bg-slate-50 rounded">
                   <span className="font-medium">Company Name</span>
@@ -266,24 +206,24 @@ export default function HowToUse({ open, onClose }) {
                   <Badge variant="outline">Company</Badge>
                 </div>
                 <div className="flex items-center justify-between p-2 hover:bg-slate-50 rounded">
-                  <span className="font-medium">Revenue</span>
+                  <span className="font-medium">Revenue Range</span>
                   <ArrowRight className="w-4 h-4 text-slate-400" />
-                  <Badge variant="outline">Total Revenue ($)</Badge>
+                  <Badge variant="outline">Est. Revenue</Badge>
                 </div>
                 <div className="flex items-center justify-between p-2 hover:bg-slate-50 rounded">
-                  <span className="font-medium">HQ Location</span>
+                  <span className="font-medium">Employee Range</span>
                   <ArrowRight className="w-4 h-4 text-slate-400" />
-                  <Badge variant="outline">Headquarters</Badge>
+                  <Badge variant="outline">Employees</Badge>
                 </div>
               </div>
             </div>
           </div>
 
-          <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+          <div className="bg-green-50 p-4 rounded-lg border border-green-200">
             <div className="flex items-start gap-3">
-              <CheckCircle2 className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
-              <div className="text-sm text-blue-800">
-                <strong>Auto-mapping:</strong> The system remembers your mappings, so you only need to do this once per data source
+              <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+              <div className="text-sm text-green-800">
+                <strong>Auto-save:</strong> Your column mappings are saved automatically. Map once, use forever!
               </div>
             </div>
           </div>
@@ -291,7 +231,50 @@ export default function HowToUse({ open, onClose }) {
       )
     },
     {
-      title: "Step 4: Filter & Score Your Targets",
+      title: "Step 3: Crawl Websites (Optional)",
+      icon: Globe,
+      color: "blue",
+      content: (
+        <div className="space-y-6">
+          <div className="bg-gradient-to-r from-blue-50 to-blue-100 p-6 rounded-lg border border-blue-200">
+            <h4 className="font-semibold text-blue-900 mb-3 flex items-center gap-2">
+              <Globe className="w-5 h-5" />
+              Enhanced Website Intelligence:
+            </h4>
+            <p className="text-sm text-blue-800 mb-3">
+              Click "Crawl All Websites" to automatically extract:
+            </p>
+            <div className="space-y-2 text-sm text-blue-800">
+              <div className="flex items-center gap-2">
+                <MapPin className="w-4 h-4 text-blue-600" />
+                <strong>Clinic/Location Counts:</strong> How many physical locations the company operates
+              </div>
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-green-600" />
+                <strong>Website Status:</strong> Is the site working or broken? (instant disqualifier)
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-amber-50 p-4 rounded-lg border border-amber-200">
+            <div className="flex items-start gap-3">
+              <Sparkles className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+              <div className="text-sm text-amber-800">
+                <strong>Why This Matters:</strong> A broken website = immediate red flag. Clinic count helps assess operational scale beyond employee estimates.
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
+            <div className="text-sm text-purple-800">
+              <strong>Crawl Time:</strong> Takes ~5-10 seconds per company. For 100 companies, expect 10-15 minutes. Run this once, data is saved.
+            </div>
+          </div>
+        </div>
+      )
+    },
+    {
+      title: "Step 4: Filter & Score",
       icon: Filter,
       color: "amber",
       content: (
@@ -299,32 +282,24 @@ export default function HowToUse({ open, onClose }) {
           <div className="bg-gradient-to-r from-amber-50 to-amber-100 p-6 rounded-lg border border-amber-200">
             <h4 className="font-semibold text-amber-900 mb-3 flex items-center gap-2">
               <Filter className="w-5 h-5" />
-              Set Your Filters:
+              Apply Filters:
             </h4>
             <div className="grid md:grid-cols-2 gap-4 text-sm">
               <div className="bg-white p-3 rounded border border-amber-200">
                 <strong className="text-amber-900">Region:</strong>
-                <p className="text-amber-700 mt-1">Filter by location (e.g., "United States", "California", "Northeast")</p>
+                <p className="text-amber-700 mt-1">Filter by location (e.g., "California", "Texas", "Northeast")</p>
               </div>
               <div className="bg-white p-3 rounded border border-amber-200">
                 <strong className="text-amber-900">Revenue Range:</strong>
-                <p className="text-amber-700 mt-1">Set min/max revenue in millions (default: $10M-$200M)</p>
-              </div>
-              <div className="bg-white p-3 rounded border border-amber-200">
-                <strong className="text-amber-900">EBITDA Range:</strong>
-                <p className="text-amber-700 mt-1">Set min/max EBITDA in millions (default: $1M-$50M)</p>
+                <p className="text-amber-700 mt-1">Set min/max in millions (defaults wide open: $0-$100K)</p>
               </div>
               <div className="bg-white p-3 rounded border border-amber-200">
                 <strong className="text-amber-900">Ownership:</strong>
-                <p className="text-amber-700 mt-1">Prefer "Founder-owned" or accept "Any"</p>
+                <p className="text-amber-700 mt-1">Choose "Founder/Bootstrapped Only" or "Any"</p>
               </div>
               <div className="bg-white p-3 rounded border border-amber-200">
                 <strong className="text-amber-900">Score Threshold:</strong>
-                <p className="text-amber-700 mt-1">Set minimum score for "Priority" badge (default: 65)</p>
-              </div>
-              <div className="bg-white p-3 rounded border border-amber-200">
-                <strong className="text-amber-900">Strategic Fit:</strong>
-                <p className="text-amber-700 mt-1">Keywords for +10 bonus (e.g., "urgent care, telehealth")</p>
+                <p className="text-amber-700 mt-1">Set minimum for "Priority" badge (default: 0 = show all)</p>
               </div>
             </div>
           </div>
@@ -332,41 +307,37 @@ export default function HowToUse({ open, onClose }) {
           <div className="bg-gradient-to-r from-green-50 to-green-100 p-6 rounded-lg border border-green-200">
             <h4 className="font-semibold text-green-900 mb-3 flex items-center gap-2">
               <TrendingUp className="w-5 h-5" />
-              Understanding the "Likely Seller Score" (0-100):
+              Understanding the Fit Score (0-100):
             </h4>
             <div className="space-y-2 text-sm text-green-800">
               <div className="flex items-start gap-2">
-                <Badge className="mt-0.5 bg-green-600">20</Badge>
-                <div><strong>Revenue Match:</strong> How close to peer group median</div>
-              </div>
-              <div className="flex items-start gap-2">
-                <Badge className="mt-0.5 bg-green-600">20</Badge>
-                <div><strong>EBITDA Match:</strong> How close to peer group median</div>
-              </div>
-              <div className="flex items-start gap-2">
-                <Badge className="mt-0.5 bg-green-600">20</Badge>
-                <div><strong>Founder-owned:</strong> Higher likelihood of considering offers</div>
+                <Badge className="mt-0.5 bg-green-600">35</Badge>
+                <div><strong>Employee Count Match (PRIMARY):</strong> How close to peer group median</div>
               </div>
               <div className="flex items-start gap-2">
                 <Badge className="mt-0.5 bg-green-600">25</Badge>
-                <div><strong>Time Since Financing:</strong> Longer = more likely to consider exit</div>
+                <div><strong>Clinic/Location Count:</strong> Proximity to peer median (if crawled)</div>
               </div>
               <div className="flex items-start gap-2">
                 <Badge className="mt-0.5 bg-green-600">15</Badge>
-                <div><strong>EBITDA Margin:</strong> Stronger margins = more attractive</div>
+                <div><strong>Revenue Match (SECONDARY):</strong> Less weight since it's estimated</div>
+              </div>
+              <div className="flex items-start gap-2">
+                <Badge className="mt-0.5 bg-green-600">15</Badge>
+                <div><strong>Website Health:</strong> Working = full points, Broken = 0</div>
               </div>
               <div className="flex items-start gap-2">
                 <Badge className="mt-0.5 bg-green-600">+10</Badge>
-                <div><strong>Strategic Fit:</strong> Bonus for matching your keywords</div>
+                <div><strong>Strategic Fit:</strong> Bonus for keyword matches in name/industry</div>
               </div>
             </div>
           </div>
 
-          <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
+          <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
             <div className="flex items-start gap-3">
-              <Target className="w-5 h-5 text-purple-600 flex-shrink-0 mt-0.5" />
-              <div className="text-sm text-purple-800">
-                <strong>Pro Tip:</strong> Targets scoring 70+ are your best bets. Focus on the top 20-50 companies for initial outreach
+              <Target className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+              <div className="text-sm text-blue-800">
+                <strong>Pro Tip:</strong> Start with all filters open to see your full universe, then narrow by region or employee count for focused lists
               </div>
             </div>
           </div>
@@ -374,63 +345,39 @@ export default function HowToUse({ open, onClose }) {
       )
     },
     {
-      title: "Step 5: Analyze & Export",
-      icon: BarChart3,
+      title: "Step 5: Export & Sync",
+      icon: FileSpreadsheet,
       color: "purple",
       content: (
         <div className="space-y-6">
           <div className="bg-gradient-to-r from-purple-50 to-purple-100 p-6 rounded-lg border border-purple-200">
             <h4 className="font-semibold text-purple-900 mb-3 flex items-center gap-2">
-              <BarChart3 className="w-5 h-5" />
-              Review Your Analytics:
-            </h4>
-            <div className="grid md:grid-cols-3 gap-3 text-sm">
-              <div className="bg-white p-4 rounded border border-purple-200 text-center">
-                <div className="text-3xl font-bold text-purple-600 mb-1">247</div>
-                <div className="text-purple-700">Qualified Targets</div>
-              </div>
-              <div className="bg-white p-4 rounded border border-purple-200 text-center">
-                <div className="text-3xl font-bold text-purple-600 mb-1">23</div>
-                <div className="text-purple-700">Deals (24mo)</div>
-              </div>
-              <div className="bg-white p-4 rounded border border-purple-200 text-center">
-                <div className="text-3xl font-bold text-purple-600 mb-1">8.2x</div>
-                <div className="text-purple-700">Median EV/EBITDA</div>
-              </div>
-            </div>
-            <p className="text-sm text-purple-700 mt-3">
-              Check the charts to see deal volume trends and most active buyers in your sector
-            </p>
-          </div>
-
-          <div className="bg-gradient-to-r from-blue-50 to-blue-100 p-6 rounded-lg border border-blue-200">
-            <h4 className="font-semibold text-blue-900 mb-3 flex items-center gap-2">
               <FileSpreadsheet className="w-5 h-5" />
               Export Options:
             </h4>
             <div className="space-y-3">
-              <div className="bg-white p-3 rounded border border-blue-200">
+              <div className="bg-white p-3 rounded border border-purple-200">
                 <div className="flex items-center gap-2 mb-1">
                   <Badge className="bg-blue-600">CSV/XLSX</Badge>
-                  <strong className="text-sm text-blue-900">Full Target List</strong>
+                  <strong className="text-sm text-purple-900">Full Target List</strong>
                 </div>
-                <p className="text-sm text-blue-700">Download all scored targets with complete data for your CRM or analysis</p>
+                <p className="text-sm text-purple-700">Download all scored targets with employee counts, clinic data, and website status</p>
               </div>
               
-              <div className="bg-white p-3 rounded border border-blue-200">
+              <div className="bg-white p-3 rounded border border-purple-200">
                 <div className="flex items-center gap-2 mb-1">
-                  <Badge className="bg-purple-600">Outreach CSV</Badge>
-                  <strong className="text-sm text-blue-900">Ready for Outreach.io</strong>
+                  <Badge className="bg-green-600">Outreach CSV</Badge>
+                  <strong className="text-sm text-purple-900">Ready for Outreach.io</strong>
                 </div>
-                <p className="text-sm text-blue-700">Pre-formatted with Email, Name, Company, Title, Score, Source, Vertical, and Custom Tags</p>
+                <p className="text-sm text-purple-700">Pre-formatted with contacts, scores, clinics, tags, and custom fields</p>
               </div>
               
-              <div className="bg-white p-3 rounded border border-blue-200">
+              <div className="bg-white p-3 rounded border border-purple-200">
                 <div className="flex items-center gap-2 mb-1">
-                  <Badge className="bg-green-600">PPTX</Badge>
-                  <strong className="text-sm text-blue-900">Executive Presentation</strong>
+                  <Badge className="bg-purple-600">Direct Sync</Badge>
+                  <strong className="text-sm text-purple-900">Outreach.io Integration</strong>
                 </div>
-                <p className="text-sm text-blue-700">Auto-generated deck with KPIs, top targets, and insights for board meetings</p>
+                <p className="text-sm text-purple-700">Create/update prospects directly in Outreach (no sequences, safe mode)</p>
               </div>
             </div>
           </div>
@@ -438,24 +385,20 @@ export default function HowToUse({ open, onClose }) {
           <div className="bg-gradient-to-r from-green-50 to-green-100 p-6 rounded-lg border border-green-200">
             <h4 className="font-semibold text-green-900 mb-3 flex items-center gap-2">
               <Mail className="w-5 h-5" />
-              Generate Insights & Email:
+              Generate Insights Email:
             </h4>
             <ol className="space-y-2 text-sm text-green-800">
               <li className="flex items-start gap-2">
                 <Badge className="mt-0.5 bg-green-600">1</Badge>
-                <div>Click "Generate Insights + Email" to create AI-powered summary</div>
+                <div>Click "Generate Insights + Email" for AI-powered summary</div>
               </li>
               <li className="flex items-start gap-2">
                 <Badge className="mt-0.5 bg-green-600">2</Badge>
-                <div>Review the email draft with key metrics and top targets</div>
+                <div>Review draft with top targets and key metrics</div>
               </li>
               <li className="flex items-start gap-2">
                 <Badge className="mt-0.5 bg-green-600">3</Badge>
-                <div>Copy subject and body to send to your team or investors</div>
-              </li>
-              <li className="flex items-start gap-2">
-                <Badge className="mt-0.5 bg-green-600">4</Badge>
-                <div>Optional: Post insights directly to Slack via webhook</div>
+                <div>Copy and send to your BD team or investors</div>
               </li>
             </ol>
           </div>
@@ -469,88 +412,84 @@ export default function HowToUse({ open, onClose }) {
       content: (
         <div className="space-y-6">
           <div className="text-center py-4">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl mb-3">
+            <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl mb-3">
               <CheckCircle2 className="w-8 h-8 text-white" />
             </div>
-            <h3 className="text-xl font-bold mb-2">Putting It All Together</h3>
-            <p className="text-slate-600">Here's a real-world example from start to finish</p>
+            <h3 className="text-xl font-bold mb-2">Real-World Workflow</h3>
+            <p className="text-slate-600">From Grata export to prioritized outreach list</p>
           </div>
 
           <div className="bg-gradient-to-br from-slate-50 to-slate-100 p-6 rounded-xl border-2 border-slate-200">
             <div className="space-y-4">
               <div className="flex gap-4">
                 <div className="flex-shrink-0">
-                  <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center text-white font-bold">1</div>
+                  <div className="w-10 h-10 bg-emerald-600 rounded-full flex items-center justify-center text-white font-bold">1</div>
                 </div>
                 <div>
-                  <h4 className="font-semibold text-slate-900 mb-1">Monday Morning: Gather Data</h4>
-                  <p className="text-sm text-slate-600">Export 300 healthcare services companies from PitchBook ($10M-$200M revenue, founder-owned). Export 50 recent deals with multiples.</p>
+                  <h4 className="font-semibold text-slate-900 mb-1">Monday: Export from Grata</h4>
+                  <p className="text-sm text-slate-600">Search for "Urgent Care" + "Bootstrapped" + "California" → Export 200 companies with estimated ranges</p>
                 </div>
               </div>
 
               <div className="flex gap-4">
                 <div className="flex-shrink-0">
-                  <div className="w-10 h-10 bg-purple-600 rounded-full flex items-center justify-center text-white font-bold">2</div>
+                  <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center text-white font-bold">2</div>
                 </div>
                 <div>
-                  <h4 className="font-semibold text-slate-900 mb-1">Upload & Map (5 minutes)</h4>
-                  <p className="text-sm text-slate-600">Upload both files to PitchBook tab. Map columns in Settings (one-time setup). System processes and scores all companies.</p>
+                  <h4 className="font-semibold text-slate-900 mb-1">Upload & Map (2 minutes)</h4>
+                  <p className="text-sm text-slate-600">Upload CSV, check Debug Panel shows 200 rows normalized, mappings auto-saved from last time</p>
                 </div>
               </div>
 
               <div className="flex gap-4">
                 <div className="flex-shrink-0">
-                  <div className="w-10 h-10 bg-amber-600 rounded-full flex items-center justify-center text-white font-bold">3</div>
+                  <div className="w-10 h-10 bg-purple-600 rounded-full flex items-center justify-center text-white font-bold">3</div>
                 </div>
                 <div>
-                  <h4 className="font-semibold text-slate-900 mb-1">Filter & Prioritize (2 minutes)</h4>
-                  <p className="text-sm text-slate-600">Set filters to "Northeast" region, adjust EBITDA range to $2M-$30M, add strategic keywords "urgent care, telehealth". Results: 87 qualified targets, 34 scored 70+.</p>
+                  <h4 className="font-semibold text-slate-900 mb-1">Crawl Websites (15 minutes)</h4>
+                  <p className="text-sm text-slate-600">Click "Crawl All Websites" → Grab coffee while AI extracts clinic counts and checks site health</p>
                 </div>
               </div>
 
               <div className="flex gap-4">
                 <div className="flex-shrink-0">
-                  <div className="w-10 h-10 bg-green-600 rounded-full flex items-center justify-center text-white font-bold">4</div>
+                  <div className="w-10 h-10 bg-amber-600 rounded-full flex items-center justify-center text-white font-bold">4</div>
                 </div>
                 <div>
-                  <h4 className="font-semibold text-slate-900 mb-1">Export & Share (3 minutes)</h4>
-                  <p className="text-sm text-slate-600">
-                    • Download Outreach CSV with top 50 targets (auto-tagged "BD-Priority")<br/>
-                    • Generate PPTX for Wednesday's investment committee<br/>
-                    • Create email summary and send to deal team with insights
-                  </p>
+                  <h4 className="font-semibold text-slate-900 mb-1">Filter & Score (2 minutes)</h4>
+                  <p className="text-sm text-slate-600">Set score threshold to 60 → Results: 47 priority targets with working websites and 5+ locations</p>
                 </div>
               </div>
 
               <div className="flex gap-4">
                 <div className="flex-shrink-0">
-                  <div className="w-10 h-10 bg-indigo-600 rounded-full flex items-center justify-center text-white font-bold">5</div>
+                  <div className="w-10 h-10 bg-green-600 rounded-full flex items-center justify-center text-white font-bold">5</div>
                 </div>
                 <div>
-                  <h4 className="font-semibold text-slate-900 mb-1">Execute Campaign</h4>
-                  <p className="text-sm text-slate-600">Import Outreach CSV to start personalized email sequences. BD team reaches out to top 20 targets by end of week. Market multiple data informs initial offer discussions.</p>
+                  <h4 className="font-semibold text-slate-900 mb-1">Export & Execute</h4>
+                  <p className="text-sm text-slate-600">Sync top 30 to Outreach.io → BD team starts personalized sequences by Wednesday</p>
                 </div>
               </div>
             </div>
           </div>
 
           <div className="grid md:grid-cols-2 gap-4">
-            <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+            <div className="bg-emerald-50 p-4 rounded-lg border border-emerald-200">
               <div className="flex items-start gap-3">
-                <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+                <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5" />
                 <div className="text-sm">
-                  <strong className="text-green-900">Time Saved:</strong>
-                  <p className="text-green-700 mt-1">What used to take 6 hours of manual Excel work now takes 10 minutes</p>
+                  <strong className="text-emerald-900">Focus on Fit:</strong>
+                  <p className="text-emerald-700 mt-1">Employee and location counts give you real operational scale insights</p>
                 </div>
               </div>
             </div>
 
             <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
               <div className="flex items-start gap-3">
-                <TrendingUp className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                <Globe className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
                 <div className="text-sm">
-                  <strong className="text-blue-900">Better Results:</strong>
-                  <p className="text-blue-700 mt-1">Data-driven scoring means you contact the right targets first</p>
+                  <strong className="text-blue-900">Quality Signals:</strong>
+                  <p className="text-blue-700 mt-1">Broken websites automatically get low scores — focus your time on operational companies</p>
                 </div>
               </div>
             </div>
@@ -588,7 +527,7 @@ export default function HowToUse({ open, onClose }) {
                 onClick={() => setCurrentStep(idx)}
                 className={`w-full h-2 rounded-full transition-all ${
                   idx === currentStep 
-                    ? 'bg-blue-600' 
+                    ? 'bg-emerald-600' 
                     : idx < currentStep 
                     ? 'bg-green-500' 
                     : 'bg-slate-200'
@@ -622,7 +561,7 @@ export default function HowToUse({ open, onClose }) {
           {currentStep < steps.length - 1 ? (
             <Button
               onClick={() => setCurrentStep(Math.min(steps.length - 1, currentStep + 1))}
-              className="bg-blue-600 hover:bg-blue-700"
+              className="bg-emerald-600 hover:bg-emerald-700"
             >
               Next <ChevronRight className="w-4 h-4 ml-1" />
             </Button>
