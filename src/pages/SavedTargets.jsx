@@ -7,8 +7,10 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
-import { Database, Filter, Download, Trash2, MapPin, Globe, Building2, Search } from "lucide-react";
+import { Database, Filter, Download, Trash2, MapPin, Globe, Building2, Search, ArrowLeft } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Link } from "react-router-dom";
+import { createPageUrl } from "../utils";
 
 export default function SavedTargets() {
   const [selectedCampaign, setSelectedCampaign] = useState("all");
@@ -95,6 +97,11 @@ export default function SavedTargets() {
   return (
     <div className="w-full mx-auto p-4 md:p-6 space-y-6 bg-gradient-to-br from-slate-50 to-blue-50 min-h-screen">
       <div className="flex items-center gap-3 bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+        <Link to={createPageUrl("OpsConsole")}>
+          <Button variant="outline" size="icon">
+            <ArrowLeft className="w-4 h-4" />
+          </Button>
+        </Link>
         <div className="p-3 bg-emerald-600 rounded-lg">
           <Database className="w-6 h-6 text-white" />
         </div>
@@ -167,7 +174,13 @@ export default function SavedTargets() {
         <Card className="shadow-sm border-emerald-200">
           <CardContent className="pt-6 text-center">
             <Database className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-            <p className="text-slate-600">No saved targets yet. Go to Ops Console to add companies.</p>
+            <p className="text-slate-600 mb-4">No saved targets yet. Go to Ops Console to add companies.</p>
+            <Link to={createPageUrl("OpsConsole")}>
+              <Button className="bg-emerald-600 hover:bg-emerald-700">
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Go to Ops Console
+              </Button>
+            </Link>
           </CardContent>
         </Card>
       ) : (
