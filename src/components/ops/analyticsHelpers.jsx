@@ -19,111 +19,66 @@ const percentile = (arr, p) => {
   return a[lower] * (1 - w) + a[upper] * w;
 };
 
-const yearFrom = (d) => {
-  if (!d) return undefined;
-  const m = String(d).match(/(20\d{2}|19\d{2})/);
-  return m ? parseInt(m[1], 10) : undefined;
-};
-
-export function useDealsAnalytics(deals) {
-  return useMemo(() => {
-    const within24m = deals.filter((d) => {
-      const y = toNumber(d.Year ?? yearFrom(d.Date));
-      return !isNaN(y) && y >= new Date().getFullYear() - 2;
-    });
-    
-    const multiples = within24m.map((d) => {
-      const ev = toNumber(d.EV);
-      const e = toNumber(d.EBITDA);
-      const m = !isNaN(toNumber(d.Multiple)) ? toNumber(d.Multiple) : (isNaN(ev) || isNaN(e) || e === 0 ? NaN : ev / e);
-      return m;
-    }).filter((x) => !isNaN(x));
-    
-    const medianMultiple = percentile(multiples, 50);
-
-    const byMonth = {};
-    within24m.forEach((d) => {
-      const y = (d.Year ?? yearFrom(d.Date)) || "";
-      const m = String(d.Month || "").padStart(2, "0");
-      const key = `${y}-${m || "01"}`;
-      byMonth[key] = (byMonth[key] || 0) + 1;
-    });
-    
-    const series = Object.keys(byMonth).sort().map((k) => ({ date: k, deals: byMonth[k] }));
-
-    const buyerCounts = {};
-    within24m.forEach((d) => {
-      const b = (d.Buyer || "Unknown").toString();
-      buyerCounts[b] = (buyerCounts[b] || 0) + 1;
-    });
-    
-    const buyerSeries = Object.entries(buyerCounts)
-      .map(([buyer, count]) => ({ buyer, count }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 15);
-
-    return { dealCount: within24m.length, medianMultiple, series, buyerSeries };
-  }, [deals]);
-}
-
 export function filterTargets(rows, filters) {
-  const { regionFilter, minRev, maxRev, minEbitda, maxEbitda, ownerPref } = filters;
+  const { regionFilter, minRev, maxRev, ownerPref } = filters;
   
   return rows.filter((c) => {
-    const inRegion = (c.hq || "United States").toLowerCase().includes(regionFilter.toLowerCase());
+    const inRegion = !regionFilter || (c.hq || "").toLowerCase().includes(regionFilter.toLowerCase());
     const revMm = c.revenue;
-    const eMm = c.ebitda;
     const ownerMatch = ownerPref === "Any" || 
                        (c.ownership || "").toLowerCase().includes("founder") || 
-                       (c.ownership || "").toLowerCase().includes("private");
+                       (c.ownership || "").toLowerCase().includes("private") ||
+                       (c.ownership || "").toLowerCase().includes("bootstrap");
     
     return inRegion && 
-           !isNaN(revMm) && !isNaN(eMm) && 
-           revMm >= minRev && revMm <= maxRev && 
-           eMm >= minEbitda && eMm <= maxEbitda && 
+           (!isNaN(revMm) ? (revMm >= minRev && revMm <= maxRev) : true) && 
            ownerMatch;
   });
 }
 
 export function scoreTargets(rows, opts) {
   const { fitKeywords } = opts;
-  const revs = rows.map((t) => t.revenue).filter((x) => !isNaN(x));
-  const ebs = rows.map((t) => t.ebitda).filter((x) => !isNaN(x));
-  const p50R = percentile(revs, 50);
-  const p50E = percentile(ebs, 50);
-  const now = new Date().getFullYear();
+  
+  // Calculate peer group medians
+  const employees = rows.map((t) => t.employees).filter((x) => !isNaN(x) && x > 0);
+  const revs = rows.map((t) => t.revenue).filter((x) => !isNaN(x) && x > 0);
+  const clinics = rows.map((t) => t.clinicCount).filter((x) => !isNaN(x) && x > 0);
+  
+  const p50Emp = percentile(employees, 50);
+  const p50Rev = percentile(revs, 50);
+  const p50Clinics = percentile(clinics, 50);
+  
   const kws = (fitKeywords || "").split(",").map(s => s.trim().toLowerCase()).filter(Boolean);
 
   return rows.map((t) => {
     let score = 0;
     
-    // Revenue proximity to median (20 points)
-    if (!isNaN(t.revenue) && p50R) {
-      score += 20 * (1 - Math.min(1, Math.abs((t.revenue - p50R) / (p50R || 1))));
+    // Employee count match (35 points) - PRIMARY
+    if (!isNaN(t.employees) && p50Emp && t.employees > 0) {
+      const proximity = 1 - Math.min(1, Math.abs((t.employees - p50Emp) / (p50Emp || 1)));
+      score += 35 * proximity;
     }
     
-    // EBITDA proximity to median (20 points)
-    if (!isNaN(t.ebitda) && p50E) {
-      score += 20 * (1 - Math.min(1, Math.abs((t.ebitda - p50E) / (p50E || 1))));
+    // Clinic/location count match (25 points)
+    if (!isNaN(t.clinicCount) && p50Clinics && t.clinicCount > 0) {
+      const proximity = 1 - Math.min(1, Math.abs((t.clinicCount - p50Clinics) / (p50Clinics || 1)));
+      score += 25 * proximity;
     }
     
-    // Ownership preference (20 points)
-    if ((t.ownership || "").toLowerCase().includes("founder")) {
-      score += 20;
-    } else if ((t.ownership || "").toLowerCase().includes("family")) {
-      score += 10;
+    // Revenue match (15 points) - SECONDARY
+    if (!isNaN(t.revenue) && p50Rev && t.revenue > 0) {
+      const proximity = 1 - Math.min(1, Math.abs((t.revenue - p50Rev) / (p50Rev || 1)));
+      score += 15 * proximity;
     }
     
-    // Time since last financing (25 points)
-    const yrs = t.lastFinancingYear ? now - t.lastFinancingYear : 6;
-    score += Math.min(25, Math.max(0, (yrs / 8) * 25));
-    
-    // EBITDA margin (15 points)
-    if (!isNaN(t.margin)) {
-      score += Math.min(15, Math.max(0, (toNumber(t.margin) / 25) * 15));
+    // Website status (15 points)
+    if (t.websiteStatus === "working") {
+      score += 15;
+    } else if (t.websiteStatus === "broken") {
+      score += 0; // Penalty: no points
     }
     
-    // Strategic fit keywords bonus (10 points)
+    // Strategic fit keywords (10 points)
     if (kws.length && kws.some(k => 
       (t.name || "").toLowerCase().includes(k) || 
       (t.subsector || "").toLowerCase().includes(k) || 
@@ -134,4 +89,14 @@ export function scoreTargets(rows, opts) {
     
     return { ...t, score: Math.round(score) };
   }).sort((a, b) => b.score - a.score);
+}
+
+// Hook is no longer needed for deals analytics
+export function useDealsAnalytics(deals) {
+  return useMemo(() => ({
+    dealCount: 0,
+    medianMultiple: NaN,
+    series: [],
+    buyerSeries: []
+  }), [deals]);
 }

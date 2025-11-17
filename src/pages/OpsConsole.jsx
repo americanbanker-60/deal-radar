@@ -9,7 +9,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Slider } from "@/components/ui/slider";
 import { Progress } from "@/components/ui/progress";
 import { Textarea } from "@/components/ui/textarea";
-import { Download, Upload, Filter, BarChart3, Sparkles, Database, Settings, CircleAlert, Workflow, Mail, Loader2, HelpCircle, CheckCircle2, X, AlertTriangle } from "lucide-react";
+import { Download, Upload, Filter, Sparkles, Database, Settings, CircleAlert, Workflow, Mail, Loader2, HelpCircle, CheckCircle2, X, AlertTriangle, Globe, MapPin } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 import SchemaMapper from "../components/ops/SchemaMapper";
@@ -24,6 +24,8 @@ const DEFAULT_FIELDS = [
 export default function OpsConsole(){
   const [page, setPage] = useState("grata");
   const [loading, setLoading] = useState(false);
+  const [crawling, setCrawling] = useState(false);
+  const [crawlProgress, setCrawlProgress] = useState({ current: 0, total: 0 });
   const [showHowTo, setShowHowTo] = useState(false);
   const [uploadError, setUploadError] = useState(null);
   const [successMessage, setSuccessMessage] = useState(null);
@@ -33,12 +35,12 @@ export default function OpsConsole(){
   const [grHeaders, setGrHeaders] = useState([]);
   const [grMap, setGrMap] = useState({});
 
-  // Shared filters & settings
+  // Shared filters & settings - ALL DEFAULTS OPEN
   const [regionFilter, setRegionFilter] = useState("");
   const [minRev, setMinRev] = useState(0);
-  const [maxRev, setMaxRev] = useState(10000);
+  const [maxRev, setMaxRev] = useState(100000);
   const [ownerPref, setOwnerPref] = useState("Any");
-  const [scoreThreshold, setScoreThreshold] = useState(50);
+  const [scoreThreshold, setScoreThreshold] = useState(0);
   const [insights, setInsights] = useState("");
 
   // Outreach custom fields
@@ -160,6 +162,88 @@ export default function OpsConsole(){
       setLoading(false);
     }
   };
+
+  const crawlWebsites = async () => {
+    if (normalizedGR.length === 0) {
+      setUploadError("No companies to crawl. Please upload data first.");
+      return;
+    }
+
+    setCrawling(true);
+    setCrawlProgress({ current: 0, total: normalizedGR.length });
+
+    const enrichedRows = [];
+
+    for (let i = 0; i < normalizedGR.length; i++) {
+      const company = normalizedGR[i];
+      setCrawlProgress({ current: i + 1, total: normalizedGR.length });
+
+      if (!company.website) {
+        enrichedRows.push({
+          ...company,
+          websiteStatus: "missing",
+          clinicCount: undefined
+        });
+        continue;
+      }
+
+      try {
+        const prompt = `Visit the website ${company.website} for the company "${company.name}". 
+        
+Extract the following information:
+1. Website Status: Does the website load properly? (answer: "working" or "broken")
+2. Number of Locations/Clinics: How many physical locations, clinics, or offices does this company operate? Look for phrases like "locations", "clinics", "offices", "facilities". If you can't find this information, return null.
+
+Return your response as JSON with this exact structure:
+{
+  "websiteStatus": "working" or "broken",
+  "clinicCount": number or null
+}`;
+
+        const result = await base44.integrations.Core.InvokeLLM({
+          prompt,
+          add_context_from_internet: true,
+          response_json_schema: {
+            type: "object",
+            properties: {
+              websiteStatus: { type: "string" },
+              clinicCount: { type: ["number", "null"] }
+            }
+          }
+        });
+
+        enrichedRows.push({
+          ...company,
+          websiteStatus: result.websiteStatus || "unknown",
+          clinicCount: result.clinicCount
+        });
+      } catch (error) {
+        console.error(`Error crawling ${company.name}:`, error);
+        enrichedRows.push({
+          ...company,
+          websiteStatus: "error",
+          clinicCount: undefined
+        });
+      }
+    }
+
+    // Update the raw data with enriched information
+    const enrichedMap = new Map(enrichedRows.map(r => [r.name, r]));
+    const updatedRaw = grCompaniesRaw.map(raw => {
+      const normalized = normalizeRow(raw, grMap, { preferRangeMidpoint: true });
+      const enriched = enrichedMap.get(normalized.name);
+      if (enriched) {
+        raw._websiteStatus = enriched.websiteStatus;
+        raw._clinicCount = enriched.clinicCount;
+      }
+      return raw;
+    });
+
+    setGrCompaniesRaw(updatedRaw);
+    setCrawling(false);
+    setCrawlProgress({ current: 0, total: 0 });
+    showSuccess(`Crawled ${enrichedRows.length} company websites!`);
+  };
   
   const normalizedGR = useMemo(() => {
     const normalized = grCompaniesRaw.map((r) => normalizeRow(r, grMap, { preferRangeMidpoint: true }));
@@ -171,7 +255,7 @@ export default function OpsConsole(){
   }, [grCompaniesRaw, grMap]);
   
   const filteredGR = useMemo(() => {
-    const filtered = filterTargets(normalizedGR, { regionFilter, minRev, maxRev, minEbitda: 0, maxEbitda: 999999, ownerPref });
+    const filtered = filterTargets(normalizedGR, { regionFilter, minRev, maxRev, ownerPref });
     console.log("🔄 Filtered data:", {
       total: filtered.length,
       filters: { regionFilter, minRev, maxRev, ownerPref }
@@ -213,7 +297,7 @@ export default function OpsConsole(){
     const names = top.map((t) => t.name).filter(Boolean).slice(0,5).join(", ");
     const lines = [
       `${label}: ${scored.length} qualified targets; top 5: ${names || "(add data)"}.`,
-      `Prioritized ${top.length} targets with Likely Seller Score ≥ ${scoreThreshold}.`,
+      `Prioritized ${top.length} targets with Score ≥ ${scoreThreshold}.`,
     ].filter(Boolean);
     return `• ${lines.join("\n• ")}`;
   };
@@ -264,6 +348,7 @@ export default function OpsConsole(){
       Tag: opts.tag,
       Score: r.score ?? "",
       Region: r.hq || "",
+      Clinics: r.clinicCount || "",
     }));
     return out;
   };
@@ -284,7 +369,7 @@ export default function OpsConsole(){
         </div>
         <div className="flex-1">
           <h1 className="text-2xl font-bold text-slate-900">Grata Ops Console</h1>
-          <p className="text-sm text-slate-600">Deal sourcing & intelligence platform</p>
+          <p className="text-sm text-slate-600">Top-of-funnel deal sourcing for bootstrapped companies</p>
         </div>
         <Button
           variant="outline"
@@ -342,6 +427,21 @@ export default function OpsConsole(){
         </div>
       )}
 
+      {crawling && (
+        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-50 flex items-center justify-center">
+          <div className="bg-white p-6 rounded-xl shadow-xl">
+            <div className="flex items-center gap-3 mb-4">
+              <Loader2 className="w-6 h-6 animate-spin text-emerald-600" />
+              <span className="font-medium">Crawling Websites...</span>
+            </div>
+            <Progress value={(crawlProgress.current / crawlProgress.total) * 100} className="w-64" />
+            <div className="text-sm text-slate-600 mt-2 text-center">
+              {crawlProgress.current} / {crawlProgress.total} companies
+            </div>
+          </div>
+        </div>
+      )}
+
       <Tabs value={page} onValueChange={setPage}>
         <TabsList className="bg-white border border-slate-200">
           <TabsTrigger value="grata">Grata Data</TabsTrigger>
@@ -360,7 +460,7 @@ export default function OpsConsole(){
                   <div className="flex-1">
                     <h3 className="font-semibold text-emerald-900 mb-2">Getting Started with Grata Data</h3>
                     <p className="text-sm text-emerald-700 mb-3">
-                      Upload your Grata company exports to discover and score potential targets. Need help exporting from Grata?
+                      Upload your Grata company exports to discover and score potential targets. Focus on bootstrapped, privately-held companies.
                     </p>
                     <Button
                       onClick={() => setShowHowTo(true)}
@@ -459,15 +559,39 @@ export default function OpsConsole(){
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="w-2 h-2 rounded-full bg-blue-500"></div>
-                  Set filters → Review scored targets
+                  Crawl websites for clinic counts
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="w-2 h-2 rounded-full bg-purple-500"></div>
-                  Sync to Outreach or export to CSV/XLSX
+                  Filter & score → Sync to Outreach
                 </div>
               </CardContent>
             </Card>
           </div>
+
+          {grCompaniesRaw.length > 0 && (
+            <Card className="shadow-sm border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2">
+                  <Globe className="w-5 h-5 text-blue-600"/>
+                  Website Intelligence
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-slate-700 mb-3">
+                  Automatically crawl company websites to extract clinic/location counts and verify website status. This enhances scoring accuracy.
+                </p>
+                <Button
+                  onClick={crawlWebsites}
+                  disabled={crawling || normalizedGR.length === 0}
+                  className="bg-blue-600 hover:bg-blue-700"
+                >
+                  <Globe className="w-4 h-4 mr-2" />
+                  Crawl All Websites
+                </Button>
+              </CardContent>
+            </Card>
+          )}
 
           <Card className="shadow-sm border-slate-200">
             <CardHeader className="bg-gradient-to-r from-amber-50 to-transparent">
@@ -492,7 +616,7 @@ export default function OpsConsole(){
                   <SelectTrigger><SelectValue/></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="Any">Any</SelectItem>
-                    <SelectItem value="Founder-owned">Founder-owned</SelectItem>
+                    <SelectItem value="Founder-owned">Founder/Bootstrapped Only</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -563,7 +687,7 @@ export default function OpsConsole(){
           <Card className="shadow-sm border-slate-200">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
-                <CardTitle>Targets (Grata – ranked)</CardTitle>
+                <CardTitle>Targets (Grata – ranked by fit)</CardTitle>
                 <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">
                   {grScored.length} qualified
                 </Badge>
@@ -578,7 +702,8 @@ export default function OpsConsole(){
                       <th className="py-3 px-4 font-semibold">HQ</th>
                       <th className="py-3 px-4 font-semibold">Revenue</th>
                       <th className="py-3 px-4 font-semibold">Employees</th>
-                      <th className="py-3 px-4 font-semibold">Ownership</th>
+                      <th className="py-3 px-4 font-semibold">Clinics</th>
+                      <th className="py-3 px-4 font-semibold">Website</th>
                       <th className="py-3 px-4 font-semibold">Score</th>
                       <th className="py-3 px-4 font-semibold">Priority</th>
                     </tr>
@@ -590,7 +715,23 @@ export default function OpsConsole(){
                         <td className="py-3 px-4 text-slate-600">{t.hq}</td>
                         <td className="py-3 px-4 text-slate-600">{isNaN(t.revenue) ? "—" : `$${t.revenue}M`}</td>
                         <td className="py-3 px-4 text-slate-600">{isNaN(t.employees) ? "—" : Math.round(t.employees)}</td>
-                        <td className="py-3 px-4 text-slate-600">{t.ownership}</td>
+                        <td className="py-3 px-4 text-slate-600">
+                          {t.clinicCount ? (
+                            <div className="flex items-center gap-1">
+                              <MapPin className="w-3 h-3 text-blue-600" />
+                              {t.clinicCount}
+                            </div>
+                          ) : "—"}
+                        </td>
+                        <td className="py-3 px-4">
+                          {t.websiteStatus === "working" && (
+                            <Badge className="bg-green-100 text-green-700 text-xs">✓</Badge>
+                          )}
+                          {t.websiteStatus === "broken" && (
+                            <Badge className="bg-red-100 text-red-700 text-xs">✗</Badge>
+                          )}
+                          {!t.websiteStatus && <span className="text-xs text-muted-foreground">—</span>}
+                        </td>
                         <td className="py-3 px-4">
                           <div className="flex items-center gap-2">
                             <div className="w-24">
@@ -746,13 +887,17 @@ export default function OpsConsole(){
 
           <Card className="shadow-sm border-slate-200">
             <CardHeader className="bg-gradient-to-r from-purple-50 to-transparent">
-              <CardTitle>Default Settings</CardTitle>
+              <CardTitle>Scoring Methodology</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4 pt-4">
+            <CardContent className="pt-4 space-y-3">
               <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                <div className="text-sm font-medium text-blue-900 mb-2">Outreach.io CSV Export</div>
-                <div className="text-xs text-blue-700">
-                  Exports include: Email, First/Last Name, Company, Job Title, Account Name, Source, Vertical, Tag, Score, Region
+                <div className="text-sm font-medium text-blue-900 mb-2">Fit Score (0-100) - Top-of-Funnel Focus</div>
+                <div className="space-y-2 text-xs text-blue-700">
+                  <div><strong>35 pts:</strong> Employee count proximity to peer median (PRIMARY)</div>
+                  <div><strong>25 pts:</strong> Clinic/location count match (if crawled)</div>
+                  <div><strong>15 pts:</strong> Revenue proximity to peer median (SECONDARY)</div>
+                  <div><strong>15 pts:</strong> Website status (working = full points, broken = 0)</div>
+                  <div><strong>10 pts:</strong> Strategic fit keywords match</div>
                 </div>
               </div>
               
@@ -802,6 +947,8 @@ function normalizeRow(row, map, opts) {
     lastFinancingYear: lastFinancingYear ? parseInt(String(lastFinancingYear),10) : undefined,
     investors: pick("Investors") || row.Investors || "",
     notes: row.Notes || "",
+    websiteStatus: row._websiteStatus,
+    clinicCount: row._clinicCount,
     contact: {
       email: pick("Email") || row.Email || "",
       firstName: pick("First Name") || row["First Name"] || "",
