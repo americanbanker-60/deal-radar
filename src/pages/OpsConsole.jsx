@@ -1,4 +1,3 @@
-
 import React, { useMemo, useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -611,7 +610,7 @@ Return JSON:
           <p className="text-sm text-slate-600">Top-of-funnel deal sourcing for bootstrapped companies</p>
         </div>
         <Link to={createPageUrl("SavedTargets")}>
-          <Button variant="outline">
+          <Button className="bg-blue-600 hover:bg-blue-700 text-white shadow-md">
             <Database className="w-4 h-4 mr-2" />
             View Saved Targets
           </Button>
