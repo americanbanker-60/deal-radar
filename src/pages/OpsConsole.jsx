@@ -100,6 +100,21 @@ export default function OpsConsole(){
   const [scoreThreshold, setScoreThreshold] = useState(0);
   const [insights, setInsights] = useState("");
 
+  // Scoring weights
+  const [weights, setWeights] = useState({
+    employees: 35,
+    clinics: 25,
+    revenue: 15,
+    website: 15,
+    keywords: 10
+  });
+
+  // Target ranges for fit score
+  const [targetMinEmp, setTargetMinEmp] = useState("");
+  const [targetMaxEmp, setTargetMaxEmp] = useState("");
+  const [targetMinRev, setTargetMinRev] = useState("");
+  const [targetMaxRev, setTargetMaxRev] = useState("");
+
   // Outreach custom fields
   const [vertical, setVertical] = useState("Healthcare Services");
   const [tag, setTag] = useState("BD-Priority");
