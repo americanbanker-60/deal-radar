@@ -515,13 +515,23 @@ Return JSON:
   }, [normalizedGR, regionFilter, minRev, maxRev, ownerPref]);
   
   const grScored = useMemo(() => {
-    const scored = scoreTargets(filteredGR, { fitKeywords });
+    const scored = scoreTargets(filteredGR, { 
+      fitKeywords,
+      weights,
+      targetRange: {
+        minEmployees: targetMinEmp ? parseInt(targetMinEmp) : null,
+        maxEmployees: targetMaxEmp ? parseInt(targetMaxEmp) : null,
+        minRevenue: targetMinRev ? parseFloat(targetMinRev) : null,
+        maxRevenue: targetMaxRev ? parseFloat(targetMaxRev) : null
+      }
+    });
     console.log("🔄 Scored data:", {
       total: scored.length,
-      fitKeywords
+      fitKeywords,
+      weights
     });
     return scored;
-  }, [filteredGR, fitKeywords]);
+  }, [filteredGR, fitKeywords, weights, targetMinEmp, targetMaxEmp, targetMinRev, targetMaxRev]);
 
   const downloadText = (filename, text) => {
     const blob = new Blob([text], { type: "text/csv;charset=utf-8;" });
