@@ -37,7 +37,22 @@ export function filterTargets(rows, filters) {
 }
 
 export function scoreTargets(rows, opts) {
-  const { fitKeywords } = opts;
+  const { 
+    fitKeywords,
+    weights = {
+      employees: 35,
+      clinics: 25,
+      revenue: 15,
+      website: 15,
+      keywords: 10
+    },
+    targetRange = {
+      minEmployees: null,
+      maxEmployees: null,
+      minRevenue: null,
+      maxRevenue: null
+    }
+  } = opts;
   
   // Calculate peer group medians
   const employees = rows.map((t) => t.employees).filter((x) => !isNaN(x) && x > 0);
@@ -52,42 +67,81 @@ export function scoreTargets(rows, opts) {
 
   return rows.map((t) => {
     let score = 0;
+    let fitScore = 0;
     
-    // Employee count match (35 points) - PRIMARY
-    if (!isNaN(t.employees) && p50Emp && t.employees > 0) {
-      const proximity = 1 - Math.min(1, Math.abs((t.employees - p50Emp) / (p50Emp || 1)));
-      score += 35 * proximity;
+    // Employee count match - with range-based scoring
+    if (!isNaN(t.employees) && t.employees > 0) {
+      if (targetRange.minEmployees && targetRange.maxEmployees) {
+        // Range-based: full points if in range, decreasing outside
+        const midRange = (targetRange.minEmployees + targetRange.maxEmployees) / 2;
+        if (t.employees >= targetRange.minEmployees && t.employees <= targetRange.maxEmployees) {
+          score += weights.employees; // Full points in range
+          fitScore += 100; // Perfect fit
+        } else {
+          const proximity = 1 - Math.min(1, Math.abs((t.employees - midRange) / (midRange || 1)));
+          score += weights.employees * proximity;
+          fitScore += 100 * proximity;
+        }
+      } else if (p50Emp) {
+        // Peer-based: proximity to median
+        const proximity = 1 - Math.min(1, Math.abs((t.employees - p50Emp) / (p50Emp || 1)));
+        score += weights.employees * proximity;
+      }
     }
     
-    // Clinic/location count match (25 points)
+    // Clinic/location count match
     if (!isNaN(t.clinicCount) && p50Clinics && t.clinicCount > 0) {
       const proximity = 1 - Math.min(1, Math.abs((t.clinicCount - p50Clinics) / (p50Clinics || 1)));
-      score += 25 * proximity;
+      score += weights.clinics * proximity;
     }
     
-    // Revenue match (15 points) - SECONDARY
-    if (!isNaN(t.revenue) && p50Rev && t.revenue > 0) {
-      const proximity = 1 - Math.min(1, Math.abs((t.revenue - p50Rev) / (p50Rev || 1)));
-      score += 15 * proximity;
+    // Revenue match - with range-based scoring
+    if (!isNaN(t.revenue) && t.revenue > 0) {
+      if (targetRange.minRevenue && targetRange.maxRevenue) {
+        // Range-based: full points if in range
+        const midRange = (targetRange.minRevenue + targetRange.maxRevenue) / 2;
+        if (t.revenue >= targetRange.minRevenue && t.revenue <= targetRange.maxRevenue) {
+          score += weights.revenue; // Full points in range
+          fitScore += 50; // Fit contribution
+        } else {
+          const proximity = 1 - Math.min(1, Math.abs((t.revenue - midRange) / (midRange || 1)));
+          score += weights.revenue * proximity;
+          fitScore += 50 * proximity;
+        }
+      } else if (p50Rev) {
+        // Peer-based: proximity to median
+        const proximity = 1 - Math.min(1, Math.abs((t.revenue - p50Rev) / (p50Rev || 1)));
+        score += weights.revenue * proximity;
+      }
     }
     
-    // Website status (15 points)
+    // Website status
     if (t.websiteStatus === "working") {
-      score += 15;
+      score += weights.website;
+      fitScore += 25;
     } else if (t.websiteStatus === "broken") {
       score += 0; // Penalty: no points
+      fitScore -= 50; // Negative fit
     }
     
-    // Strategic fit keywords (10 points)
+    // Strategic fit keywords
     if (kws.length && kws.some(k => 
       (t.name || "").toLowerCase().includes(k) || 
       (t.subsector || "").toLowerCase().includes(k) || 
       (t.industry || "").toLowerCase().includes(k)
     )) {
-      score += 10;
+      score += weights.keywords;
+      fitScore += 25;
     }
     
-    return { ...t, score: Math.round(score) };
+    // Normalize fit score to 0-100
+    fitScore = Math.max(0, Math.min(100, fitScore));
+    
+    return { 
+      ...t, 
+      score: Math.round(score),
+      fitScore: Math.round(fitScore)
+    };
   }).sort((a, b) => b.score - a.score);
 }
 
