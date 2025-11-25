@@ -16,6 +16,7 @@ import { Link } from "react-router-dom";
 import { createPageUrl } from "../utils";
 
 import SchemaMapper from "../components/ops/SchemaMapper";
+import ScoringWeights from "../components/ops/ScoringWeights";
 import { filterTargets, scoreTargets } from "../components/ops/analyticsHelpers";
 import HowToUse from "../components/ops/HowToUse";
 import OutreachIntegration from "../components/ops/OutreachIntegration";
@@ -1267,35 +1268,34 @@ Return JSON:
             </CardContent>
           </Card>
 
-          <Card className="shadow-sm border-slate-200">
-            <CardHeader className="bg-gradient-to-r from-purple-50 to-transparent">
-              <CardTitle>Scoring Methodology</CardTitle>
-            </CardHeader>
-            <CardContent className="pt-4 space-y-3">
-              <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                <div className="text-sm font-medium text-blue-900 mb-2">Fit Score (0-100) - Top-of-Funnel Focus</div>
-                <div className="space-y-2 text-xs text-blue-700">
-                  <div><strong>35 pts:</strong> Employee count proximity to peer median (PRIMARY)</div>
-                  <div><strong>25 pts:</strong> Clinic/location count match (if crawled)</div>
-                  <div><strong>15 pts:</strong> Revenue proximity to peer median (SECONDARY)</div>
-                  <div><strong>15 pts:</strong> Website status (working = full points, broken = 0)</div>
-                  <div><strong>10 pts:</strong> Strategic fit keywords match</div>
+          <ScoringWeights
+            weights={weights}
+            setWeights={setWeights}
+            targetMinEmp={targetMinEmp}
+            setTargetMinEmp={setTargetMinEmp}
+            targetMaxEmp={targetMaxEmp}
+            setTargetMaxEmp={setTargetMaxEmp}
+            targetMinRev={targetMinRev}
+            setTargetMinRev={setTargetMinRev}
+            targetMaxRev={targetMaxRev}
+            setTargetMaxRev={setTargetMaxRev}
+          />
+
+          {insights && (
+            <Card className="shadow-sm border-slate-200">
+              <CardHeader className="bg-gradient-to-r from-green-50 to-transparent">
+                <CardTitle>Generated Insights</CardTitle>
+              </CardHeader>
+              <CardContent className="pt-4 space-y-3">
+                <Textarea value={insights} readOnly className="h-32 bg-slate-50" />
+                <div className="flex gap-2">
+                  <Button variant="secondary" onClick={() => copy(insights)}>
+                    Copy Insights
+                  </Button>
                 </div>
-              </div>
-              
-              {insights && (
-                <div className="space-y-2 pt-2">
-                  <div className="text-sm font-medium">Generated Insights</div>
-                  <Textarea value={insights} readOnly className="h-32 bg-slate-50" />
-                  <div className="flex gap-2">
-                    <Button variant="secondary" onClick={() => copy(insights)}>
-                      Copy Insights
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
       </Tabs>
     </div>
