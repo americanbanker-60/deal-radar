@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
-import { Database, Filter, Download, Trash2, MapPin, Globe, Building2, Search, ArrowLeft } from "lucide-react";
+import { Database, Filter, Download, Trash2, MapPin, Globe, Building2, Search, ArrowLeft, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "../utils";
@@ -16,6 +16,8 @@ export default function SavedTargets() {
   const [selectedCampaign, setSelectedCampaign] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [sortField, setSortField] = useState(null);
+  const [sortDirection, setSortDirection] = useState("desc");
   const queryClient = useQueryClient();
 
   const { data: targets = [], isLoading } = useQuery({
@@ -43,7 +45,7 @@ export default function SavedTargets() {
   }, [targets]);
 
   const filteredTargets = useMemo(() => {
-    return targets.filter(t => {
+    let filtered = targets.filter(t => {
       const campaignMatch = selectedCampaign === "all" || t.campaign === selectedCampaign;
       const statusMatch = statusFilter === "all" || t.status === statusFilter;
       const searchMatch = !searchQuery || 
@@ -52,7 +54,42 @@ export default function SavedTargets() {
         (t.hq || "").toLowerCase().includes(searchQuery.toLowerCase());
       return campaignMatch && statusMatch && searchMatch;
     });
-  }, [targets, selectedCampaign, statusFilter, searchQuery]);
+
+    if (sortField) {
+      filtered = [...filtered].sort((a, b) => {
+        const aVal = a[sortField] ?? 0;
+        const bVal = b[sortField] ?? 0;
+        return sortDirection === "asc" ? aVal - bVal : bVal - aVal;
+      });
+    }
+
+    return filtered;
+  }, [targets, selectedCampaign, statusFilter, searchQuery, sortField, sortDirection]);
+
+  const toggleSort = (field) => {
+    if (sortField === field) {
+      setSortDirection(prev => prev === "asc" ? "desc" : "asc");
+    } else {
+      setSortField(field);
+      setSortDirection("desc");
+    }
+  };
+
+  const SortHeader = ({ field, children }) => (
+    <th 
+      className="py-3 px-4 font-semibold cursor-pointer hover:bg-slate-100 transition-colors"
+      onClick={() => toggleSort(field)}
+    >
+      <div className="flex items-center gap-1">
+        {children}
+        {sortField === field ? (
+          sortDirection === "desc" ? <ArrowDown className="w-3 h-3" /> : <ArrowUp className="w-3 h-3" />
+        ) : (
+          <ArrowUpDown className="w-3 h-3 text-slate-400" />
+        )}
+      </div>
+    </th>
+  );
 
   const exportCSV = async () => {
     const data = filteredTargets.map(t => ({
@@ -203,9 +240,9 @@ export default function SavedTargets() {
                     <th className="py-3 px-4 font-semibold">Short Name</th>
                     <th className="py-3 px-4 font-semibold">Sector</th>
                     <th className="py-3 px-4 font-semibold">HQ</th>
-                    <th className="py-3 px-4 font-semibold">Employees</th>
-                    <th className="py-3 px-4 font-semibold">Clinics</th>
-                    <th className="py-3 px-4 font-semibold">Score</th>
+                    <SortHeader field="employees">Employees</SortHeader>
+                    <SortHeader field="clinicCount">Clinics</SortHeader>
+                    <SortHeader field="score">Score</SortHeader>
                     <th className="py-3 px-4 font-semibold">Status</th>
                     <th className="py-3 px-4 font-semibold">Actions</th>
                   </tr>
