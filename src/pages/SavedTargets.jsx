@@ -323,8 +323,8 @@ export default function SavedTargets() {
                               <Badge variant="outline" className="text-xs whitespace-nowrap">{t.sectorFocus}</Badge>
                             )}
                           </td>
-                          <td className="py-3 px-4 text-slate-600 whitespace-nowrap">{t.city || "—"}</td>
-                          <td className="py-3 px-4 text-slate-600 whitespace-nowrap">{t.state || "—"}</td>
+                          <td className="py-3 px-4 text-slate-600 whitespace-nowrap">{t.city || t.hq || "—"}</td>
+                                                      <td className="py-3 px-4 text-slate-600 whitespace-nowrap">{t.state || "—"}</td>
                           <td className="py-3 px-4">
                         {t.website ? (
                           <a 
