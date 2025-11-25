@@ -43,6 +43,8 @@ export default function SavedTargets() {
   });
 
   const rescoreTargets = async () => {
+    if (targets.length === 0) return;
+    
     setRescoring(true);
     try {
       // Load weights and ranges from localStorage
@@ -53,14 +55,10 @@ export default function SavedTargets() {
       const targetMaxRev = localStorage.getItem('ops_console_targetMaxRev') || "";
       const fitKeywords = localStorage.getItem('ops_console_vertical') || "Healthcare Services";
 
-      // Convert saved targets to scoring format
-      const targetsForScoring = targets.map(t => ({
-        ...t,
-        clinicCount: t.clinicCount,
-      }));
+      console.log("Re-scoring with:", { weights, targetMinEmp, targetMaxEmp, targetMinRev, targetMaxRev, fitKeywords });
 
       // Score them
-      const scored = scoreTargets(targetsForScoring, {
+      const scored = scoreTargets(targets, {
         fitKeywords,
         weights,
         targetRange: {
@@ -71,15 +69,17 @@ export default function SavedTargets() {
         }
       });
 
-      // Update each target with new score
+      console.log("Scored results:", scored.slice(0, 3));
+
+      // Update all targets with new scores
+      let updated = 0;
       for (const target of scored) {
-        const original = targets.find(t => t.id === target.id);
-        if (original && original.score !== target.score) {
-          await base44.entities.BDTarget.update(target.id, { score: target.score });
-        }
+        await base44.entities.BDTarget.update(target.id, { score: target.score });
+        updated++;
       }
 
-      queryClient.invalidateQueries({ queryKey: ['bdTargets'] });
+      console.log(`Updated ${updated} targets`);
+      await queryClient.invalidateQueries({ queryKey: ['bdTargets'] });
     } catch (error) {
       console.error("Re-score error:", error);
     }
