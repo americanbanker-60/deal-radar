@@ -20,13 +20,13 @@ export default function SchemaMapper({ headers, mapping, setMapping, internalFie
             <div className="text-xs font-medium text-slate-700">{field}</div>
             <Select 
               value={mapping[field] || ""} 
-              onValueChange={(v) => setMapping({ ...mapping, [field]: v })}
+              onValueChange={(v) => setMapping({ ...mapping, [field]: v === "_none_" ? "" : v })}
             >
               <SelectTrigger className="bg-white">
                 <SelectValue placeholder="Select source column"/>
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={null}>(none)</SelectItem>
+                <SelectItem value="_none_">(none)</SelectItem>
                 {headers.map((h) => (
                   <SelectItem key={h} value={h}>{h}</SelectItem>
                 ))}
