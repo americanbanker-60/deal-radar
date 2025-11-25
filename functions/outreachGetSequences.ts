@@ -21,7 +21,7 @@ async function getValidToken(base44, user) {
         const refreshResult = await base44.functions.invoke('outreachRefreshToken', {
             connectionId: conn.id
         });
-        return refreshResult.access_token;
+        return refreshResult.data.access_token;
     }
 
     return conn.access_token;
