@@ -22,7 +22,7 @@ import HowToUse from "../components/ops/HowToUse";
 import OutreachIntegration from "../components/ops/OutreachIntegration";
 
 const DEFAULT_FIELDS = [
-  "Company Name","URL","HQ Location","Ownership","Founders / Executives","Revenue","Last Financing Year","Website","LinkedIn","Investors","City","State","Country","Industry","Subsector","Employee Count","Employee Range","Revenue Range","Email","First Name","Last Name","Job Title","Phone"
+  "Company Name","URL","City","State","Country","HQ Location","Ownership","Founders / Executives","Revenue","Last Financing Year","Website","LinkedIn","Investors","Industry","Subsector","Employee Count","Employee Range","Revenue Range","Email","First Name","Last Name","Job Title","Phone"
 ];
 
 const SECTOR_OPTIONS = `HS: Allergy, Ear, Nose and Throat
