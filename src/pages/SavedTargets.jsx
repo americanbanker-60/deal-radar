@@ -240,6 +240,7 @@ export default function SavedTargets() {
                     <th className="py-3 px-4 font-semibold">Short Name</th>
                     <th className="py-3 px-4 font-semibold">Sector</th>
                     <th className="py-3 px-4 font-semibold">HQ</th>
+                    <th className="py-3 px-4 font-semibold">Website</th>
                     <SortHeader field="employees">Employees</SortHeader>
                     <SortHeader field="clinicCount">Clinics</SortHeader>
                     <SortHeader field="score">Score</SortHeader>
@@ -261,6 +262,18 @@ export default function SavedTargets() {
                         )}
                       </td>
                       <td className="py-3 px-4 text-slate-600">{t.hq}</td>
+                      <td className="py-3 px-4">
+                        {t.website ? (
+                          <a 
+                            href={t.website.startsWith('http') ? t.website : `https://${t.website}`} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="text-blue-600 hover:underline text-xs truncate block max-w-[150px]"
+                          >
+                            {t.website.replace(/^https?:\/\//, '').replace(/\/$/, '')}
+                          </a>
+                        ) : "—"}
+                      </td>
                       <td className="py-3 px-4 text-slate-600">{t.employees || "—"}</td>
                       <td className="py-3 px-4 text-slate-600">
                         {t.clinicCount ? (
