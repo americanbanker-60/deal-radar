@@ -144,7 +144,8 @@ export default function SavedTargets() {
       "Company Name": t.name,
       "Short Name": t.companyShortName,
       "Sector Focus": t.sectorFocus,
-      HQ: t.hq,
+      City: t.city,
+      State: t.state,
       Revenue: t.revenue ? `$${t.revenue}M` : "",
       Employees: t.employees,
       Clinics: t.clinicCount,
@@ -294,12 +295,13 @@ export default function SavedTargets() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="text-left border-b-2 border-slate-200 bg-slate-50">
-                    <th className="py-3 px-4 font-semibold">Campaign</th>
-                    <th className="py-3 px-4 font-semibold">Name</th>
-                    <th className="py-3 px-4 font-semibold">Short Name</th>
-                    <th className="py-3 px-4 font-semibold">Sector</th>
-                    <th className="py-3 px-4 font-semibold">HQ</th>
-                    <th className="py-3 px-4 font-semibold">Website</th>
+                    <th className="py-3 px-4 font-semibold whitespace-nowrap">Campaign</th>
+                        <th className="py-3 px-4 font-semibold whitespace-nowrap">Name</th>
+                        <th className="py-3 px-4 font-semibold whitespace-nowrap">Short Name</th>
+                        <th className="py-3 px-4 font-semibold whitespace-nowrap">Sector</th>
+                        <th className="py-3 px-4 font-semibold whitespace-nowrap">City</th>
+                        <th className="py-3 px-4 font-semibold whitespace-nowrap">State</th>
+                        <th className="py-3 px-4 font-semibold whitespace-nowrap">Website</th>
                     <SortHeader field="employees">Employees</SortHeader>
                     <SortHeader field="clinicCount">Clinics</SortHeader>
                     <SortHeader field="score">Score</SortHeader>
@@ -316,12 +318,13 @@ export default function SavedTargets() {
                       <td className="py-3 px-4 max-w-[200px] truncate font-medium">{t.name}</td>
                       <td className="py-3 px-4 text-slate-600">{t.companyShortName || "—"}</td>
                       <td className="py-3 px-4">
-                        {t.sectorFocus && (
-                          <Badge variant="outline" className="text-xs">{t.sectorFocus}</Badge>
-                        )}
-                      </td>
-                      <td className="py-3 px-4 text-slate-600">{t.hq}</td>
-                      <td className="py-3 px-4">
+                            {t.sectorFocus && (
+                              <Badge variant="outline" className="text-xs whitespace-nowrap">{t.sectorFocus}</Badge>
+                            )}
+                          </td>
+                          <td className="py-3 px-4 text-slate-600 whitespace-nowrap">{t.city || "—"}</td>
+                          <td className="py-3 px-4 text-slate-600 whitespace-nowrap">{t.state || "—"}</td>
+                          <td className="py-3 px-4">
                         {t.website ? (
                           <a 
                             href={t.website.startsWith('http') ? t.website : `https://${t.website}`} 
