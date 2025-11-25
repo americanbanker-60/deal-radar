@@ -1078,6 +1078,7 @@ Return JSON:
                       <th className="py-3 px-4 font-semibold">Clinics</th>
                       <th className="py-3 px-4 font-semibold">Website</th>
                       <th className="py-3 px-4 font-semibold">Score</th>
+                      <th className="py-3 px-4 font-semibold">Fit</th>
                       <th className="py-3 px-4 font-semibold">Priority</th>
                     </tr>
                   </thead>
@@ -1119,11 +1120,24 @@ Return JSON:
                         </td>
                         <td className="py-3 px-4">
                           <div className="flex items-center gap-2">
-                            <div className="w-24">
+                            <div className="w-16">
                               <Progress value={t.score} className="h-2" />
                             </div>
                             <span className="text-xs font-medium">{t.score}</span>
                           </div>
+                        </td>
+                        <td className="py-3 px-4">
+                          {t.fitScore !== undefined && (
+                            <Badge 
+                              className={
+                                t.fitScore >= 75 ? "bg-green-100 text-green-700" :
+                                t.fitScore >= 50 ? "bg-yellow-100 text-yellow-700" :
+                                "bg-slate-100 text-slate-600"
+                              }
+                            >
+                              {t.fitScore}%
+                            </Badge>
+                          )}
                         </td>
                         <td className="py-3 px-4">
                           {t.score >= scoreThreshold ? (
