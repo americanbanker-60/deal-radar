@@ -96,9 +96,10 @@ export default function SavedTargets() {
       const campaignMatch = selectedCampaign === "all" || t.campaign === selectedCampaign;
       const statusMatch = statusFilter === "all" || t.status === statusFilter;
       const searchMatch = !searchQuery || 
-        (t.name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (t.companyShortName || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (t.hq || "").toLowerCase().includes(searchQuery.toLowerCase());
+                    (t.name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+                    (t.companyShortName || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+                    (t.city || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+                    (t.state || "").toLowerCase().includes(searchQuery.toLowerCase());
       return campaignMatch && statusMatch && searchMatch;
     });
 

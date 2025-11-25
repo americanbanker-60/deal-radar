@@ -462,6 +462,8 @@ Return JSON:
           sectorFocus: t.sectorFocus,
           website: t.website,
           websiteStatus: t.websiteStatus,
+          city: t.city,
+          state: t.state,
           hq: t.hq,
           industry: t.industry,
           subsector: t.subsector,
@@ -1089,11 +1091,12 @@ Return JSON:
                           onCheckedChange={toggleSelectAll}
                         />
                       </th>
-                      <th className="py-3 px-4 font-semibold">Name</th>
-                      <th className="py-3 px-4 font-semibold">Short Name</th>
-                      <th className="py-3 px-4 font-semibold">Sector</th>
-                      <th className="py-3 px-4 font-semibold">HQ</th>
-                      <th className="py-3 px-4 font-semibold">Revenue</th>
+                      <th className="py-3 px-4 font-semibold whitespace-nowrap">Name</th>
+                      <th className="py-3 px-4 font-semibold whitespace-nowrap">Short Name</th>
+                      <th className="py-3 px-4 font-semibold whitespace-nowrap">Sector</th>
+                      <th className="py-3 px-4 font-semibold whitespace-nowrap">City</th>
+                      <th className="py-3 px-4 font-semibold whitespace-nowrap">State</th>
+                      <th className="py-3 px-4 font-semibold whitespace-nowrap">Revenue</th>
                       <th className="py-3 px-4 font-semibold">Employees</th>
                       <th className="py-3 px-4 font-semibold">Clinics</th>
                       <th className="py-3 px-4 font-semibold">Website</th>
@@ -1115,11 +1118,12 @@ Return JSON:
                         <td className="py-3 px-4 text-slate-600">{t.companyShortName || "—"}</td>
                         <td className="py-3 px-4">
                           {t.sectorFocus && (
-                            <Badge variant="outline" className="text-xs">{t.sectorFocus}</Badge>
+                            <Badge variant="outline" className="text-xs whitespace-nowrap">{t.sectorFocus}</Badge>
                           )}
                         </td>
-                        <td className="py-3 px-4 text-slate-600">{t.hq}</td>
-                        <td className="py-3 px-4 text-slate-600">{isNaN(t.revenue) ? "—" : `$${t.revenue}M`}</td>
+                        <td className="py-3 px-4 text-slate-600 whitespace-nowrap">{t.city || "—"}</td>
+                        <td className="py-3 px-4 text-slate-600 whitespace-nowrap">{t.state || "—"}</td>
+                        <td className="py-3 px-4 text-slate-600 whitespace-nowrap">{isNaN(t.revenue) ? "—" : `$${t.revenue}M`}</td>
                         <td className="py-3 px-4 text-slate-600">{isNaN(t.employees) ? "—" : Math.round(t.employees)}</td>
                         <td className="py-3 px-4 text-slate-600">
                           {t.clinicCount ? (
@@ -1354,6 +1358,8 @@ function normalizeRow(row, map, opts) {
     url: pick("URL") || row.URL || row.Website || "",
     website: pick("Website") || row.Website || "",
     linkedin: pick("LinkedIn") || row.LinkedIn || "",
+    city: pick("City") || row.City || "",
+    state: pick("State") || row.State || "",
     hq: pick("HQ Location") || row["HQ"] || row.City || row.State || row.Country || "",
     industry: pick("Industry") || row.Industry || "Healthcare Services",
     subsector: pick("Subsector") || row.Subsector || "",
