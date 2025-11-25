@@ -7,10 +7,12 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
-import { Database, Filter, Download, Trash2, MapPin, Globe, Building2, Search, ArrowLeft, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { Database, Filter, Download, Trash2, MapPin, Globe, Building2, Search, ArrowLeft, ArrowUpDown, ArrowUp, ArrowDown, RefreshCw, Loader2 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "../utils";
+
+import { scoreTargets } from "../components/ops/analyticsHelpers";
 
 export default function SavedTargets() {
   const [selectedCampaign, setSelectedCampaign] = useState("all");
@@ -18,6 +20,7 @@ export default function SavedTargets() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [sortField, setSortField] = useState(null);
   const [sortDirection, setSortDirection] = useState("desc");
+  const [rescoring, setRescoring] = useState(false);
   const queryClient = useQueryClient();
 
   const { data: targets = [], isLoading } = useQuery({
@@ -38,6 +41,50 @@ export default function SavedTargets() {
       queryClient.invalidateQueries({ queryKey: ['bdTargets'] });
     },
   });
+
+  const rescoreTargets = async () => {
+    setRescoring(true);
+    try {
+      // Load weights and ranges from localStorage
+      const weights = JSON.parse(localStorage.getItem('ops_console_weights') || '{"employees":35,"clinics":25,"revenue":15,"website":15,"keywords":10}');
+      const targetMinEmp = localStorage.getItem('ops_console_targetMinEmp') || "";
+      const targetMaxEmp = localStorage.getItem('ops_console_targetMaxEmp') || "";
+      const targetMinRev = localStorage.getItem('ops_console_targetMinRev') || "";
+      const targetMaxRev = localStorage.getItem('ops_console_targetMaxRev') || "";
+      const fitKeywords = localStorage.getItem('ops_console_vertical') || "Healthcare Services";
+
+      // Convert saved targets to scoring format
+      const targetsForScoring = targets.map(t => ({
+        ...t,
+        clinicCount: t.clinicCount,
+      }));
+
+      // Score them
+      const scored = scoreTargets(targetsForScoring, {
+        fitKeywords,
+        weights,
+        targetRange: {
+          minEmployees: targetMinEmp ? parseInt(targetMinEmp) : null,
+          maxEmployees: targetMaxEmp ? parseInt(targetMaxEmp) : null,
+          minRevenue: targetMinRev ? parseFloat(targetMinRev) : null,
+          maxRevenue: targetMaxRev ? parseFloat(targetMaxRev) : null
+        }
+      });
+
+      // Update each target with new score
+      for (const target of scored) {
+        const original = targets.find(t => t.id === target.id);
+        if (original && original.score !== target.score) {
+          await base44.entities.BDTarget.update(target.id, { score: target.score });
+        }
+      }
+
+      queryClient.invalidateQueries({ queryKey: ['bdTargets'] });
+    } catch (error) {
+      console.error("Re-score error:", error);
+    }
+    setRescoring(false);
+  };
 
   const campaigns = useMemo(() => {
     const unique = [...new Set(targets.map(t => t.campaign))];
@@ -146,6 +193,18 @@ export default function SavedTargets() {
           <h1 className="text-2xl font-bold text-slate-900">Saved BD Targets</h1>
           <p className="text-sm text-slate-600">{targets.length} companies across {campaigns.length} campaigns</p>
         </div>
+        <Button 
+          variant="outline" 
+          onClick={rescoreTargets} 
+          disabled={rescoring || targets.length === 0}
+        >
+          {rescoring ? (
+            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+          ) : (
+            <RefreshCw className="w-4 h-4 mr-2" />
+          )}
+          Re-score All
+        </Button>
         <Button onClick={exportCSV} disabled={filteredTargets.length === 0}>
           <Download className="w-4 h-4 mr-2" />
           Export CSV

@@ -101,20 +101,27 @@ export default function OpsConsole(){
   const [scoreThreshold, setScoreThreshold] = useState(0);
   const [insights, setInsights] = useState("");
 
-  // Scoring weights
-  const [weights, setWeights] = useState({
-    employees: 35,
-    clinics: 25,
-    revenue: 15,
-    website: 15,
-    keywords: 10
+  // Scoring weights - load from localStorage
+  const [weights, setWeights] = useState(() => {
+    try {
+      const saved = localStorage.getItem('ops_console_weights');
+      return saved ? JSON.parse(saved) : {
+        employees: 35,
+        clinics: 25,
+        revenue: 15,
+        website: 15,
+        keywords: 10
+      };
+    } catch {
+      return { employees: 35, clinics: 25, revenue: 15, website: 15, keywords: 10 };
+    }
   });
 
-  // Target ranges for fit score
-  const [targetMinEmp, setTargetMinEmp] = useState("");
-  const [targetMaxEmp, setTargetMaxEmp] = useState("");
-  const [targetMinRev, setTargetMinRev] = useState("");
-  const [targetMaxRev, setTargetMaxRev] = useState("");
+  // Target ranges for fit score - load from localStorage
+  const [targetMinEmp, setTargetMinEmp] = useState(() => localStorage.getItem('ops_console_targetMinEmp') || "");
+  const [targetMaxEmp, setTargetMaxEmp] = useState(() => localStorage.getItem('ops_console_targetMaxEmp') || "");
+  const [targetMinRev, setTargetMinRev] = useState(() => localStorage.getItem('ops_console_targetMinRev') || "");
+  const [targetMaxRev, setTargetMaxRev] = useState(() => localStorage.getItem('ops_console_targetMaxRev') || "");
 
   // Outreach custom fields
   const [vertical, setVertical] = useState("Healthcare Services");
@@ -168,6 +175,19 @@ export default function OpsConsole(){
   useEffect(() => {
     localStorage.setItem('ops_console_tag', tag);
   }, [tag]);
+
+  // Save scoring weights
+  useEffect(() => {
+    localStorage.setItem('ops_console_weights', JSON.stringify(weights));
+  }, [weights]);
+
+  // Save target ranges
+  useEffect(() => {
+    localStorage.setItem('ops_console_targetMinEmp', targetMinEmp);
+    localStorage.setItem('ops_console_targetMaxEmp', targetMaxEmp);
+    localStorage.setItem('ops_console_targetMinRev', targetMinRev);
+    localStorage.setItem('ops_console_targetMaxRev', targetMaxRev);
+  }, [targetMinEmp, targetMaxEmp, targetMinRev, targetMaxRev]);
 
   const showSuccess = (message) => {
     setSuccessMessage(message);
