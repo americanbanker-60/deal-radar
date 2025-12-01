@@ -116,7 +116,7 @@ export default function SavedTargets() {
     }
 
     return filtered;
-  }, [targets, selectedCampaign, statusFilter, searchQuery, sortField, sortDirection]);
+  }, [targets, selectedCampaign, statusFilter, clinicFilter, searchQuery, sortField, sortDirection]);
 
   const toggleSort = (field) => {
     if (sortField === field) {
