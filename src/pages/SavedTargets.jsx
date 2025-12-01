@@ -7,7 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
-import { Database, Filter, Download, Trash2, MapPin, Globe, Building2, Search, ArrowLeft, ArrowUpDown, ArrowUp, ArrowDown, RefreshCw, Loader2, CheckSquare } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Database, Filter, Download, Trash2, MapPin, Globe, Building2, Search, ArrowLeft, ArrowUpDown, ArrowUp, ArrowDown, RefreshCw, Loader2, CheckSquare, Globe2 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Link } from "react-router-dom";
@@ -22,6 +23,8 @@ export default function SavedTargets() {
   const [sortField, setSortField] = useState(null);
   const [sortDirection, setSortDirection] = useState("desc");
   const [rescoring, setRescoring] = useState(false);
+  const [crawling, setCrawling] = useState(false);
+  const [crawlProgress, setCrawlProgress] = useState({ current: 0, total: 0 });
   const [clinicFilter, setClinicFilter] = useState("all");
   const [selectedTargets, setSelectedTargets] = useState(new Set());
   const queryClient = useQueryClient();
@@ -44,6 +47,61 @@ export default function SavedTargets() {
       queryClient.invalidateQueries({ queryKey: ['bdTargets'] });
     },
   });
+
+  const crawlSelectedWebsites = async () => {
+    const selectedList = filteredTargets.filter(t => selectedTargets.has(t.id));
+    if (selectedList.length === 0) return;
+
+    setCrawling(true);
+    setCrawlProgress({ current: 0, total: selectedList.length });
+
+    for (let i = 0; i < selectedList.length; i++) {
+      const target = selectedList[i];
+      setCrawlProgress({ current: i + 1, total: selectedList.length });
+
+      if (!target.website) continue;
+
+      try {
+        const prompt = `Visit the website ${target.website} for the company "${target.name}". 
+        
+Extract the following information:
+1. Website Status: Does the website load properly? (answer: "working" or "broken")
+2. Number of Locations/Clinics: How many physical locations, clinics, or offices does this company operate? Look for phrases like "locations", "clinics", "offices", "facilities". If you can't find this information, return null.
+
+Return your response as JSON with this exact structure:
+{
+  "websiteStatus": "working" or "broken",
+  "clinicCount": number or null
+}`;
+
+        const result = await base44.integrations.Core.InvokeLLM({
+          prompt,
+          add_context_from_internet: true,
+          response_json_schema: {
+            type: "object",
+            properties: {
+              websiteStatus: { type: "string" },
+              clinicCount: { type: ["number", "null"] }
+            }
+          }
+        });
+
+        await base44.entities.BDTarget.update(target.id, {
+          websiteStatus: result.websiteStatus || "unknown",
+          clinicCount: result.clinicCount || undefined
+        });
+      } catch (error) {
+        console.error(`Error crawling ${target.name}:`, error);
+        await base44.entities.BDTarget.update(target.id, {
+          websiteStatus: "error"
+        });
+      }
+    }
+
+    await queryClient.invalidateQueries({ queryKey: ['bdTargets'] });
+    setCrawling(false);
+    setCrawlProgress({ current: 0, total: 0 });
+  };
 
   const rescoreTargets = async () => {
     if (targets.length === 0) return;
@@ -235,6 +293,18 @@ export default function SavedTargets() {
         <Button variant="outline" onClick={() => exportCSV(true)} disabled={filteredTargets.length === 0}>
           <Download className="w-4 h-4 mr-2" />
           Export All
+        </Button>
+        <Button 
+          variant="outline" 
+          onClick={crawlSelectedWebsites} 
+          disabled={crawling || selectedTargets.size === 0}
+        >
+          {crawling ? (
+            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+          ) : (
+            <Globe2 className="w-4 h-4 mr-2" />
+          )}
+          {crawling ? `Crawling ${crawlProgress.current}/${crawlProgress.total}` : `Crawl Selected (${selectedTargets.size})`}
         </Button>
         <Button onClick={() => exportCSV(false)} disabled={selectedTargets.size === 0}>
           <CheckSquare className="w-4 h-4 mr-2" />
