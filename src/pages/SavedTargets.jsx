@@ -363,6 +363,12 @@ export default function SavedTargets() {
                   {filteredTargets.map((t) => (
                     <tr key={t.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
                       <td className="py-3 px-4">
+                        <Checkbox
+                          checked={selectedTargets.has(t.id)}
+                          onCheckedChange={() => toggleTarget(t.id)}
+                        />
+                      </td>
+                      <td className="py-3 px-4">
                         <Badge variant="outline" className="text-xs">{t.campaign}</Badge>
                       </td>
                       <td className="py-3 px-4 max-w-[200px] truncate font-medium">{t.name}</td>
