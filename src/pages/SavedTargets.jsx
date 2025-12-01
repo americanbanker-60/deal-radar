@@ -145,8 +145,27 @@ export default function SavedTargets() {
     </th>
   );
 
-  const exportCSV = async () => {
-    const data = filteredTargets.map(t => ({
+  const toggleSelectAll = () => {
+    if (selectedTargets.size === filteredTargets.length) {
+      setSelectedTargets(new Set());
+    } else {
+      setSelectedTargets(new Set(filteredTargets.map(t => t.id)));
+    }
+  };
+
+  const toggleTarget = (id) => {
+    const newSelected = new Set(selectedTargets);
+    if (newSelected.has(id)) {
+      newSelected.delete(id);
+    } else {
+      newSelected.add(id);
+    }
+    setSelectedTargets(newSelected);
+  };
+
+  const exportCSV = async (exportAll = true) => {
+    const toExport = exportAll ? filteredTargets : filteredTargets.filter(t => selectedTargets.has(t.id));
+    const data = toExport.map(t => ({
       Campaign: t.campaign,
       "Company Name": t.name,
       "Short Name": t.companyShortName,
