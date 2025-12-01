@@ -339,6 +339,12 @@ export default function SavedTargets() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="text-left border-b-2 border-slate-200 bg-slate-50">
+                    <th className="py-3 px-4 font-semibold w-12">
+                      <Checkbox
+                        checked={selectedTargets.size === filteredTargets.length && filteredTargets.length > 0}
+                        onCheckedChange={toggleSelectAll}
+                      />
+                    </th>
                     <th className="py-3 px-4 font-semibold whitespace-nowrap">Campaign</th>
                         <th className="py-3 px-4 font-semibold whitespace-nowrap">Name</th>
                         <th className="py-3 px-4 font-semibold whitespace-nowrap">Short Name</th>
