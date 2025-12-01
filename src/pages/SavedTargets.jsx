@@ -224,7 +224,7 @@ export default function SavedTargets() {
             Filters
           </CardTitle>
         </CardHeader>
-        <CardContent className="grid md:grid-cols-4 gap-4">
+        <CardContent className="grid md:grid-cols-5 gap-4">
           <div className="space-y-2">
             <div className="text-sm font-medium">Campaign</div>
             <Select value={selectedCampaign} onValueChange={setSelectedCampaign}>
