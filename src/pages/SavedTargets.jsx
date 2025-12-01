@@ -21,6 +21,7 @@ export default function SavedTargets() {
   const [sortField, setSortField] = useState(null);
   const [sortDirection, setSortDirection] = useState("desc");
   const [rescoring, setRescoring] = useState(false);
+  const [clinicFilter, setClinicFilter] = useState("all");
   const queryClient = useQueryClient();
 
   const { data: targets = [], isLoading } = useQuery({
