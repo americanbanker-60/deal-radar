@@ -257,7 +257,21 @@ export default function SavedTargets() {
             </Select>
           </div>
 
-          <div className="space-y-2 md:col-span-2">
+          <div className="space-y-2">
+            <div className="text-sm font-medium">Clinic Count</div>
+            <Select value={clinicFilter} onValueChange={setClinicFilter}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All</SelectItem>
+                <SelectItem value="missing">Missing Clinic Count</SelectItem>
+                <SelectItem value="has">Has Clinic Count</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
             <div className="text-sm font-medium">Search</div>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
