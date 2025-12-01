@@ -232,9 +232,13 @@ export default function SavedTargets() {
           )}
           Re-score All
         </Button>
-        <Button onClick={exportCSV} disabled={filteredTargets.length === 0}>
+        <Button variant="outline" onClick={() => exportCSV(true)} disabled={filteredTargets.length === 0}>
           <Download className="w-4 h-4 mr-2" />
-          Export CSV
+          Export All
+        </Button>
+        <Button onClick={() => exportCSV(false)} disabled={selectedTargets.size === 0}>
+          <CheckSquare className="w-4 h-4 mr-2" />
+          Export Selected ({selectedTargets.size})
         </Button>
       </div>
 
