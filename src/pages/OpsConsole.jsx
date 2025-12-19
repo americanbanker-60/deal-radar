@@ -523,7 +523,9 @@ Return JSON:
     const normalized = grCompaniesRaw.map((r) => normalizeRow(r, grMap, { preferRangeMidpoint: true }));
     console.log("🔄 Normalized data:", {
       total: normalized.length,
-      sample: normalized[0]
+      sample: normalized[0],
+      stateMapping: grMap["State"],
+      sampleState: normalized[0]?.state
     });
     return normalized;
   }, [grCompaniesRaw, grMap]);
