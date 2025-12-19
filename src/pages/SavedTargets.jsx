@@ -403,9 +403,9 @@ Return your response as JSON with this exact structure:
               </Badge>
             </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-0">
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full text-sm min-w-[1200px]">
                 <thead>
                   <tr className="text-left border-b-2 border-slate-200 bg-slate-50">
                     <th className="py-3 px-4 font-semibold w-12">
