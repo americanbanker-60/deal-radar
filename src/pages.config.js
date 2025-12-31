@@ -1,16 +1,20 @@
-import OpsConsole from './pages/OpsConsole';
+import Home from './pages/Home';
 import OAuthCallback from './pages/OAuthCallback';
-import SavedTargets from './pages/SavedTargets';
+import OpsConsole from './pages/OpsConsole';
 import PrivacyPolicy from './pages/PrivacyPolicy';
+import SavedTargets from './pages/SavedTargets';
 import TermsOfService from './pages/TermsOfService';
+import Documentation from './pages/Documentation';
 
 
 export const PAGES = {
-    "OpsConsole": OpsConsole,
+    "Home": Home,
     "OAuthCallback": OAuthCallback,
-    "SavedTargets": SavedTargets,
+    "OpsConsole": OpsConsole,
     "PrivacyPolicy": PrivacyPolicy,
+    "SavedTargets": SavedTargets,
     "TermsOfService": TermsOfService,
+    "Documentation": Documentation,
 }
 
 export const pagesConfig = {
