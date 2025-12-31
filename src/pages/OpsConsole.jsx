@@ -648,32 +648,36 @@ Return JSON:
   }, [vertical]);
 
   return (
-    <div className="w-full mx-auto p-4 md:p-6 space-y-6 bg-gradient-to-br from-slate-50 to-blue-50 min-h-screen">
+    <div className="w-full mx-auto p-3 sm:p-4 md:p-6 space-y-4 sm:space-y-6 bg-gradient-to-br from-slate-50 to-blue-50 min-h-screen">
       <HowToUse open={showHowTo} onClose={() => setShowHowTo(false)} />
       
-      <div className="flex items-center gap-3 bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-        <div className="p-3 bg-emerald-600 rounded-lg">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 bg-white p-4 md:p-6 rounded-xl shadow-sm border border-slate-200">
+        <div className="p-3 bg-emerald-600 rounded-lg flex-shrink-0">
           <Database className="w-6 h-6 text-white" />
         </div>
-        <div className="flex-1">
-          <h1 className="text-2xl font-bold text-slate-900">Grata Ops Console</h1>
-          <p className="text-sm text-slate-600">Top-of-funnel deal sourcing for bootstrapped companies</p>
+        <div className="flex-1 min-w-0">
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-900">Grata Ops Console</h1>
+          <p className="text-xs sm:text-sm text-slate-600 mt-1">Top-of-funnel deal sourcing for bootstrapped companies</p>
         </div>
-        <Link to={createPageUrl("SavedTargets")}>
-          <Button className="bg-blue-600 hover:bg-blue-700 text-white shadow-md">
-            <Database className="w-4 h-4 mr-2" />
-            View Saved Targets
+        <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+          <Link to={createPageUrl("SavedTargets")} className="flex-1 sm:flex-none">
+            <Button className="bg-blue-600 hover:bg-blue-700 text-white shadow-md w-full sm:w-auto text-xs sm:text-sm">
+              <Database className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
+              <span className="hidden sm:inline">View Saved Targets</span>
+              <span className="sm:hidden">Saved</span>
+            </Button>
+          </Link>
+          <Button
+            variant="outline"
+            onClick={() => setShowHowTo(true)}
+            className="gap-2 text-xs sm:text-sm"
+          >
+            <Sparkles className="w-3 h-3 sm:w-4 sm:h-4" />
+            <span className="hidden sm:inline">How to Use</span>
+            <span className="sm:hidden">Help</span>
           </Button>
-        </Link>
-        <Button
-          variant="outline"
-          onClick={() => setShowHowTo(true)}
-          className="gap-2"
-        >
-          <Sparkles className="w-4 h-4" />
-          How to Use
-        </Button>
-        <Badge variant="secondary">v3</Badge>
+          <Badge variant="secondary" className="self-center">v3</Badge>
+        </div>
       </div>
 
       {successMessage && (

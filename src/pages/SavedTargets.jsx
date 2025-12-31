@@ -263,52 +263,68 @@ Return your response as JSON with this exact structure:
   }
 
   return (
-    <div className="w-full mx-auto p-4 md:p-6 space-y-6 bg-gradient-to-br from-slate-50 to-blue-50 min-h-screen">
-      <div className="flex items-center gap-3 bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-        <Link to={createPageUrl("OpsConsole")}>
-          <Button variant="outline" size="icon">
-            <ArrowLeft className="w-4 h-4" />
+    <div className="w-full mx-auto p-3 sm:p-4 md:p-6 space-y-4 sm:space-y-6 bg-gradient-to-br from-slate-50 to-blue-50 min-h-screen">
+      <div className="bg-white p-4 md:p-6 rounded-xl shadow-sm border border-slate-200">
+        <div className="flex flex-col sm:flex-row items-start gap-3">
+          <Link to={createPageUrl("OpsConsole")}>
+            <Button variant="outline" size="icon" className="flex-shrink-0">
+              <ArrowLeft className="w-4 h-4" />
+            </Button>
+          </Link>
+          <div className="p-3 bg-emerald-600 rounded-lg flex-shrink-0">
+            <Database className="w-6 h-6 text-white" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h1 className="text-xl sm:text-2xl font-bold text-slate-900">Saved BD Targets</h1>
+            <p className="text-xs sm:text-sm text-slate-600 mt-1">{targets.length} companies across {campaigns.length} campaigns</p>
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-2 mt-4">
+          <Button 
+            variant="outline" 
+            onClick={rescoreTargets} 
+            disabled={rescoring || targets.length === 0}
+            className="text-xs sm:text-sm"
+          >
+            {rescoring ? (
+              <Loader2 className="w-3 h-3 sm:w-4 sm:h-4 mr-2 animate-spin" />
+            ) : (
+              <RefreshCw className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
+            )}
+            <span className="hidden sm:inline">Re-score All</span>
+            <span className="sm:hidden">Re-score</span>
           </Button>
-        </Link>
-        <div className="p-3 bg-emerald-600 rounded-lg">
-          <Database className="w-6 h-6 text-white" />
+          <Button variant="outline" onClick={() => exportCSV(true)} disabled={filteredTargets.length === 0} className="text-xs sm:text-sm">
+            <Download className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
+            <span className="hidden sm:inline">Export All</span>
+            <span className="sm:hidden">Export</span>
+          </Button>
+          <Button 
+            variant="outline" 
+            onClick={crawlSelectedWebsites} 
+            disabled={crawling || selectedTargets.size === 0}
+            className="text-xs sm:text-sm"
+          >
+            {crawling ? (
+              <>
+                <Loader2 className="w-3 h-3 sm:w-4 sm:h-4 mr-2 animate-spin" />
+                <span className="hidden sm:inline">Crawling {crawlProgress.current}/{crawlProgress.total}</span>
+                <span className="sm:hidden">Crawl...</span>
+              </>
+            ) : (
+              <>
+                <Globe2 className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
+                <span className="hidden lg:inline">Crawl Selected ({selectedTargets.size})</span>
+                <span className="lg:hidden">Crawl ({selectedTargets.size})</span>
+              </>
+            )}
+          </Button>
+          <Button onClick={() => exportCSV(false)} disabled={selectedTargets.size === 0} className="text-xs sm:text-sm">
+            <CheckSquare className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
+            <span className="hidden sm:inline">Export Selected ({selectedTargets.size})</span>
+            <span className="sm:hidden">Sel. ({selectedTargets.size})</span>
+          </Button>
         </div>
-        <div className="flex-1">
-          <h1 className="text-2xl font-bold text-slate-900">Saved BD Targets</h1>
-          <p className="text-sm text-slate-600">{targets.length} companies across {campaigns.length} campaigns</p>
-        </div>
-        <Button 
-          variant="outline" 
-          onClick={rescoreTargets} 
-          disabled={rescoring || targets.length === 0}
-        >
-          {rescoring ? (
-            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-          ) : (
-            <RefreshCw className="w-4 h-4 mr-2" />
-          )}
-          Re-score All
-        </Button>
-        <Button variant="outline" onClick={() => exportCSV(true)} disabled={filteredTargets.length === 0}>
-          <Download className="w-4 h-4 mr-2" />
-          Export All
-        </Button>
-        <Button 
-          variant="outline" 
-          onClick={crawlSelectedWebsites} 
-          disabled={crawling || selectedTargets.size === 0}
-        >
-          {crawling ? (
-            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-          ) : (
-            <Globe2 className="w-4 h-4 mr-2" />
-          )}
-          {crawling ? `Crawling ${crawlProgress.current}/${crawlProgress.total}` : `Crawl Selected (${selectedTargets.size})`}
-        </Button>
-        <Button onClick={() => exportCSV(false)} disabled={selectedTargets.size === 0}>
-          <CheckSquare className="w-4 h-4 mr-2" />
-          Export Selected ({selectedTargets.size})
-        </Button>
       </div>
 
       <Card className="shadow-sm border-slate-200">

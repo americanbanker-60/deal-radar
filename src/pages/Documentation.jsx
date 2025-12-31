@@ -43,16 +43,16 @@ export default function Documentation() {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-6">
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-          <div className="flex items-center gap-3">
-            <div className="p-3 bg-blue-600 rounded-lg">
+        <div className="bg-white p-4 md:p-6 rounded-xl shadow-sm border border-slate-200">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+            <div className="p-3 bg-blue-600 rounded-lg flex-shrink-0">
               <BookOpen className="w-6 h-6 text-white" />
             </div>
-            <div className="flex-1">
-              <h1 className="text-2xl font-bold text-slate-900">Deal Radar - System Documentation</h1>
-              <p className="text-sm text-slate-600">Comprehensive technical documentation for developers and stakeholders</p>
+            <div className="flex-1 min-w-0">
+              <h1 className="text-xl sm:text-2xl font-bold text-slate-900 break-words">Deal Radar - System Documentation</h1>
+              <p className="text-xs sm:text-sm text-slate-600 mt-1">Comprehensive technical documentation for developers and stakeholders</p>
             </div>
-            <Badge variant="secondary">v3.0</Badge>
+            <Badge variant="secondary" className="flex-shrink-0">v3.0</Badge>
           </div>
         </div>
 
@@ -66,13 +66,14 @@ export default function Documentation() {
 
         {/* Main Documentation */}
         <Tabs value={activeSection} onValueChange={setActiveSection}>
-          <TabsList className="bg-white border border-slate-200">
+          <TabsList className="bg-white border border-slate-200 flex-wrap h-auto gap-1 p-2">
             {sections.map(section => {
               const Icon = section.icon;
               return (
-                <TabsTrigger key={section.id} value={section.id} className="gap-2">
-                  <Icon className="w-4 h-4" />
-                  {section.label}
+                <TabsTrigger key={section.id} value={section.id} className="gap-2 text-xs sm:text-sm">
+                  <Icon className="w-3 h-3 sm:w-4 sm:h-4" />
+                  <span className="hidden sm:inline">{section.label}</span>
+                  <span className="sm:hidden">{section.label.split(' ')[0]}</span>
                 </TabsTrigger>
               );
             })}

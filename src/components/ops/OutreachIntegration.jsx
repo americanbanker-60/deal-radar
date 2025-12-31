@@ -262,13 +262,13 @@ export default function OutreachIntegration({ prospects, onSyncComplete }) {
   if (!connected) {
     return (
       <Card className="shadow-sm border-blue-200">
-        <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50">
-          <CardTitle className="flex items-center gap-2">
-            <LinkIcon className="w-5 h-5 text-blue-600" />
+        <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 md:p-6">
+          <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+            <LinkIcon className="w-5 h-5 text-blue-600 flex-shrink-0" />
             Connect Outreach.io
           </CardTitle>
         </CardHeader>
-        <CardContent className="pt-6 space-y-4">
+        <CardContent className="pt-4 md:pt-6 space-y-4">
           <div className="flex items-start gap-3">
             <div className="p-2 bg-blue-100 rounded-lg">
               <Users className="w-5 h-5 text-blue-600" />
@@ -330,17 +330,19 @@ export default function OutreachIntegration({ prospects, onSyncComplete }) {
           <Button
             onClick={connectOutreach}
             disabled={loading}
-            className="w-full bg-blue-600 hover:bg-blue-700"
+            className="w-full bg-blue-600 hover:bg-blue-700 text-sm sm:text-base"
           >
             {loading ? (
               <>
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Waiting for authorization...
+                <span className="hidden sm:inline">Waiting for authorization...</span>
+                <span className="sm:hidden">Authorizing...</span>
               </>
             ) : (
               <>
                 <LinkIcon className="w-4 h-4 mr-2" />
-                Connect Outreach Account
+                <span className="hidden sm:inline">Connect Outreach Account</span>
+                <span className="sm:hidden">Connect Account</span>
               </>
             )}
           </Button>
@@ -361,18 +363,19 @@ export default function OutreachIntegration({ prospects, onSyncComplete }) {
 
   return (
     <Card className="shadow-sm border-green-200">
-      <CardHeader className="bg-gradient-to-r from-green-50 to-emerald-50">
-        <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center gap-2">
-            <CheckCircle2 className="w-5 h-5 text-green-600" />
+      <CardHeader className="bg-gradient-to-r from-green-50 to-emerald-50 p-4 md:p-6">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+            <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0" />
             Outreach.io Connected
           </CardTitle>
-          <div className="flex gap-2">
+          <div className="flex gap-2 self-end sm:self-auto">
             <Button
               variant="outline"
               size="sm"
               onClick={checkConnection}
               disabled={loading}
+              className="text-xs sm:text-sm"
             >
               <RefreshCw className="w-4 h-4" />
             </Button>
@@ -380,13 +383,15 @@ export default function OutreachIntegration({ prospects, onSyncComplete }) {
               variant="outline"
               size="sm"
               onClick={disconnectOutreach}
+              className="text-xs sm:text-sm"
             >
-              Disconnect
+              <span className="hidden sm:inline">Disconnect</span>
+              <span className="sm:hidden">Disconnect</span>
             </Button>
           </div>
         </div>
       </CardHeader>
-      <CardContent className="pt-6 space-y-4">
+      <CardContent className="pt-4 md:pt-6 space-y-4">
         
         <Alert className="bg-blue-50 border-blue-200">
           <Shield className="h-4 w-4 text-blue-600" />
@@ -444,17 +449,19 @@ export default function OutreachIntegration({ prospects, onSyncComplete }) {
         <Button
           onClick={syncToOutreach}
           disabled={syncing || !prospects || prospects.length === 0}
-          className="w-full bg-green-600 hover:bg-green-700"
+          className="w-full bg-green-600 hover:bg-green-700 text-sm sm:text-base"
         >
           {syncing ? (
             <>
               <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              Syncing to Outreach...
+              <span className="hidden sm:inline">Syncing to Outreach...</span>
+              <span className="sm:hidden">Syncing...</span>
             </>
           ) : (
             <>
               <ExternalLink className="w-4 h-4 mr-2" />
-              Create/Update Prospects in Outreach
+              <span className="hidden sm:inline">Create/Update Prospects in Outreach</span>
+              <span className="sm:hidden">Sync Prospects</span>
             </>
           )}
         </Button>
