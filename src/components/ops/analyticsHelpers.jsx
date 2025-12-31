@@ -23,8 +23,13 @@ export function filterTargets(rows, filters) {
   const { regionFilter, minRev, maxRev, ownerPref } = filters;
   
   return rows.filter((c) => {
-    const inRegion = !regionFilter || (c.hq || "").toLowerCase().includes(regionFilter.toLowerCase());
+    // Check all location fields for region match
+    const locationFields = [c.hq, c.city, c.state].filter(Boolean).join(" ").toLowerCase();
+    const inRegion = !regionFilter || locationFields.includes(regionFilter.toLowerCase());
+    
     const revMm = c.revenue;
+    
+    // Only apply ownership filter if not "Any"
     const ownerMatch = ownerPref === "Any" || 
                        (c.ownership || "").toLowerCase().includes("founder") || 
                        (c.ownership || "").toLowerCase().includes("private") ||
@@ -143,14 +148,4 @@ export function scoreTargets(rows, opts) {
       fitScore: Math.round(fitScore)
     };
   }).sort((a, b) => b.score - a.score);
-}
-
-// Hook is no longer needed for deals analytics
-export function useDealsAnalytics(deals) {
-  return useMemo(() => ({
-    dealCount: 0,
-    medianMultiple: NaN,
-    series: [],
-    buyerSeries: []
-  }), [deals]);
 }
