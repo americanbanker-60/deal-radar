@@ -242,7 +242,7 @@ export default function OpsConsole(){
           showSuccess(`Successfully uploaded ${data.rows.length} rows! ${Object.keys(grMap).length > 0 ? '✓ Using saved column mappings' : '⚠️ Go to Settings to map columns'}`);
         } catch (innerError) {
           console.error("❌ Processing error:", innerError);
-          setUploadError(innerError.message);
+          setUploadError(innerError.message || String(innerError));
           setLoading(false);
         }
       };
@@ -256,7 +256,7 @@ export default function OpsConsole(){
       reader.readAsDataURL(file);
     } catch (error) {
       console.error("❌ Upload error:", error);
-      setUploadError(error.message);
+      setUploadError(error.message || String(error));
       setLoading(false);
     }
   };
@@ -495,7 +495,7 @@ Return JSON:
       setCampaignName("");
     } catch (error) {
       console.error("Save error:", error);
-      setUploadError("Failed to save: " + error.message);
+      setUploadError("Failed to save: " + (error.message || String(error)));
     }
     
     setSaving(false);
@@ -604,7 +604,7 @@ Return JSON:
       window.open(result.data.fileUrl, '_blank');
     } catch (error) {
       console.error("Excel export error:", error);
-      setUploadError("Failed to export Excel: " + error.message);
+      setUploadError("Failed to export Excel: " + (error.message || String(error)));
     }
     setLoading(false);
   };
@@ -616,7 +616,7 @@ Return JSON:
       downloadText(filename, result.data.csv);
     } catch (error) {
       console.error("CSV export error:", error);
-      setUploadError("Failed to export CSV: " + error.message);
+      setUploadError("Failed to export CSV: " + (error.message || String(error)));
     }
     setLoading(false);
   };
