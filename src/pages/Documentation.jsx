@@ -1283,15 +1283,25 @@ export default function Documentation() {
 
 // Helper Components
 function FeatureSection({ title, icon: Icon, color, description, workflows }) {
+  const colorClasses = {
+    blue: { bg: 'bg-blue-50', border: 'border-blue-200', iconBg: 'bg-blue-600', title: 'text-blue-900', desc: 'text-blue-700' },
+    purple: { bg: 'bg-purple-50', border: 'border-purple-200', iconBg: 'bg-purple-600', title: 'text-purple-900', desc: 'text-purple-700' },
+    amber: { bg: 'bg-amber-50', border: 'border-amber-200', iconBg: 'bg-amber-600', title: 'text-amber-900', desc: 'text-amber-700' },
+    green: { bg: 'bg-green-50', border: 'border-green-200', iconBg: 'bg-green-600', title: 'text-green-900', desc: 'text-green-700' },
+    indigo: { bg: 'bg-indigo-50', border: 'border-indigo-200', iconBg: 'bg-indigo-600', title: 'text-indigo-900', desc: 'text-indigo-700' },
+    slate: { bg: 'bg-slate-50', border: 'border-slate-200', iconBg: 'bg-slate-600', title: 'text-slate-900', desc: 'text-slate-700' }
+  };
+  const c = colorClasses[color] || colorClasses.blue;
+  
   return (
-    <div className={`p-4 bg-${color}-50 rounded-lg border border-${color}-200`}>
+    <div className={`p-4 ${c.bg} rounded-lg border ${c.border}`}>
       <div className="flex items-start gap-3 mb-3">
-        <div className={`p-2 bg-${color}-600 rounded-lg`}>
+        <div className={`p-2 ${c.iconBg} rounded-lg`}>
           <Icon className="w-5 h-5 text-white" />
         </div>
         <div className="flex-1">
-          <h4 className={`font-semibold text-${color}-900`}>{title}</h4>
-          <p className={`text-sm text-${color}-700 mt-1`}>{description}</p>
+          <h4 className={`font-semibold ${c.title}`}>{title}</h4>
+          <p className={`text-sm ${c.desc} mt-1`}>{description}</p>
         </div>
       </div>
       <div className="space-y-3 ml-11">
@@ -1349,9 +1359,18 @@ function StatusSection({ title, items }) {
 }
 
 function TechnicalSection({ title, icon: Icon, color, children }) {
+  const colorClasses = {
+    blue: { bg: 'bg-blue-50', border: 'border-blue-200', title: 'text-blue-900' },
+    purple: { bg: 'bg-purple-50', border: 'border-purple-200', title: 'text-purple-900' },
+    green: { bg: 'bg-green-50', border: 'border-green-200', title: 'text-green-900' },
+    red: { bg: 'bg-red-50', border: 'border-red-200', title: 'text-red-900' },
+    indigo: { bg: 'bg-indigo-50', border: 'border-indigo-200', title: 'text-indigo-900' }
+  };
+  const c = colorClasses[color] || colorClasses.blue;
+  
   return (
-    <div className={`p-4 bg-${color}-50 rounded-lg border border-${color}-200`}>
-      <h3 className={`font-semibold text-lg mb-3 flex items-center gap-2 text-${color}-900`}>
+    <div className={`p-4 ${c.bg} rounded-lg border ${c.border}`}>
+      <h3 className={`font-semibold text-lg mb-3 flex items-center gap-2 ${c.title}`}>
         <Icon className="w-5 h-5" />
         {title}
       </h3>

@@ -4,9 +4,10 @@ import { FileText } from "lucide-react";
 
 export default function TermsOfService() {
   return (
-    <div className="w-full max-w-4xl mx-auto p-6 space-y-6">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-6">
+      <div className="max-w-4xl mx-auto space-y-6">
       <div className="flex items-center gap-3 bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-        <div className="p-3 bg-emerald-600 rounded-lg">
+        <div className="p-3 bg-blue-600 rounded-lg">
           <FileText className="w-6 h-6 text-white" />
         </div>
         <div>
@@ -139,6 +140,7 @@ export default function TermsOfService() {
           </section>
         </CardContent>
       </Card>
+      </div>
     </div>
   );
 }
