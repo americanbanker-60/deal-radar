@@ -1,4 +1,6 @@
 import React, { useState } from "react";
+import { base44 } from "@/api/base44Client";
+import { createPageUrl } from "../utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -30,6 +32,41 @@ import { Button } from "@/components/ui/button";
 
 export default function Documentation() {
   const [activeSection, setActiveSection] = useState("architecture");
+  const [user, setUser] = React.useState(null);
+  const [loading, setLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    checkAccess();
+  }, []);
+
+  const checkAccess = async () => {
+    try {
+      const currentUser = await base44.auth.me();
+      setUser(currentUser);
+      
+      // Redirect non-admins
+      if (currentUser.role !== "admin") {
+        window.location.href = createPageUrl("OpsConsole");
+        return;
+      }
+    } catch (error) {
+      console.error("Error checking access:", error);
+      window.location.href = createPageUrl("OpsConsole");
+    }
+    setLoading(false);
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-blue-50">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
+  if (!user || user.role !== "admin") {
+    return null;
+  }
 
   const sections = [
     { id: "architecture", label: "Architecture", icon: Box },
