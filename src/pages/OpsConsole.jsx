@@ -22,7 +22,7 @@ import HowToUse from "../components/ops/HowToUse";
 import OutreachIntegration from "../components/ops/OutreachIntegration";
 
 const DEFAULT_FIELDS = [
-  "Company Name","URL","City","State","Country","HQ Location","Ownership","Founders / Executives","Revenue","Last Financing Year","Website","LinkedIn","Investors","Industry","Subsector","Employee Count","Employee Range","Revenue Range","Email","First Name","Last Name","Job Title","Phone"
+  "Company Name","URL","City","State","Country","HQ Location","Ownership","Founders / Executives","Revenue","Last Financing Year","Website","LinkedIn","Investors","Industry","Subsector","Employee Count","Employee Range","Revenue Range","Clinic Location Count","Short Name","Sector","Email","First Name","Last Name","Job Title","Phone"
 ];
 
 const SECTOR_OPTIONS = `HS: Allergy, Ear, Nose and Throat
@@ -1376,9 +1376,9 @@ function normalizeRow(row, map, opts) {
     investors: pick("Investors") || row.Investors || "",
     notes: row.Notes || "",
     websiteStatus: row._websiteStatus,
-    clinicCount: row._clinicCount,
-    companyShortName: row._companyShortName,
-    sectorFocus: row._sectorFocus,
+    clinicCount: row._clinicCount || toNumber(pick("Clinic Location Count")),
+    companyShortName: row._companyShortName || pick("Short Name"),
+    sectorFocus: row._sectorFocus || pick("Sector"),
     contact: {
       email: pick("Email") || row.Email || "",
       firstName: pick("First Name") || row["First Name"] || "",
