@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
-import { Database, Filter, Download, Trash2, MapPin, Globe, Building2, Search, ArrowLeft, ArrowUpDown, ArrowUp, ArrowDown, RefreshCw, Loader2, CheckSquare, Globe2 } from "lucide-react";
+import { Database, Filter, Download, Trash2, MapPin, Globe, Building2, Search, ArrowLeft, ArrowUpDown, ArrowUp, ArrowDown, RefreshCw, Loader2, CheckSquare, Globe2, UserCheck, Sparkles } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Link } from "react-router-dom";
@@ -24,6 +24,8 @@ export default function SavedTargets() {
   const [rescoring, setRescoring] = useState(false);
   const [crawling, setCrawling] = useState(false);
   const [crawlProgress, setCrawlProgress] = useState({ current: 0, total: 0 });
+  const [enrichingContacts, setEnrichingContacts] = useState(false);
+  const [enrichProgress, setEnrichProgress] = useState({ current: 0, total: 0 });
   const [clinicFilter, setClinicFilter] = useState("all");
   const [selectedTargets, setSelectedTargets] = useState(new Set());
   const queryClient = useQueryClient();
@@ -46,6 +48,34 @@ export default function SavedTargets() {
       queryClient.invalidateQueries({ queryKey: ['bdTargets'] });
     },
   });
+
+  const enrichSelectedContacts = async () => {
+    const selectedList = filteredTargets.filter(t => selectedTargets.has(t.id));
+    const withContacts = selectedList.filter(t => t.contactFirstName && t.contactLastName);
+    
+    if (withContacts.length === 0) {
+      alert("Please select targets with contact names (First Name and Last Name required)");
+      return;
+    }
+
+    setEnrichingContacts(true);
+    setEnrichProgress({ current: 0, total: withContacts.length });
+
+    for (let i = 0; i < withContacts.length; i++) {
+      const target = withContacts[i];
+      setEnrichProgress({ current: i + 1, total: withContacts.length });
+
+      try {
+        await base44.functions.invoke('enrichContact', { targetId: target.id });
+      } catch (error) {
+        console.error(`Error enriching ${target.name}:`, error);
+      }
+    }
+
+    await queryClient.invalidateQueries({ queryKey: ['bdTargets'] });
+    setEnrichingContacts(false);
+    setEnrichProgress({ current: 0, total: 0 });
+  };
 
   const crawlSelectedWebsites = async () => {
     const selectedList = filteredTargets.filter(t => selectedTargets.has(t.id));
@@ -301,6 +331,26 @@ Return your response as JSON with this exact structure:
           </Button>
           <Button 
             variant="outline" 
+            onClick={enrichSelectedContacts} 
+            disabled={enrichingContacts || selectedTargets.size === 0}
+            className="text-xs sm:text-sm"
+          >
+            {enrichingContacts ? (
+              <>
+                <Loader2 className="w-3 h-3 sm:w-4 sm:h-4 mr-2 animate-spin" />
+                <span className="hidden sm:inline">Enriching {enrichProgress.current}/{enrichProgress.total}</span>
+                <span className="sm:hidden">Enrich...</span>
+              </>
+            ) : (
+              <>
+                <UserCheck className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
+                <span className="hidden lg:inline">Enrich Contacts ({selectedTargets.size})</span>
+                <span className="lg:hidden">Contacts ({selectedTargets.size})</span>
+              </>
+            )}
+          </Button>
+          <Button 
+            variant="outline" 
             onClick={crawlSelectedWebsites} 
             disabled={crawling || selectedTargets.size === 0}
             className="text-xs sm:text-sm"
@@ -314,8 +364,8 @@ Return your response as JSON with this exact structure:
             ) : (
               <>
                 <Globe2 className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
-                <span className="hidden lg:inline">Crawl Selected ({selectedTargets.size})</span>
-                <span className="lg:hidden">Crawl ({selectedTargets.size})</span>
+                <span className="hidden lg:inline">Crawl Sites ({selectedTargets.size})</span>
+                <span className="lg:hidden">Sites ({selectedTargets.size})</span>
               </>
             )}
           </Button>
@@ -432,8 +482,8 @@ Return your response as JSON with this exact structure:
                     </th>
                     <th className="py-3 px-4 font-semibold whitespace-nowrap">Campaign</th>
                         <th className="py-3 px-4 font-semibold whitespace-nowrap">Name</th>
-                        <th className="py-3 px-4 font-semibold whitespace-nowrap">Short Name</th>
-                        <th className="py-3 px-4 font-semibold whitespace-nowrap">Sector</th>
+                            <th className="py-3 px-4 font-semibold whitespace-nowrap">Contact</th>
+                            <th className="py-3 px-4 font-semibold whitespace-nowrap">Sector</th>
                         <th className="py-3 px-4 font-semibold whitespace-nowrap">City</th>
                         <th className="py-3 px-4 font-semibold whitespace-nowrap">State</th>
                         <th className="py-3 px-4 font-semibold whitespace-nowrap">Website</th>
@@ -457,7 +507,23 @@ Return your response as JSON with this exact structure:
                         <Badge variant="outline" className="text-xs">{t.campaign}</Badge>
                       </td>
                       <td className="py-3 px-4 max-w-[200px] truncate font-medium">{t.name}</td>
-                      <td className="py-3 px-4 text-slate-600">{t.companyShortName || "—"}</td>
+                      <td className="py-3 px-4">
+                        {t.contactFirstName && t.contactLastName ? (
+                          <div className="text-sm">
+                            <div className="font-medium flex items-center gap-1">
+                              {t.contactHonorific && <span className="text-purple-600">{t.contactHonorific}</span>}
+                              {t.contactPreferredName || t.contactFirstName} {t.contactLastName}
+                              {t.contactPreferredName && t.contactPreferredNameConfidence > 70 && (
+                                <Sparkles className="w-3 h-3 text-purple-500" title={`${t.contactPreferredNameConfidence}% confidence`} />
+                              )}
+                            </div>
+                            {t.contactTitle && <div className="text-xs text-slate-500">{t.contactTitle}</div>}
+                            {t.contactCredential && (
+                              <Badge variant="outline" className="text-xs mt-1">{t.contactCredential}</Badge>
+                            )}
+                          </div>
+                        ) : "—"}
+                      </td>
                       <td className="py-3 px-4">
                             {t.sectorFocus && (
                               <Badge variant="outline" className="text-xs whitespace-nowrap">{t.sectorFocus}</Badge>
