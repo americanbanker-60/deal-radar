@@ -207,7 +207,7 @@ Return your response as JSON with this exact structure:
   };
 
   const campaigns = useMemo(() => {
-    const unique = [...new Set(targets.map(t => t.campaign))];
+    const unique = [...new Set(targets.map(t => t.campaign).filter(Boolean))];
     return unique.sort();
   }, [targets]);
 
@@ -337,7 +337,12 @@ Return your response as JSON with this exact structure:
           </div>
           <div className="flex-1 min-w-0">
             <h1 className="text-xl sm:text-2xl font-bold text-slate-900">Saved BD Targets</h1>
-            <p className="text-xs sm:text-sm text-slate-600 mt-1">{targets.length} companies across {campaigns.length} campaigns</p>
+            <p className="text-xs sm:text-sm text-slate-600 mt-1">
+              {targets.length} companies across {campaigns.length} campaign{campaigns.length !== 1 ? 's' : ''}
+              {targets.some(t => !t.campaign) && (
+                <span className="text-amber-600 ml-2">• {targets.filter(t => !t.campaign).length} missing campaign name</span>
+              )}
+            </p>
           </div>
         </div>
         <div className="flex flex-wrap gap-2 mt-4">
