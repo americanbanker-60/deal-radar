@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
-import { Database, Filter, Download, Trash2, MapPin, Globe, Building2, Search, ArrowLeft, ArrowUpDown, ArrowUp, ArrowDown, RefreshCw, Loader2, CheckSquare, Globe2, UserCheck, Sparkles } from "lucide-react";
+import { Database, Filter, Download, Trash2, MapPin, Globe, Building2, Search, ArrowLeft, ArrowUpDown, ArrowUp, ArrowDown, RefreshCw, Loader2, CheckSquare, Globe2, UserCheck, Sparkles, Award, AlertTriangle, CheckCircle } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Link } from "react-router-dom";
@@ -26,7 +26,10 @@ export default function SavedTargets() {
   const [crawlProgress, setCrawlProgress] = useState({ current: 0, total: 0 });
   const [enrichingContacts, setEnrichingContacts] = useState(false);
   const [enrichProgress, setEnrichProgress] = useState({ current: 0, total: 0 });
+  const [scoringQuality, setScoringQuality] = useState(false);
+  const [qualityProgress, setQualityProgress] = useState({ current: 0, total: 0 });
   const [clinicFilter, setClinicFilter] = useState("all");
+  const [qualityFilter, setQualityFilter] = useState("all");
   const [selectedTargets, setSelectedTargets] = useState(new Set());
   const queryClient = useQueryClient();
 
@@ -48,6 +51,33 @@ export default function SavedTargets() {
       queryClient.invalidateQueries({ queryKey: ['bdTargets'] });
     },
   });
+
+  const scoreSelectedQuality = async () => {
+    const selectedList = filteredTargets.filter(t => selectedTargets.has(t.id));
+    
+    if (selectedList.length === 0) {
+      alert("Please select targets to score");
+      return;
+    }
+
+    setScoringQuality(true);
+    setQualityProgress({ current: 0, total: selectedList.length });
+
+    for (let i = 0; i < selectedList.length; i++) {
+      const target = selectedList[i];
+      setQualityProgress({ current: i + 1, total: selectedList.length });
+
+      try {
+        await base44.functions.invoke('scoreTargetQuality', { targetId: target.id });
+      } catch (error) {
+        console.error(`Error scoring ${target.name}:`, error);
+      }
+    }
+
+    await queryClient.invalidateQueries({ queryKey: ['bdTargets'] });
+    setScoringQuality(false);
+    setQualityProgress({ current: 0, total: 0 });
+  };
 
   const enrichSelectedContacts = async () => {
     const selectedList = filteredTargets.filter(t => selectedTargets.has(t.id));
@@ -188,12 +218,13 @@ Return your response as JSON with this exact structure:
       const clinicMatch = clinicFilter === "all" || 
                     (clinicFilter === "missing" && !t.clinicCount) ||
                     (clinicFilter === "has" && t.clinicCount);
+      const qualityMatch = qualityFilter === "all" || t.qualityTier === qualityFilter;
       const searchMatch = !searchQuery || 
                     (t.name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
                     (t.companyShortName || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
                     (t.city || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
                     (t.state || "").toLowerCase().includes(searchQuery.toLowerCase());
-      return campaignMatch && statusMatch && clinicMatch && searchMatch;
+      return campaignMatch && statusMatch && clinicMatch && qualityMatch && searchMatch;
     });
 
     if (sortField) {
@@ -205,7 +236,7 @@ Return your response as JSON with this exact structure:
     }
 
     return filtered;
-  }, [targets, selectedCampaign, statusFilter, clinicFilter, searchQuery, sortField, sortDirection]);
+  }, [targets, selectedCampaign, statusFilter, clinicFilter, qualityFilter, searchQuery, sortField, sortDirection]);
 
   const toggleSort = (field) => {
     if (sortField === field) {
@@ -331,6 +362,26 @@ Return your response as JSON with this exact structure:
           </Button>
           <Button 
             variant="outline" 
+            onClick={scoreSelectedQuality} 
+            disabled={scoringQuality || selectedTargets.size === 0}
+            className="text-xs sm:text-sm"
+          >
+            {scoringQuality ? (
+              <>
+                <Loader2 className="w-3 h-3 sm:w-4 sm:h-4 mr-2 animate-spin" />
+                <span className="hidden sm:inline">Scoring {qualityProgress.current}/{qualityProgress.total}</span>
+                <span className="sm:hidden">Score...</span>
+              </>
+            ) : (
+              <>
+                <Award className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
+                <span className="hidden lg:inline">Score Quality ({selectedTargets.size})</span>
+                <span className="lg:hidden">Quality ({selectedTargets.size})</span>
+              </>
+            )}
+          </Button>
+          <Button 
+            variant="outline" 
             onClick={enrichSelectedContacts} 
             disabled={enrichingContacts || selectedTargets.size === 0}
             className="text-xs sm:text-sm"
@@ -384,7 +435,7 @@ Return your response as JSON with this exact structure:
             Filters
           </CardTitle>
         </CardHeader>
-        <CardContent className="grid md:grid-cols-5 gap-4">
+        <CardContent className="grid md:grid-cols-6 gap-4">
           <div className="space-y-2">
             <div className="text-sm font-medium">Campaign</div>
             <Select value={selectedCampaign} onValueChange={setSelectedCampaign}>
@@ -427,6 +478,21 @@ Return your response as JSON with this exact structure:
                 <SelectItem value="all">All</SelectItem>
                 <SelectItem value="missing">Missing Clinic Count</SelectItem>
                 <SelectItem value="has">Has Clinic Count</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <div className="text-sm font-medium">Quality Tier</div>
+            <Select value={qualityFilter} onValueChange={setQualityFilter}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Quality</SelectItem>
+                <SelectItem value="great">GREAT</SelectItem>
+                <SelectItem value="good">GOOD</SelectItem>
+                <SelectItem value="bad">BAD</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -482,6 +548,7 @@ Return your response as JSON with this exact structure:
                     </th>
                     <th className="py-3 px-4 font-semibold whitespace-nowrap">Campaign</th>
                         <th className="py-3 px-4 font-semibold whitespace-nowrap">Name</th>
+                            <th className="py-3 px-4 font-semibold whitespace-nowrap">Quality</th>
                             <th className="py-3 px-4 font-semibold whitespace-nowrap">Contact</th>
                             <th className="py-3 px-4 font-semibold whitespace-nowrap">Sector</th>
                         <th className="py-3 px-4 font-semibold whitespace-nowrap">City</th>
@@ -507,6 +574,25 @@ Return your response as JSON with this exact structure:
                         <Badge variant="outline" className="text-xs">{t.campaign}</Badge>
                       </td>
                       <td className="py-3 px-4 max-w-[200px] truncate font-medium">{t.name}</td>
+                      <td className="py-3 px-4">
+                        {t.qualityTier ? (
+                          <div className="flex items-center gap-2">
+                            <Badge className={
+                              t.qualityTier === "great" ? "bg-green-100 text-green-800 border-green-200" :
+                              t.qualityTier === "good" ? "bg-blue-100 text-blue-800 border-blue-200" :
+                              "bg-amber-100 text-amber-800 border-amber-200"
+                            }>
+                              {t.qualityTier === "great" && <CheckCircle className="w-3 h-3 mr-1" />}
+                              {t.qualityTier === "good" && <Award className="w-3 h-3 mr-1" />}
+                              {t.qualityTier === "bad" && <AlertTriangle className="w-3 h-3 mr-1" />}
+                              {t.qualityTier.toUpperCase()}
+                            </Badge>
+                            {t.qualityConfidence && (
+                              <span className="text-xs text-slate-500">{t.qualityConfidence}%</span>
+                            )}
+                          </div>
+                        ) : "—"}
+                      </td>
                       <td className="py-3 px-4">
                         {t.contactFirstName && t.contactLastName ? (
                           <div className="text-sm">
