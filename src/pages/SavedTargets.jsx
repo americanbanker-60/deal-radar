@@ -33,9 +33,15 @@ export default function SavedTargets() {
   const [selectedTargets, setSelectedTargets] = useState(new Set());
   const queryClient = useQueryClient();
 
+  const [user, setUser] = useState(null);
+
   const { data: targets = [], isLoading } = useQuery({
     queryKey: ['bdTargets'],
-    queryFn: () => base44.entities.BDTarget.list('-created_date'),
+    queryFn: async () => {
+      const currentUser = await base44.auth.me();
+      setUser(currentUser);
+      return base44.entities.BDTarget.list('-created_date');
+    },
   });
 
   const deleteTargetMutation = useMutation({
@@ -343,6 +349,18 @@ Return your response as JSON with this exact structure:
                 <span className="text-amber-600 ml-2">• {targets.filter(t => !t.campaign).length} missing campaign name</span>
               )}
             </p>
+            {user && targets.length > 0 && (
+              <Alert className="mt-3 bg-blue-50 border-blue-200">
+                <AlertDescription className="text-blue-800 text-xs">
+                  <strong>Viewing as:</strong> {user.email} • 
+                  <strong className="ml-2">Most recent:</strong> {new Date(targets[0].created_date).toLocaleDateString()} • 
+                  <strong className="ml-2">Oldest:</strong> {new Date(targets[targets.length - 1].created_date).toLocaleDateString()}
+                  <div className="mt-1 text-blue-700">
+                    ℹ️ You can only see targets you uploaded. If missing recent uploads, check if you used a different account.
+                  </div>
+                </AlertDescription>
+              </Alert>
+            )}
           </div>
         </div>
         <div className="flex flex-wrap gap-2 mt-4">
