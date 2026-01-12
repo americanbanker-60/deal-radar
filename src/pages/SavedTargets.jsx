@@ -360,6 +360,20 @@ Return your response as JSON with this exact structure:
 
   return (
     <div className="w-full mx-auto p-3 sm:p-4 md:p-6 space-y-4 sm:space-y-6 bg-gradient-to-br from-slate-50 to-blue-50 min-h-screen">
+      {reclassifyingSectors && (
+        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-50 flex items-center justify-center">
+          <div className="bg-white p-6 rounded-xl shadow-xl">
+            <div className="flex items-center gap-3 mb-4">
+              <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
+              <span className="font-medium">Reclassifying Sectors...</span>
+            </div>
+            <Progress value={(sectorProgress.current / sectorProgress.total) * 100} className="w-64" />
+            <div className="text-sm text-slate-600 mt-2 text-center">
+              {sectorProgress.current} / {sectorProgress.total} companies
+            </div>
+          </div>
+        </div>
+      )}
       <div className="bg-white p-4 md:p-6 rounded-xl shadow-sm border border-slate-200">
         <div className="flex flex-col sm:flex-row items-start gap-3">
           <Link to={createPageUrl("OpsConsole")}>
