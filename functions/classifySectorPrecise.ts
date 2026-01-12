@@ -122,8 +122,9 @@ Return JSON:
 }
 
 Deno.serve(async (req) => {
+  const base44 = createClientFromRequest(req);
+  
   try {
-    const base44 = createClientFromRequest(req);
     const user = await base44.auth.me();
     
     if (!user) {
@@ -136,6 +137,8 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'targetId required' }, { status: 400 });
     }
     
+    console.log(`🔍 Fetching target ${targetId}...`);
+    
     // Fetch target
     const targets = await base44.entities.BDTarget.filter({ id: targetId });
     if (!targets.length) {
@@ -143,20 +146,31 @@ Deno.serve(async (req) => {
     }
     
     const target = targets[0];
+    console.log(`📊 Classifying: ${target.name}`);
+    
     const classification = await classifyTarget(target, base44);
+    
+    console.log(`✓ Classification result:`, classification);
     
     // Update target
     await base44.entities.BDTarget.update(targetId, {
       sectorFocus: classification.sector_focus_primary
     });
     
+    console.log(`✓ Updated ${target.name} → ${classification.sector_focus_primary}`);
+    
     return Response.json({
+      success: true,
       targetId,
       name: target.name,
       ...classification
     });
   } catch (error) {
-    console.error("Classification error:", error);
-    return Response.json({ error: error.message }, { status: 500 });
+    console.error("❌ Classification error:", error);
+    return Response.json({ 
+      success: false,
+      error: error.message,
+      stack: error.stack 
+    }, { status: 500 });
   }
 });

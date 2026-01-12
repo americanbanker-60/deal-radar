@@ -130,20 +130,33 @@ export default function SavedTargets() {
     setReclassifyingSectors(true);
     setSectorProgress({ current: 0, total: selectedList.length });
 
-    for (let i = 0; i < selectedList.length; i++) {
-      const target = selectedList[i];
-      setSectorProgress({ current: i + 1, total: selectedList.length });
+    let successCount = 0;
+    let errorCount = 0;
 
-      try {
-        await base44.functions.invoke('classifySectorPrecise', { targetId: target.id });
-      } catch (error) {
-        console.error(`Error reclassifying ${target.name}:`, error);
+    try {
+      for (let i = 0; i < selectedList.length; i++) {
+        const target = selectedList[i];
+        setSectorProgress({ current: i + 1, total: selectedList.length });
+
+        try {
+          const result = await base44.functions.invoke('classifySectorPrecise', { targetId: target.id });
+          console.log(`✓ Reclassified ${target.name}:`, result.data);
+          successCount++;
+        } catch (error) {
+          console.error(`✗ Error reclassifying ${target.name}:`, error);
+          errorCount++;
+        }
       }
-    }
 
-    await queryClient.invalidateQueries({ queryKey: ['bdTargets'] });
-    setReclassifyingSectors(false);
-    setSectorProgress({ current: 0, total: 0 });
+      await queryClient.invalidateQueries({ queryKey: ['bdTargets'] });
+      alert(`Reclassification complete!\n✓ ${successCount} successful\n✗ ${errorCount} failed`);
+    } catch (error) {
+      console.error("Reclassification error:", error);
+      alert("Reclassification failed: " + error.message);
+    } finally {
+      setReclassifyingSectors(false);
+      setSectorProgress({ current: 0, total: 0 });
+    }
   };
 
   const applyBulkSector = async () => {
