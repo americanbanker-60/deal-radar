@@ -1,148 +1,123 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
 
-const VALID_SECTORS = [
-  "HS: Women's Health",
-  "HCIT: Benefit Management Solutions",
-  "HCIT: Care Delivery",
-  "HCIT: Compliance",
-  "HCIT: General",
-  "HCIT: Inventory and Cost Solutions",
-  "HCIT: Life Sciences/Pharmacy Focused Solutions",
-  "HCIT: Medication Adherence",
-  "HCIT: Member Engagement",
-  "HCIT: Other Payor Services",
-  "HCIT: Payment Accuracy & Cost Containment",
-  "HCIT: Pharma",
-  "HCIT: Population Health / VBC Enablement",
-  "HCIT: Practice Management",
-  "HCIT: Provider Focused Solutions",
-  "HCIT: RCM",
-  "HS: Allergy, Ear, Nose and Throat",
-  "HS: Anesthesiology",
-  "HS: ASC",
-  "HS: Behavioral - ABA",
-  "HS: Behavioral - IDD",
-  "HS: Behavioral - Interventional Pysch",
-  "HS: Behavioral - Mental",
-  "HS: Behavioral - Psych",
-  "HS: Behavioral - Psych / Residential",
-  "HS: Behavioral - SUD",
-  "HS: Cardiology",
-  "HS: Compound Pharmacy",
-  "HS: Dentistry",
-  "HS: Dermatology",
-  "HS: DME",
-  "HS: DPC",
-  "HS: Employer | Self Insured Services",
-  "HS: Functional Medicine / Wellness",
-  "HS: Gastroenterology",
-  "HS: General",
-  "HS: Health Systems",
-  "HS: Home Care",
-  "HS: Imaging",
-  "HS: Infusion Center",
-  "HS: Lab",
-  "HS: Medical Transportation",
-  "HS: MedSpa & Aesthetics",
-  "HS: Nephrology",
-  "HS: Neurology",
-  "HS: Optometry",
-  "HS: Ortho",
-  "HS: PAC - Home Health",
-  "HS: PAC - Hospice",
-  "HS: PAC - Skilled Nursing (SNF)",
-  "HS: Pain Management",
-  "HS: Pediatrics",
-  "HS: Physical Therapy",
-  "HS: Podiatry",
-  "HS: PPM",
-  "HS: Primary Care",
-  "HS: Sleep",
-  "HS: Speech Pathology",
-  "HS: Staffing",
-  "HS: Urgent Care",
-  "HS: Urology",
-  "HS: Vascular & Vein",
-  "HS: Veterinary",
-  "HS: Veterinary / Animal Health",
-  "HS: Vision",
-  "HS: Wound Care",
-  "Other - See Notes",
-  "Other: Consumer",
-  "Other: Wealth Management",
-  "Pharma: CRO Services"
-];
+const VALID_SECTORS = `HS: Women's Health
+HCIT: Benefit Management Solutions
+HCIT: Care Delivery
+HCIT: Compliance
+HCIT: General
+HCIT: Inventory and Cost Solutions
+HCIT: Life Sciences/Pharmacy Focused Solutions
+HCIT: Medication Adherence
+HCIT: Member Engagement
+HCIT: Other Payor Services
+HCIT: Payment Accuracy & Cost Containment
+HCIT: Pharma
+HCIT: Population Health / VBC Enablement
+HCIT: Practice Management
+HCIT: Provider Focused Solutions
+HCIT: RCM
+HS: Allergy, Ear, Nose and Throat
+HS: Anesthesiology
+HS: ASC
+HS: Behavioral - ABA
+HS: Behavioral - IDD
+HS: Behavioral - Interventional Pysch
+HS: Behavioral - Mental
+HS: Behavioral - Psych
+HS: Behavioral - Psych / Residential
+HS: Behavioral - SUD
+HS: Cardiology
+HS: Compound Pharmacy
+HS: Dentistry
+HS: Dermatology
+HS: DME
+HS: DPC
+HS: Employer | Self Insured Services
+HS: Functional Medicine / Wellness
+HS: Gastroenterology
+HS: General
+HS: Health Systems
+HS: Home Care
+HS: Imaging
+HS: Infusion Center
+HS: Lab
+HS: Medical Transportation
+HS: MedSpa & Aesthetics
+HS: Nephrology
+HS: Neurology
+HS: Optometry
+HS: Ortho
+HS: PAC - Home Health
+HS: PAC - Hospice
+HS: PAC - Skilled Nursing (SNF)
+HS: Pain Management
+HS: Pediatrics
+HS: Physical Therapy
+HS: Podiatry
+HS: PPM
+HS: Primary Care
+HS: Sleep
+HS: Speech Pathology
+HS: Staffing
+HS: Urgent Care
+HS: Urology
+HS: Vascular & Vein
+HS: Veterinary
+HS: Veterinary / Animal Health
+HS: Vision
+HS: Wound Care
+Other - See Notes
+Other: Consumer
+Other: Wealth Management
+Pharma: CRO Services`;
 
-const SPECIALTY_KEYWORDS = {
-  "HS: Dermatology": ["dermatology", "derm", "skin", "laser", "mohs"],
-  "HS: Cardiology": ["cardiology", "cardiac", "heart"],
-  "HS: Orthopedics": ["orthopedic", "ortho", "spine", "joint"],
-  "HS: Dentistry": ["dental", "dentist", "orthodontic", "oral surgery"],
-  "HS: Optometry": ["eye", "vision", "retina", "ophthalmology", "optometry"],
-  "HS: Behavioral - Mental": ["psychiatry", "therapy", "counseling", "mental health", "psychology"],
-  "HS: Urgent Care": ["urgent care", "walk-in", "immediate care"],
-  "HS: Physical Therapy": ["physical therapy", "pt", "rehab"],
-  "HS: Pediatrics": ["pediatric", "pediatrics", "children"],
-  "HS: Pain Management": ["pain management", "pain relief"],
-  "HS: MedSpa & Aesthetics": ["medspa", "aesthetic", "cosmetic"],
-  "HS: Home Care": ["home care", "home health"],
-  "HS: Hospice": ["hospice"],
-  "HS: Lab": ["lab", "laboratory", "diagnostic"],
-  "HS: Imaging": ["imaging", "radiology", "mri", "ct scan"],
-  "HS: Allergy, Ear, Nose and Throat": ["ent", "allergy", "otolaryngology"],
-  "HCIT: Practice Management": ["practice management", "ehr", "emr"],
-  "HCIT: RCM": ["revenue cycle", "billing", "claims"],
-  "HCIT: Care Delivery": ["telehealth", "telemedicine"],
-  "HS: Staffing": ["staffing", "temp staffing", "physician staffing"]
-};
+async function classifyTarget(target, base44) {
+  const prompt = `You are a precision healthcare sector classifier. Your role is to categorize companies into healthcare verticals with surgical accuracy.
 
-function classifyTarget(target) {
-  const name = (target.name || "").toLowerCase();
-  const shortName = (target.companyShortName || "").toLowerCase();
-  const website = (target.website || "").toLowerCase();
-  const clinicCount = target.clinicCount || 0;
-  
-  let scores = {};
-  
-  // Match keywords
-  for (const [sector, keywords] of Object.entries(SPECIALTY_KEYWORDS)) {
-    let score = 0;
-    for (const kw of keywords) {
-      if (name.includes(kw)) score += 40;
-      if (shortName.includes(kw)) score += 35;
+**Company Details:**
+- Name: ${target.name}
+- Short Name: ${target.companyShortName || 'N/A'}
+- Website: ${target.website || 'N/A'}
+- Industry: ${target.industry || 'N/A'}
+- Subsector: ${target.subsector || 'N/A'}
+
+**Classification Rules:**
+1. Choose from ONLY these valid sectors:
+${VALID_SECTORS}
+
+2. Prioritize specificity over generalization
+3. If truly ambiguous, use "HS: General" or "HCIT: General"
+4. Return confidence score 0-100 based on signal clarity
+
+**Examples:**
+- "Midwest Dermatology Partners" → "HS: Dermatology" (95% confidence)
+- "Blue Ridge Urgent Care" → "HS: Urgent Care" (90% confidence)
+- "Summit Mental Health Services" → "HS: Behavioral - Mental" (85% confidence)
+- "HealthTech Solutions Inc" → "HCIT: General" (40% confidence)
+
+Return JSON:
+{
+  "sector": "exact sector from list",
+  "confidence": 85,
+  "reasoning": "brief explanation"
+}`;
+
+  const result = await base44.integrations.Core.InvokeLLM({
+    prompt,
+    response_json_schema: {
+      type: "object",
+      properties: {
+        sector: { type: "string" },
+        confidence: { type: "number" },
+        reasoning: { type: "string" }
+      }
     }
-    if (score > 0) scores[sector] = score;
-  }
-  
-  // Clinic count boost
-  if (clinicCount > 1) {
-    for (const sector of Object.keys(scores)) {
-      scores[sector] += 20;
-    }
-  }
-  
-  // Weak website penalty
-  if (!target.website || target.websiteStatus === "broken") {
-    for (const sector of Object.keys(scores)) {
-      scores[sector] = Math.max(0, scores[sector] - 20);
-    }
-  }
-  
-  // Find best match
-  let primarySector = "HS: General";
-  let confidence = 0;
-  
-  if (Object.keys(scores).length > 0) {
-    primarySector = Object.entries(scores).sort((a, b) => b[1] - a[1])[0][0];
-    confidence = Math.min(100, Object.entries(scores).sort((a, b) => b[1] - a[1])[0][1]);
-  }
-  
-  const confidenceTier = confidence >= 75 ? "High" : confidence >= 55 ? "Medium" : "Low";
-  
+  });
+
   return {
-    sector_focus_primary: primarySector,
-    sector_confidence_score: Math.round(confidence),
-    sector_confidence_tier: confidenceTier
+    sector_focus_primary: result.sector || "HS: General",
+    sector_confidence_score: Math.round(result.confidence || 50),
+    sector_reasoning: result.reasoning || ""
   };
 }
 
@@ -168,7 +143,7 @@ Deno.serve(async (req) => {
     }
     
     const target = targets[0];
-    const classification = classifyTarget(target);
+    const classification = await classifyTarget(target, base44);
     
     // Update target
     await base44.entities.BDTarget.update(targetId, {

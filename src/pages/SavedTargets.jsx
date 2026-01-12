@@ -7,7 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
-import { Database, Filter, Download, Trash2, MapPin, Globe, Building2, Search, ArrowLeft, ArrowUpDown, ArrowUp, ArrowDown, RefreshCw, Loader2, CheckSquare, Globe2, UserCheck, Sparkles, Award, AlertTriangle, CheckCircle } from "lucide-react";
+import { Database, Filter, Download, Trash2, MapPin, Globe, Building2, Search, ArrowLeft, ArrowUpDown, ArrowUp, ArrowDown, RefreshCw, Loader2, CheckSquare, Globe2, UserCheck, Sparkles, Award, AlertTriangle, CheckCircle, Tag } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Link } from "react-router-dom";
@@ -30,9 +31,12 @@ export default function SavedTargets() {
   const [qualityProgress, setQualityProgress] = useState({ current: 0, total: 0 });
   const [clinicFilter, setClinicFilter] = useState("all");
   const [qualityFilter, setQualityFilter] = useState("all");
+  const [sectorFilter, setSectorFilter] = useState("all");
   const [selectedTargets, setSelectedTargets] = useState(new Set());
   const [reclassifyingSectors, setReclassifyingSectors] = useState(false);
   const [sectorProgress, setSectorProgress] = useState({ current: 0, total: 0 });
+  const [showBulkSectorDialog, setShowBulkSectorDialog] = useState(false);
+  const [bulkSectorValue, setBulkSectorValue] = useState("");
   const queryClient = useQueryClient();
 
   const [user, setUser] = useState(null);
@@ -142,6 +146,23 @@ export default function SavedTargets() {
     setSectorProgress({ current: 0, total: 0 });
   };
 
+  const applyBulkSector = async () => {
+    if (!bulkSectorValue) {
+      alert("Please select a sector");
+      return;
+    }
+
+    const selectedList = filteredTargets.filter(t => selectedTargets.has(t.id));
+    
+    for (const target of selectedList) {
+      await base44.entities.BDTarget.update(target.id, { sectorFocus: bulkSectorValue });
+    }
+
+    await queryClient.invalidateQueries({ queryKey: ['bdTargets'] });
+    setShowBulkSectorDialog(false);
+    setBulkSectorValue("");
+  };
+
   const crawlSelectedWebsites = async () => {
     const selectedList = filteredTargets.filter(t => selectedTargets.has(t.id));
     if (selectedList.length === 0) return;
@@ -246,6 +267,11 @@ Return your response as JSON with this exact structure:
     return unique.sort();
   }, [targets]);
 
+  const uniqueSectors = useMemo(() => {
+    const sectors = [...new Set(targets.map(t => t.sectorFocus).filter(Boolean))];
+    return sectors.sort();
+  }, [targets]);
+
   const filteredTargets = useMemo(() => {
     let filtered = targets.filter(t => {
       const campaignMatch = selectedCampaign === "all" || t.campaign === selectedCampaign;
@@ -254,12 +280,13 @@ Return your response as JSON with this exact structure:
                     (clinicFilter === "missing" && !t.clinicCount) ||
                     (clinicFilter === "has" && t.clinicCount);
       const qualityMatch = qualityFilter === "all" || t.qualityTier === qualityFilter;
+      const sectorMatch = sectorFilter === "all" || t.sectorFocus === sectorFilter;
       const searchMatch = !searchQuery || 
                     (t.name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
                     (t.companyShortName || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
                     (t.city || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
                     (t.state || "").toLowerCase().includes(searchQuery.toLowerCase());
-      return campaignMatch && statusMatch && clinicMatch && qualityMatch && searchMatch;
+      return campaignMatch && statusMatch && clinicMatch && qualityMatch && sectorMatch && searchMatch;
     });
 
     if (sortField) {
@@ -271,7 +298,7 @@ Return your response as JSON with this exact structure:
     }
 
     return filtered;
-  }, [targets, selectedCampaign, statusFilter, clinicFilter, qualityFilter, searchQuery, sortField, sortDirection]);
+  }, [targets, selectedCampaign, statusFilter, clinicFilter, qualityFilter, sectorFilter, searchQuery, sortField, sortDirection]);
 
   const toggleSort = (field) => {
     if (sortField === field) {
@@ -358,8 +385,56 @@ Return your response as JSON with this exact structure:
     );
   }
 
+  const SECTOR_OPTIONS = [
+    "HS: Women's Health", "HCIT: Benefit Management Solutions", "HCIT: Care Delivery", "HCIT: Compliance",
+    "HCIT: General", "HCIT: Inventory and Cost Solutions", "HCIT: Life Sciences/Pharmacy Focused Solutions",
+    "HCIT: Medication Adherence", "HCIT: Member Engagement", "HCIT: Other Payor Services",
+    "HCIT: Payment Accuracy & Cost Containment", "HCIT: Pharma", "HCIT: Population Health / VBC Enablement",
+    "HCIT: Practice Management", "HCIT: Provider Focused Solutions", "HCIT: RCM",
+    "HS: Allergy, Ear, Nose and Throat", "HS: Anesthesiology", "HS: ASC", "HS: Behavioral - ABA",
+    "HS: Behavioral - IDD", "HS: Behavioral - Interventional Pysch", "HS: Behavioral - Mental",
+    "HS: Behavioral - Psych", "HS: Behavioral - Psych / Residential", "HS: Behavioral - SUD",
+    "HS: Cardiology", "HS: Compound Pharmacy", "HS: Dentistry", "HS: Dermatology", "HS: DME", "HS: DPC",
+    "HS: Employer | Self Insured Services", "HS: Functional Medicine / Wellness", "HS: Gastroenterology",
+    "HS: General", "HS: Health Systems", "HS: Home Care", "HS: Imaging", "HS: Infusion Center", "HS: Lab",
+    "HS: Medical Transportation", "HS: MedSpa & Aesthetics", "HS: Nephrology", "HS: Neurology",
+    "HS: Optometry", "HS: Ortho", "HS: PAC - Home Health", "HS: PAC - Hospice",
+    "HS: PAC - Skilled Nursing (SNF)", "HS: Pain Management", "HS: Pediatrics", "HS: Physical Therapy",
+    "HS: Podiatry", "HS: PPM", "HS: Primary Care", "HS: Sleep", "HS: Speech Pathology", "HS: Staffing",
+    "HS: Urgent Care", "HS: Urology", "HS: Vascular & Vein", "HS: Veterinary",
+    "HS: Veterinary / Animal Health", "HS: Vision", "HS: Wound Care", "Other - See Notes",
+    "Other: Consumer", "Other: Wealth Management", "Pharma: CRO Services"
+  ];
+
   return (
     <div className="w-full mx-auto p-3 sm:p-4 md:p-6 space-y-4 sm:space-y-6 bg-gradient-to-br from-slate-50 to-blue-50 min-h-screen">
+      <Dialog open={showBulkSectorDialog} onOpenChange={setShowBulkSectorDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Assign Sector to Selected Companies</DialogTitle>
+            <DialogDescription>
+              Choose a sector to apply to {selectedTargets.size} selected compan{selectedTargets.size === 1 ? 'y' : 'ies'}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <Select value={bulkSectorValue} onValueChange={setBulkSectorValue}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select a sector..." />
+              </SelectTrigger>
+              <SelectContent className="max-h-[300px]">
+                {SECTOR_OPTIONS.map(sector => (
+                  <SelectItem key={sector} value={sector}>{sector}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowBulkSectorDialog(false)}>Cancel</Button>
+            <Button onClick={applyBulkSector} disabled={!bulkSectorValue}>Apply to {selectedTargets.size}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {reclassifyingSectors && (
         <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-50 flex items-center justify-center">
           <div className="bg-white p-6 rounded-xl shadow-xl">
@@ -441,10 +516,20 @@ Return your response as JSON with this exact structure:
             ) : (
               <>
                 <Building2 className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
-                <span className="hidden lg:inline">Reclassify Sectors ({selectedTargets.size})</span>
-                <span className="lg:hidden">Sectors ({selectedTargets.size})</span>
+                <span className="hidden lg:inline">AI Reclassify ({selectedTargets.size})</span>
+                <span className="lg:hidden">AI ({selectedTargets.size})</span>
               </>
             )}
+          </Button>
+          <Button 
+            variant="outline" 
+            onClick={() => setShowBulkSectorDialog(true)} 
+            disabled={selectedTargets.size === 0}
+            className="text-xs sm:text-sm"
+          >
+            <Tag className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
+            <span className="hidden lg:inline">Assign Sector ({selectedTargets.size})</span>
+            <span className="lg:hidden">Assign ({selectedTargets.size})</span>
           </Button>
           <Button 
             variant="outline" 
@@ -521,7 +606,7 @@ Return your response as JSON with this exact structure:
             Filters
           </CardTitle>
         </CardHeader>
-        <CardContent className="grid md:grid-cols-6 gap-4">
+        <CardContent className="grid md:grid-cols-7 gap-4">
           <div className="space-y-2">
             <div className="text-sm font-medium">Campaign</div>
             <Select value={selectedCampaign} onValueChange={setSelectedCampaign}>
@@ -579,6 +664,21 @@ Return your response as JSON with this exact structure:
                 <SelectItem value="great">GREAT</SelectItem>
                 <SelectItem value="good">GOOD</SelectItem>
                 <SelectItem value="bad">BAD</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <div className="text-sm font-medium">Sector</div>
+            <Select value={sectorFilter} onValueChange={setSectorFilter}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Sectors</SelectItem>
+                {uniqueSectors.map(s => (
+                  <SelectItem key={s} value={s}>{s}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
