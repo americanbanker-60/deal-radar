@@ -745,19 +745,18 @@ Return your response as JSON with this exact structure:
                         onCheckedChange={toggleSelectAll}
                       />
                     </th>
-                    <th className="py-3 px-4 font-semibold whitespace-nowrap">Campaign</th>
-                        <th className="py-3 px-4 font-semibold whitespace-nowrap">Name</th>
-                            <th className="py-3 px-4 font-semibold whitespace-nowrap">Quality</th>
-                            <th className="py-3 px-4 font-semibold whitespace-nowrap">Contact</th>
-                            <th className="py-3 px-4 font-semibold whitespace-nowrap">Sector</th>
-                        <th className="py-3 px-4 font-semibold whitespace-nowrap">City</th>
-                        <th className="py-3 px-4 font-semibold whitespace-nowrap">State</th>
-                        <th className="py-3 px-4 font-semibold whitespace-nowrap">Website</th>
+                    <th className="py-3 px-4 font-semibold whitespace-nowrap">Name</th>
+                    <th className="py-3 px-4 font-semibold whitespace-nowrap">Short Name</th>
+                    <th className="py-3 px-4 font-semibold whitespace-nowrap">Sector</th>
+                    <th className="py-3 px-4 font-semibold whitespace-nowrap">City</th>
+                    <th className="py-3 px-4 font-semibold whitespace-nowrap">State</th>
+                    <th className="py-3 px-4 font-semibold whitespace-nowrap">Revenue</th>
                     <SortHeader field="employees">Employees</SortHeader>
                     <SortHeader field="clinicCount">Clinics</SortHeader>
+                    <th className="py-3 px-4 font-semibold">Website</th>
                     <SortHeader field="score">Score</SortHeader>
-                    <th className="py-3 px-4 font-semibold">Status</th>
-                    <th className="py-3 px-4 font-semibold">Actions</th>
+                    <th className="py-3 px-4 font-semibold">Fit</th>
+                    <th className="py-3 px-4 font-semibold">Priority</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -769,65 +768,16 @@ Return your response as JSON with this exact structure:
                           onCheckedChange={() => toggleTarget(t.id)}
                         />
                       </td>
-                      <td className="py-3 px-4">
-                        <Badge variant="outline" className="text-xs">{t.campaign}</Badge>
-                      </td>
                       <td className="py-3 px-4 max-w-[200px] truncate font-medium">{t.name}</td>
+                      <td className="py-3 px-4 text-slate-600">{t.companyShortName || "—"}</td>
                       <td className="py-3 px-4">
-                        {t.qualityTier ? (
-                          <div className="flex items-center gap-2">
-                            <Badge className={
-                              t.qualityTier === "great" ? "bg-green-100 text-green-800 border-green-200" :
-                              t.qualityTier === "good" ? "bg-blue-100 text-blue-800 border-blue-200" :
-                              "bg-amber-100 text-amber-800 border-amber-200"
-                            }>
-                              {t.qualityTier === "great" && <CheckCircle className="w-3 h-3 mr-1" />}
-                              {t.qualityTier === "good" && <Award className="w-3 h-3 mr-1" />}
-                              {t.qualityTier === "bad" && <AlertTriangle className="w-3 h-3 mr-1" />}
-                              {t.qualityTier.toUpperCase()}
-                            </Badge>
-                            {t.qualityConfidence && (
-                              <span className="text-xs text-slate-500">{t.qualityConfidence}%</span>
-                            )}
-                          </div>
-                        ) : "—"}
+                        {t.sectorFocus && (
+                          <Badge variant="outline" className="text-xs whitespace-nowrap">{t.sectorFocus}</Badge>
+                        )}
                       </td>
-                      <td className="py-3 px-4">
-                        {t.contactFirstName && t.contactLastName ? (
-                          <div className="text-sm">
-                            <div className="font-medium flex items-center gap-1">
-                              {t.contactHonorific && <span className="text-purple-600">{t.contactHonorific}</span>}
-                              {t.contactPreferredName || t.contactFirstName} {t.contactLastName}
-                              {t.contactPreferredName && t.contactPreferredNameConfidence > 70 && (
-                                <Sparkles className="w-3 h-3 text-purple-500" title={`${t.contactPreferredNameConfidence}% confidence`} />
-                              )}
-                            </div>
-                            {t.contactTitle && <div className="text-xs text-slate-500">{t.contactTitle}</div>}
-                            {t.contactCredential && (
-                              <Badge variant="outline" className="text-xs mt-1">{t.contactCredential}</Badge>
-                            )}
-                          </div>
-                        ) : "—"}
-                      </td>
-                      <td className="py-3 px-4">
-                            {t.sectorFocus && (
-                              <Badge variant="outline" className="text-xs whitespace-nowrap">{t.sectorFocus}</Badge>
-                            )}
-                          </td>
-                          <td className="py-3 px-4 text-slate-600 whitespace-nowrap">{t.city || t.hq || "—"}</td>
-                                                      <td className="py-3 px-4 text-slate-600 whitespace-nowrap">{t.state || "—"}</td>
-                          <td className="py-3 px-4">
-                        {t.website ? (
-                          <a 
-                            href={t.website.startsWith('http') ? t.website : `https://${t.website}`} 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            className="text-blue-600 hover:underline text-xs truncate block max-w-[150px]"
-                          >
-                            {t.website.replace(/^https?:\/\//, '').replace(/\/$/, '')}
-                          </a>
-                        ) : "—"}
-                      </td>
+                      <td className="py-3 px-4 text-slate-600 whitespace-nowrap">{t.city || "—"}</td>
+                      <td className="py-3 px-4 text-slate-600 whitespace-nowrap">{t.state || "—"}</td>
+                      <td className="py-3 px-4 text-slate-600 whitespace-nowrap">{t.revenue ? `$${t.revenue}M` : "—"}</td>
                       <td className="py-3 px-4 text-slate-600">{t.employees || "—"}</td>
                       <td className="py-3 px-4 text-slate-600">
                         {t.clinicCount ? (
@@ -838,6 +788,15 @@ Return your response as JSON with this exact structure:
                         ) : "—"}
                       </td>
                       <td className="py-3 px-4">
+                        {t.websiteStatus === "working" && (
+                          <Badge className="bg-green-100 text-green-700 text-xs">✓</Badge>
+                        )}
+                        {t.websiteStatus === "broken" && (
+                          <Badge className="bg-red-100 text-red-700 text-xs">✗</Badge>
+                        )}
+                        {!t.websiteStatus && <span className="text-xs text-muted-foreground">—</span>}
+                      </td>
+                      <td className="py-3 px-4">
                         <div className="flex items-center gap-2">
                           <div className="w-16">
                             <Progress value={t.score} className="h-2" />
@@ -846,31 +805,24 @@ Return your response as JSON with this exact structure:
                         </div>
                       </td>
                       <td className="py-3 px-4">
-                        <Select
-                          value={t.status}
-                          onValueChange={(status) => updateStatusMutation.mutate({ id: t.id, status })}
-                        >
-                          <SelectTrigger className="h-8 text-xs">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="new">New</SelectItem>
-                            <SelectItem value="contacted">Contacted</SelectItem>
-                            <SelectItem value="qualified">Qualified</SelectItem>
-                            <SelectItem value="disqualified">Disqualified</SelectItem>
-                            <SelectItem value="closed">Closed</SelectItem>
-                          </SelectContent>
-                        </Select>
+                        {t.fitScore !== undefined && (
+                          <Badge 
+                            className={
+                              t.fitScore >= 75 ? "bg-green-100 text-green-700" :
+                              t.fitScore >= 50 ? "bg-yellow-100 text-yellow-700" :
+                              "bg-slate-100 text-slate-600"
+                            }
+                          >
+                            {t.fitScore}%
+                          </Badge>
+                        )}
                       </td>
                       <td className="py-3 px-4">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => deleteTargetMutation.mutate(t.id)}
-                          className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
+                        {t.score >= 70 ? (
+                          <Badge className="bg-green-100 text-green-700 border-green-200">Priority</Badge>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
                       </td>
                     </tr>
                   ))}

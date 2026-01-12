@@ -136,6 +136,8 @@ export default function OpsConsole(){
   const [selectedTargets, setSelectedTargets] = useState(new Set());
   const [campaignName, setCampaignName] = useState("");
   const [saving, setSaving] = useState(false);
+  const [reclassifyingSectors, setReclassifyingSectors] = useState(false);
+  const [sectorProgress, setSectorProgress] = useState({ current: 0, total: 0 });
 
   // Load saved mappings and settings from localStorage on mount
   useEffect(() => {
@@ -533,6 +535,79 @@ Return JSON:
     }
     setSelectedTargets(newSelected);
   };
+
+  const reclassifySelectedSectors = async () => {
+    const selectedList = grScored.filter((_, index) => selectedTargets.has(index));
+    
+    if (selectedList.length === 0) {
+      setUploadError("Please select targets to reclassify");
+      return;
+    }
+
+    setReclassifyingSectors(true);
+    setSectorProgress({ current: 0, total: selectedList.length });
+
+    const enrichedRows = [];
+
+    for (let i = 0; i < selectedList.length; i++) {
+      const company = selectedList[i];
+      setSectorProgress({ current: i + 1, total: selectedList.length });
+
+      try {
+        const prompt = `Classify this healthcare company into ONE specific sector:
+
+**Company:** ${company.name}
+**Website:** ${company.website || 'N/A'}
+
+**Valid Sectors:**
+${SECTOR_OPTIONS}
+
+**Instructions:**
+- Choose the MOST SPECIFIC sector that matches
+- Use company name keywords to guide classification
+- If truly uncertain, use "HS: General"
+
+Return JSON:
+{
+  "sectorFocus": "exact sector from list"
+}`;
+
+        const result = await base44.integrations.Core.InvokeLLM({
+          prompt,
+          response_json_schema: {
+            type: "object",
+            properties: {
+              sectorFocus: { type: "string" }
+            }
+          }
+        });
+
+        enrichedRows.push({
+          ...company,
+          sectorFocus: result.sectorFocus || "HS: General"
+        });
+      } catch (error) {
+        console.error(`Error reclassifying ${company.name}:`, error);
+        enrichedRows.push(company);
+      }
+    }
+
+    // Update the raw data
+    const enrichedMap = new Map(enrichedRows.map(r => [r.name, r]));
+    const updatedRaw = grCompaniesRaw.map(raw => {
+      const normalized = normalizeRow(raw, grMap, { preferRangeMidpoint: true });
+      const enriched = enrichedMap.get(normalized.name);
+      if (enriched) {
+        raw._sectorFocus = enriched.sectorFocus;
+      }
+      return raw;
+    });
+
+    setGrCompaniesRaw(updatedRaw);
+    setReclassifyingSectors(false);
+    setSectorProgress({ current: 0, total: 0 });
+    showSuccess(`Reclassified ${enrichedRows.length} company sectors!`);
+  };
   
   const normalizedGR = useMemo(() => {
     const normalized = grCompaniesRaw.map((r) => normalizeRow(r, grMap, { preferRangeMidpoint: true }));
@@ -768,6 +843,21 @@ Return JSON:
         </div>
       )}
 
+      {reclassifyingSectors && (
+        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-50 flex items-center justify-center">
+          <div className="bg-white p-6 rounded-xl shadow-xl">
+            <div className="flex items-center gap-3 mb-4">
+              <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
+              <span className="font-medium">Reclassifying Sectors...</span>
+            </div>
+            <Progress value={(sectorProgress.current / sectorProgress.total) * 100} className="w-64" />
+            <div className="text-sm text-slate-600 mt-2 text-center">
+              {sectorProgress.current} / {sectorProgress.total} companies
+            </div>
+          </div>
+        </div>
+      )}
+
       <Tabs value={page} onValueChange={setPage}>
         <TabsList className="bg-white border border-slate-200">
           <TabsTrigger value="grata">Grata Data</TabsTrigger>
@@ -972,8 +1062,26 @@ Return JSON:
                     onChange={(e) => setCampaignName(e.target.value)}
                   />
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <Badge variant="outline">{selectedTargets.size} selected</Badge>
+                  <Button
+                    variant="outline"
+                    onClick={reclassifySelectedSectors}
+                    disabled={reclassifyingSectors || selectedTargets.size === 0}
+                    className="text-xs sm:text-sm"
+                  >
+                    {reclassifyingSectors ? (
+                      <>
+                        <Loader2 className="w-3 h-3 sm:w-4 sm:h-4 mr-2 animate-spin" />
+                        Reclassifying...
+                      </>
+                    ) : (
+                      <>
+                        <Building2 className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
+                        AI Reclassify Sectors
+                      </>
+                    )}
+                  </Button>
                   <Button
                     onClick={saveToDatabase}
                     disabled={saving || selectedTargets.size === 0 || !campaignName.trim()}

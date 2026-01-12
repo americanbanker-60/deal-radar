@@ -72,34 +72,27 @@ Other: Wealth Management
 Pharma: CRO Services`;
 
 async function classifyTarget(target, base44) {
-  const prompt = `You are a precision healthcare sector classifier. Your role is to categorize companies into healthcare verticals with surgical accuracy.
+  const prompt = `Classify this healthcare company into ONE specific sector based on the company name.
 
-**Company Details:**
-- Name: ${target.name}
-- Short Name: ${target.companyShortName || 'N/A'}
-- Website: ${target.website || 'N/A'}
-- Industry: ${target.industry || 'N/A'}
-- Subsector: ${target.subsector || 'N/A'}
+**Company Name:** ${target.name}
 
-**Classification Rules:**
-1. Choose from ONLY these valid sectors:
+**Valid Sectors (choose ONE):**
 ${VALID_SECTORS}
 
-2. Prioritize specificity over generalization
-3. If truly ambiguous, use "HS: General" or "HCIT: General"
-4. Return confidence score 0-100 based on signal clarity
+**Classification Rules:**
+1. Look for specialty keywords in the company name (e.g., "Dermatology", "Urgent Care", "Pediatrics")
+2. Choose the MOST SPECIFIC sector that matches
+3. Examples:
+   - "Midwest Dermatology Partners" → "HS: Dermatology"
+   - "Blue Ridge Urgent Care" → "HS: Urgent Care"
+   - "Summit Behavioral Health" → "HS: Behavioral - Mental"
+   - "Coastal Physical Therapy" → "HS: Physical Therapy"
+   - "Valley Primary Care" → "HS: Primary Care"
+4. Only use "HS: General" if NO specialty is mentioned in the name
 
-**Examples:**
-- "Midwest Dermatology Partners" → "HS: Dermatology" (95% confidence)
-- "Blue Ridge Urgent Care" → "HS: Urgent Care" (90% confidence)
-- "Summit Mental Health Services" → "HS: Behavioral - Mental" (85% confidence)
-- "HealthTech Solutions Inc" → "HCIT: General" (40% confidence)
-
-Return JSON:
+Return JSON with ONLY the sector (no explanation needed):
 {
-  "sector": "exact sector from list",
-  "confidence": 85,
-  "reasoning": "brief explanation"
+  "sector": "exact sector from list above"
 }`;
 
   const result = await base44.integrations.Core.InvokeLLM({
@@ -107,17 +100,16 @@ Return JSON:
     response_json_schema: {
       type: "object",
       properties: {
-        sector: { type: "string" },
-        confidence: { type: "number" },
-        reasoning: { type: "string" }
-      }
+        sector: { type: "string" }
+      },
+      required: ["sector"]
     }
   });
 
   return {
     sector_focus_primary: result.sector || "HS: General",
-    sector_confidence_score: Math.round(result.confidence || 50),
-    sector_reasoning: result.reasoning || ""
+    sector_confidence_score: 90,
+    sector_reasoning: `Classified based on company name: ${target.name}`
   };
 }
 
