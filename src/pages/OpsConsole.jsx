@@ -448,14 +448,23 @@ Return JSON:
     setSaving(true);
     
     try {
-      // Get existing targets to check for duplicates
+      // Get existing targets to check for duplicates (based on name)
       const existingTargets = await base44.entities.BDTarget.list();
-      const existingUrls = new Set(existingTargets.map(t => t.website?.toLowerCase()).filter(Boolean));
+      const existingNames = new Set(existingTargets.map(t => t.name?.toLowerCase()).filter(Boolean));
 
-      const targetsToSave = grScored
-        .filter((_, index) => selectedTargets.has(index))
-        .filter(t => t.website && !existingUrls.has(t.website.toLowerCase())) // Only save if website exists and is not a duplicate
-        .map(t => ({
+      const selectedList = grScored.filter((_, index) => selectedTargets.has(index));
+      const targetsToSave = [];
+      let duplicateCount = 0;
+
+      for (const t of selectedList) {
+        // Check for duplicate by name (case-insensitive)
+        if (t.name && existingNames.has(t.name.toLowerCase())) {
+          duplicateCount++;
+          console.log(`Skipping duplicate: ${t.name}`);
+          continue;
+        }
+
+        targetsToSave.push({
           campaign: campaignName.trim(),
           name: t.name,
           companyShortName: t.companyShortName,
@@ -480,17 +489,23 @@ Return JSON:
           linkedin: t.linkedin,
           notes: t.notes,
           status: "new"
-        }));
+        });
+      }
 
       if (targetsToSave.length === 0) {
-        setUploadError("All selected companies already exist in database or lack a website for de-duplication.");
+        setUploadError("All selected companies already exist in the database.");
         setSaving(false);
         return;
       }
 
+      console.log(`Saving ${targetsToSave.length} companies to campaign: ${campaignName}`);
       await base44.entities.BDTarget.bulkCreate(targetsToSave);
       
-      showSuccess(`Saved ${targetsToSave.length} companies to "${campaignName}"! ${selectedTargets.size - targetsToSave.length} duplicates skipped.`);
+      const message = duplicateCount > 0 
+        ? `Saved ${targetsToSave.length} companies to "${campaignName}"! (${duplicateCount} duplicates skipped)`
+        : `Saved ${targetsToSave.length} companies to "${campaignName}"!`;
+      
+      showSuccess(message);
       setSelectedTargets(new Set());
       setCampaignName("");
     } catch (error) {
@@ -1059,7 +1074,7 @@ Return JSON:
                 <Alert className="bg-blue-50 border-blue-200">
                   <CircleAlert className="h-4 w-4 text-blue-600" />
                   <AlertDescription className="text-blue-800 text-xs">
-                    Duplicates (based on website URL) are automatically skipped. Companies without a website will also be skipped.
+                    Duplicates (based on company name) are automatically skipped.
                   </AlertDescription>
                 </Alert>
               </CardContent>
