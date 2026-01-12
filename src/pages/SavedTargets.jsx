@@ -31,6 +31,8 @@ export default function SavedTargets() {
   const [clinicFilter, setClinicFilter] = useState("all");
   const [qualityFilter, setQualityFilter] = useState("all");
   const [selectedTargets, setSelectedTargets] = useState(new Set());
+  const [reclassifyingSectors, setReclassifyingSectors] = useState(false);
+  const [sectorProgress, setSectorProgress] = useState({ current: 0, total: 0 });
   const queryClient = useQueryClient();
 
   const [user, setUser] = useState(null);
@@ -111,6 +113,33 @@ export default function SavedTargets() {
     await queryClient.invalidateQueries({ queryKey: ['bdTargets'] });
     setEnrichingContacts(false);
     setEnrichProgress({ current: 0, total: 0 });
+  };
+
+  const reclassifySelectedSectors = async () => {
+    const selectedList = filteredTargets.filter(t => selectedTargets.has(t.id));
+    
+    if (selectedList.length === 0) {
+      alert("Please select targets to reclassify");
+      return;
+    }
+
+    setReclassifyingSectors(true);
+    setSectorProgress({ current: 0, total: selectedList.length });
+
+    for (let i = 0; i < selectedList.length; i++) {
+      const target = selectedList[i];
+      setSectorProgress({ current: i + 1, total: selectedList.length });
+
+      try {
+        await base44.functions.invoke('classifySectorPrecise', { targetId: target.id });
+      } catch (error) {
+        console.error(`Error reclassifying ${target.name}:`, error);
+      }
+    }
+
+    await queryClient.invalidateQueries({ queryKey: ['bdTargets'] });
+    setReclassifyingSectors(false);
+    setSectorProgress({ current: 0, total: 0 });
   };
 
   const crawlSelectedWebsites = async () => {
@@ -382,6 +411,26 @@ Return your response as JSON with this exact structure:
             <Download className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
             <span className="hidden sm:inline">Export All</span>
             <span className="sm:hidden">Export</span>
+          </Button>
+          <Button 
+            variant="outline" 
+            onClick={reclassifySelectedSectors} 
+            disabled={reclassifyingSectors || selectedTargets.size === 0}
+            className="text-xs sm:text-sm"
+          >
+            {reclassifyingSectors ? (
+              <>
+                <Loader2 className="w-3 h-3 sm:w-4 sm:h-4 mr-2 animate-spin" />
+                <span className="hidden sm:inline">Reclassifying {sectorProgress.current}/{sectorProgress.total}</span>
+                <span className="sm:hidden">Classify...</span>
+              </>
+            ) : (
+              <>
+                <Building2 className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
+                <span className="hidden lg:inline">Reclassify Sectors ({selectedTargets.size})</span>
+                <span className="lg:hidden">Sectors ({selectedTargets.size})</span>
+              </>
+            )}
           </Button>
           <Button 
             variant="outline" 
