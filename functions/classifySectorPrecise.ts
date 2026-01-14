@@ -72,31 +72,53 @@ Other: Wealth Management
 Pharma: CRO Services`;
 
 async function classifyTarget(target, base44) {
-  const prompt = `Classify this healthcare company into ONE specific sector based on the company name.
+  const websiteContext = target.website ? `Visit ${target.website} and analyze what healthcare services this company provides.` : '';
+  
+  const prompt = `You are classifying a healthcare company into a specific sector. Be AGGRESSIVE about finding the most specific match.
 
-**Company Name:** ${target.name}
+**Company Information:**
+- Name: ${target.name}
+- Website: ${target.website || 'Not available'}
 
-**Valid Sectors (choose ONE):**
+${websiteContext}
+
+**Task:** Identify the PRIMARY healthcare specialty/sector from this list:
 ${VALID_SECTORS}
 
-**Classification Rules:**
-1. Look for specialty keywords in the company name (e.g., "Dermatology", "Urgent Care", "Pediatrics")
-2. Choose the MOST SPECIFIC sector that matches
-3. Examples:
-   - "Midwest Dermatology Partners" → "HS: Dermatology"
-   - "Blue Ridge Urgent Care" → "HS: Urgent Care"
-   - "Summit Behavioral Health" → "HS: Behavioral - Mental"
-   - "Coastal Physical Therapy" → "HS: Physical Therapy"
-   - "Valley Primary Care" → "HS: Primary Care"
-4. Only use "HS: General" if NO specialty is mentioned in the name
+**Critical Instructions:**
+1. Look for ANY specialty keywords in the company name or website
+2. Common patterns to watch for:
+   - "Dermatology" / "Derm" / "Skin" → HS: Dermatology
+   - "Urgent Care" / "Walk-in" → HS: Urgent Care
+   - "Mental Health" / "Psychiatry" / "Psych" → HS: Behavioral - Mental
+   - "Physical Therapy" / "PT" / "Rehab" → HS: Physical Therapy
+   - "Cardiology" / "Heart" → HS: Cardiology
+   - "Orthopedic" / "Ortho" / "Spine" / "Joint" → HS: Ortho
+   - "Primary Care" / "Family Medicine" / "Internal Medicine" → HS: Primary Care
+   - "Pediatric" / "Kids" / "Children" → HS: Pediatrics
+   - "Vision" / "Optometry" / "Eye" → HS: Optometry or HS: Vision
+   - "Dental" / "Dentistry" → HS: Dentistry
+   - "Pain" → HS: Pain Management
+   - "GI" / "Gastro" / "Digestive" → HS: Gastroenterology
+   - "Urology" / "Kidney" → HS: Urology
+   - "ASC" / "Surgery Center" → HS: ASC
+   - "Imaging" / "Radiology" / "MRI" / "CT" → HS: Imaging
+   - "Lab" / "Laboratory" / "Diagnostics" → HS: Lab
+   - "Home Health" / "Home Care" → HS: Home Care or HS: PAC - Home Health
+   - "Hospice" → HS: PAC - Hospice
+   - "Skilled Nursing" / "SNF" → HS: PAC - Skilled Nursing (SNF)
 
-Return JSON with ONLY the sector (no explanation needed):
+3. ONLY use "HS: General" if there are absolutely NO specialty indicators
+4. When in doubt between specific options, choose the most specific one
+
+Return JSON:
 {
-  "sector": "exact sector from list above"
+  "sector": "exact match from the list above"
 }`;
 
   const result = await base44.integrations.Core.InvokeLLM({
     prompt,
+    add_context_from_internet: target.website ? true : false,
     response_json_schema: {
       type: "object",
       properties: {
@@ -109,7 +131,7 @@ Return JSON with ONLY the sector (no explanation needed):
   return {
     sector_focus_primary: result.sector || "HS: General",
     sector_confidence_score: 90,
-    sector_reasoning: `Classified based on company name: ${target.name}`
+    sector_reasoning: `Classified using ${target.website ? 'website context and ' : ''}company name analysis`
   };
 }
 
