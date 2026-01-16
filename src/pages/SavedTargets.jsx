@@ -130,6 +130,7 @@ export default function SavedTargets() {
     setReclassifyingSectors(true);
     setSectorProgress({ current: 0, total: selectedList.length });
 
+    const { classifyCompanySector } = await import("../components/ops/enrichmentHelpers");
     let successCount = 0;
     let errorCount = 0;
 
@@ -139,8 +140,8 @@ export default function SavedTargets() {
         setSectorProgress({ current: i + 1, total: selectedList.length });
 
         try {
-          const result = await base44.functions.invoke('classifySectorPrecise', { targetId: target.id });
-          console.log(`✓ Reclassified ${target.name}:`, result.data);
+          const sector = await classifyCompanySector({ name: target.name, website: target.website });
+          await base44.entities.BDTarget.update(target.id, { sectorFocus: sector });
           successCount++;
         } catch (error) {
           console.error(`✗ Error reclassifying ${target.name}:`, error);
@@ -183,46 +184,21 @@ export default function SavedTargets() {
     setCrawling(true);
     setCrawlProgress({ current: 0, total: selectedList.length });
 
+    const { crawlCompanyWebsite } = await import("../components/ops/enrichmentHelpers");
+
     for (let i = 0; i < selectedList.length; i++) {
       const target = selectedList[i];
       setCrawlProgress({ current: i + 1, total: selectedList.length });
 
-      if (!target.website) continue;
-
+      const crawlResult = await crawlCompanyWebsite({ name: target.name, website: target.website });
+      
       try {
-        const prompt = `Visit the website ${target.website} for the company "${target.name}". 
-        
-Extract the following information:
-1. Website Status: Does the website load properly? (answer: "working" or "broken")
-2. Number of Locations/Clinics: How many physical locations, clinics, or offices does this company operate? Look for phrases like "locations", "clinics", "offices", "facilities". If you can't find this information, return null.
-
-Return your response as JSON with this exact structure:
-{
-  "websiteStatus": "working" or "broken",
-  "clinicCount": number or null
-}`;
-
-        const result = await base44.integrations.Core.InvokeLLM({
-          prompt,
-          add_context_from_internet: true,
-          response_json_schema: {
-            type: "object",
-            properties: {
-              websiteStatus: { type: "string" },
-              clinicCount: { type: ["number", "null"] }
-            }
-          }
-        });
-
         await base44.entities.BDTarget.update(target.id, {
-          websiteStatus: result.websiteStatus || "unknown",
-          clinicCount: result.clinicCount || undefined
+          websiteStatus: crawlResult.websiteStatus,
+          clinicCount: crawlResult.clinicCount
         });
       } catch (error) {
-        console.error(`Error crawling ${target.name}:`, error);
-        await base44.entities.BDTarget.update(target.id, {
-          websiteStatus: "error"
-        });
+        console.error(`Error updating ${target.name}:`, error);
       }
     }
 

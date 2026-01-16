@@ -272,59 +272,18 @@ export default function OpsConsole(){
     setCrawling(true);
     setCrawlProgress({ current: 0, total: normalizedGR.length });
 
+    const { crawlCompanyWebsite } = await import("../components/ops/enrichmentHelpers");
     const enrichedRows = [];
 
     for (let i = 0; i < normalizedGR.length; i++) {
       const company = normalizedGR[i];
       setCrawlProgress({ current: i + 1, total: normalizedGR.length });
 
-      if (!company.website) {
-        enrichedRows.push({
-          ...company,
-          websiteStatus: "missing",
-          clinicCount: undefined
-        });
-        continue;
-      }
-
-      try {
-        const prompt = `Visit the website ${company.website} for the company "${company.name}". 
-        
-Extract the following information:
-1. Website Status: Does the website load properly? (answer: "working" or "broken")
-2. Number of Locations/Clinics: How many physical locations, clinics, or offices does this company operate? Look for phrases like "locations", "clinics", "offices", "facilities". If you can't find this information, return null.
-
-Return your response as JSON with this exact structure:
-{
-  "websiteStatus": "working" or "broken",
-  "clinicCount": number or null
-}`;
-
-        const result = await base44.integrations.Core.InvokeLLM({
-          prompt,
-          add_context_from_internet: true,
-          response_json_schema: {
-            type: "object",
-            properties: {
-              websiteStatus: { type: "string" },
-              clinicCount: { type: ["number", "null"] }
-            }
-          }
-        });
-
-        enrichedRows.push({
-          ...company,
-          websiteStatus: result.websiteStatus || "unknown",
-          clinicCount: result.clinicCount
-        });
-      } catch (error) {
-        console.error(`Error crawling ${company.name}:`, error);
-        enrichedRows.push({
-          ...company,
-          websiteStatus: "error",
-          clinicCount: undefined
-        });
-      }
+      const crawlResult = await crawlCompanyWebsite(company);
+      enrichedRows.push({
+        ...company,
+        ...crawlResult
+      });
     }
 
     // Update the raw data with enriched information
@@ -354,6 +313,7 @@ Return your response as JSON with this exact structure:
     setEnriching(true);
     setEnrichProgress({ current: 0, total: normalizedGR.length });
 
+    const { generateShortName, classifyCompanySector } = await import("../components/ops/enrichmentHelpers");
     const enrichedRows = [];
 
     for (let i = 0; i < normalizedGR.length; i++) {
@@ -361,52 +321,15 @@ Return your response as JSON with this exact structure:
       setEnrichProgress({ current: i + 1, total: normalizedGR.length });
 
       try {
-        const prompt = `Given the full company name: "${company.name}"
-
-Generate two fields following these exact rules:
-
-**Company Short Name Rules:**
-- Remove leading articles: The, A, An
-- Remove legal terms: LLC, Inc, Incorporated, Corporation, Corp, Company, Co, Group, Holdings, Partners, Services, MSO, PC, PLLC, PA
-- Retain core unique identifiers + specialty term
-- Use Title Case
-- Do NOT add new words
-- Should look natural in an email subject line
-- If uncertain, use a conservative shortened version
-
-**Sector Focus Rules:**
-- Use "HS: {Sector Name}" format
-- Choose from this list ONLY:
-${SECTOR_OPTIONS}
-- Infer from company name keywords
-- If ambiguous, use "HS: General"
-
-Examples:
-- "The River Pediatrics Group" → Short Name: "River Pediatrics", Sector: "HS: Pediatrics"
-- "Blue Oak Cardiology, LLC" → Short Name: "Blue Oak Cardiology", Sector: "HS: Cardiology"
-- "Willow Grove Behavioral Health Services" → Short Name: "Willow Grove Behavioral Health", Sector: "HS: Behavioral - Mental"
-
-Return JSON:
-{
-  "companyShortName": "...",
-  "sectorFocus": "..."
-}`;
-
-        const result = await base44.integrations.Core.InvokeLLM({
-          prompt,
-          response_json_schema: {
-            type: "object",
-            properties: {
-              companyShortName: { type: "string" },
-              sectorFocus: { type: "string" }
-            }
-          }
-        });
+        const [shortName, sector] = await Promise.all([
+          generateShortName(company.name),
+          classifyCompanySector(company)
+        ]);
 
         enrichedRows.push({
           ...company,
-          companyShortName: result.companyShortName || company.name,
-          sectorFocus: result.sectorFocus || "HS: General"
+          companyShortName: shortName,
+          sectorFocus: sector
         });
       } catch (error) {
         console.error(`Error enriching ${company.name}:`, error);
@@ -547,49 +470,18 @@ Return JSON:
     setReclassifyingSectors(true);
     setSectorProgress({ current: 0, total: selectedList.length });
 
+    const { classifyCompanySector } = await import("../components/ops/enrichmentHelpers");
     const enrichedRows = [];
 
     for (let i = 0; i < selectedList.length; i++) {
       const company = selectedList[i];
       setSectorProgress({ current: i + 1, total: selectedList.length });
 
-      try {
-        const prompt = `Classify this healthcare company into ONE specific sector:
-
-**Company:** ${company.name}
-**Website:** ${company.website || 'N/A'}
-
-**Valid Sectors:**
-${SECTOR_OPTIONS}
-
-**Instructions:**
-- Choose the MOST SPECIFIC sector that matches
-- Use company name keywords to guide classification
-- If truly uncertain, use "HS: General"
-
-Return JSON:
-{
-  "sectorFocus": "exact sector from list"
-}`;
-
-        const result = await base44.integrations.Core.InvokeLLM({
-          prompt,
-          response_json_schema: {
-            type: "object",
-            properties: {
-              sectorFocus: { type: "string" }
-            }
-          }
-        });
-
-        enrichedRows.push({
-          ...company,
-          sectorFocus: result.sectorFocus || "HS: General"
-        });
-      } catch (error) {
-        console.error(`Error reclassifying ${company.name}:`, error);
-        enrichedRows.push(company);
-      }
+      const sector = await classifyCompanySector(company);
+      enrichedRows.push({
+        ...company,
+        sectorFocus: sector
+      });
     }
 
     // Update the raw data
