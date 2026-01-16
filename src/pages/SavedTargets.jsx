@@ -445,9 +445,11 @@ export default function SavedTargets() {
               <ArrowLeft className="w-4 h-4" />
             </Button>
           </Link>
-          <div className="p-3 bg-emerald-600 rounded-lg flex-shrink-0">
-            <Database className="w-6 h-6 text-white" />
-          </div>
+          <img 
+            src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/6914b46d39cf2944cbc25c62/f8da923e2_image.png" 
+            alt="Deal Radar Logo" 
+            className="w-12 h-12 object-contain flex-shrink-0"
+          />
           <div className="flex-1 min-w-0">
             <h1 className="text-xl sm:text-2xl font-bold text-slate-900">Saved BD Targets</h1>
             <p className="text-xs sm:text-sm text-slate-600 mt-1">

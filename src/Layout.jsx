@@ -64,9 +64,11 @@ export default function Layout({ children }) {
           <div className="flex justify-between items-center h-16">
             {/* Logo */}
             <Link to={createPageUrl("OpsConsole")} className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-emerald-600 to-blue-600 rounded-lg flex items-center justify-center shadow-md">
-                <Database className="w-6 h-6 text-white" />
-              </div>
+              <img 
+                src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/6914b46d39cf2944cbc25c62/f8da923e2_image.png" 
+                alt="Deal Radar Logo" 
+                className="w-10 h-10 object-contain"
+              />
               <span className="text-xl font-bold text-slate-900">Deal Radar</span>
             </Link>
 

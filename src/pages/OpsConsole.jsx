@@ -634,9 +634,11 @@ export default function OpsConsole(){
       <HowToUse open={showHowTo} onClose={() => setShowHowTo(false)} />
       
       <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 bg-white p-4 md:p-6 rounded-xl shadow-sm border border-slate-200">
-        <div className="w-12 h-12 bg-gradient-to-br from-emerald-600 to-blue-600 rounded-lg flex items-center justify-center shadow-md flex-shrink-0">
-          <Database className="w-7 h-7 text-white" />
-        </div>
+        <img 
+          src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/6914b46d39cf2944cbc25c62/f8da923e2_image.png" 
+          alt="Deal Radar Logo" 
+          className="w-12 h-12 object-contain flex-shrink-0"
+        />
         <div className="flex-1 min-w-0">
           <h1 className="text-xl sm:text-2xl font-bold text-slate-900">Grata Ops Console</h1>
           <p className="text-xs sm:text-sm text-slate-600 mt-1">Top-of-funnel deal sourcing for bootstrapped companies</p>
