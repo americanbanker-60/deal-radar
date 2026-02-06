@@ -20,6 +20,9 @@ import ScoringWeights from "../components/ops/ScoringWeights";
 import { filterTargets, scoreTargets } from "../components/ops/analyticsHelpers";
 import HowToUse from "../components/ops/HowToUse";
 import OutreachIntegration from "../components/ops/OutreachIntegration";
+import DataPipelineDebug from "../components/ops/DataPipelineDebug";
+import WorkflowSummary from "../components/ops/WorkflowSummary";
+import TargetsTable from "../components/ops/TargetsTable";
 
 const DEFAULT_FIELDS = [
   "Name","Domain","Description","LinkedIn","Revenue Estimate","Employee Estimate","Employees on Professional Networks","Total Review Count","Aggregate Rating","City","State","Country","Zip Code","Year Founded","Primary Email","Primary Phone","Notes","Executive First Name","Executive Last Name","Executive Title","Executive Email"
@@ -840,50 +843,12 @@ Instructions:
           )}
           
           {grCompaniesRaw.length > 0 && (
-            <Card className="shadow-sm border-amber-200 bg-gradient-to-r from-amber-50 to-yellow-50">
-              <CardHeader className="pb-3">
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  <AlertTriangle className="w-5 h-5 text-amber-600" />
-                  Data Pipeline Debug
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-4 gap-4">
-                  <div className="text-center">
-                    <div className="text-3xl font-bold text-blue-600">{grCompaniesRaw.length}</div>
-                    <div className="text-xs text-slate-600 mt-1">Rows Uploaded</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-3xl font-bold text-purple-600">{normalizedGR.length}</div>
-                    <div className="text-xs text-slate-600 mt-1">After Mapping</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-3xl font-bold text-indigo-600">{filteredGR.length}</div>
-                    <div className="text-xs text-slate-600 mt-1">After Filters</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-3xl font-bold text-emerald-600">{grScored.length}</div>
-                    <div className="text-xs text-slate-600 mt-1">Final Scored</div>
-                  </div>
-                </div>
-                {filteredGR.length === 0 && normalizedGR.length > 0 && (
-                  <Alert className="mt-4 bg-amber-50 border-amber-200">
-                    <AlertTriangle className="h-4 w-4 text-amber-600" />
-                    <AlertDescription className="text-amber-800 text-sm">
-                      <strong>All rows filtered out!</strong> Your filters might be too restrictive. Try adjusting Region, Revenue, or Ownership filters below.
-                    </AlertDescription>
-                  </Alert>
-                )}
-                {normalizedGR.length === 0 && grCompaniesRaw.length > 0 && (
-                  <Alert className="mt-4 bg-red-50 border-red-200">
-                    <AlertTriangle className="h-4 w-4 text-red-600" />
-                    <AlertDescription className="text-red-800 text-sm">
-                      <strong>Column mapping issue!</strong> Go to Settings and map your columns to internal fields.
-                    </AlertDescription>
-                  </Alert>
-                )}
-              </CardContent>
-            </Card>
+            <DataPipelineDebug
+              rawCount={grCompaniesRaw.length}
+              normalizedCount={normalizedGR.length}
+              filteredCount={filteredGR.length}
+              scoredCount={grScored.length}
+            />
           )}
           
           <div className="grid md:grid-cols-2 gap-4">
@@ -908,32 +873,7 @@ Instructions:
               </CardContent>
             </Card>
             
-            <Card className="shadow-sm border-slate-200">
-              <CardHeader className="bg-gradient-to-r from-indigo-50 to-transparent">
-                <CardTitle className="flex items-center gap-2">
-                  <Workflow className="w-5 h-5 text-indigo-600"/>
-                  Workflow
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2 text-sm text-muted-foreground pt-4">
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
-                  Upload → Map headers in Settings
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-purple-500"></div>
-                  Enrich names & sectors with AI
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-blue-500"></div>
-                  Crawl websites for clinic counts
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-amber-500"></div>
-                  Filter & score → Save to database
-                </div>
-              </CardContent>
-            </Card>
+            <WorkflowSummary />
           </div>
 
           {grCompaniesRaw.length > 0 && (
@@ -1079,100 +1019,13 @@ Instructions:
               </div>
             </CardHeader>
             <CardContent className="p-0">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm min-w-[1200px]">
-                  <thead>
-                    <tr className="text-left border-b-2 border-slate-200 bg-slate-50">
-                      <th className="py-3 px-4 font-semibold w-12">
-                        <Checkbox
-                          checked={selectedTargets.size === grScored.length && grScored.length > 0}
-                          onCheckedChange={toggleSelectAll}
-                        />
-                      </th>
-                      <th className="py-3 px-4 font-semibold whitespace-nowrap">Name</th>
-                      <th className="py-3 px-4 font-semibold whitespace-nowrap">Short Name</th>
-                      <th className="py-3 px-4 font-semibold whitespace-nowrap">Sector</th>
-                      <th className="py-3 px-4 font-semibold whitespace-nowrap">City</th>
-                      <th className="py-3 px-4 font-semibold whitespace-nowrap">State</th>
-                      <th className="py-3 px-4 font-semibold whitespace-nowrap">Revenue</th>
-                      <th className="py-3 px-4 font-semibold">Employees</th>
-                      <th className="py-3 px-4 font-semibold">Clinics</th>
-                      <th className="py-3 px-4 font-semibold">Website</th>
-                      <th className="py-3 px-4 font-semibold">Score</th>
-                      <th className="py-3 px-4 font-semibold">Fit</th>
-                      <th className="py-3 px-4 font-semibold">Priority</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {grScored.map((t, i) => (
-                      <tr key={i} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
-                        <td className="py-3 px-4">
-                          <Checkbox
-                            checked={selectedTargets.has(i)}
-                            onCheckedChange={() => toggleTarget(i)}
-                          />
-                        </td>
-                        <td className="py-3 px-4 max-w-[200px] truncate font-medium">{t.name}</td>
-                        <td className="py-3 px-4 text-slate-600">{t.companyShortName || "—"}</td>
-                        <td className="py-3 px-4">
-                          {t.sectorFocus && (
-                            <Badge variant="outline" className="text-xs whitespace-nowrap">{t.sectorFocus}</Badge>
-                          )}
-                        </td>
-                        <td className="py-3 px-4 text-slate-600 whitespace-nowrap">{t.city || "—"}</td>
-                        <td className="py-3 px-4 text-slate-600 whitespace-nowrap">{t.state || "—"}</td>
-                        <td className="py-3 px-4 text-slate-600 whitespace-nowrap">{isNaN(t.revenue) ? "—" : `$${t.revenue}M`}</td>
-                        <td className="py-3 px-4 text-slate-600">{isNaN(t.employees) ? "—" : Math.round(t.employees)}</td>
-                        <td className="py-3 px-4 text-slate-600">
-                          {t.clinicCount ? (
-                            <div className="flex items-center gap-1">
-                              <MapPin className="w-3 h-3 text-blue-600" />
-                              {t.clinicCount}
-                            </div>
-                          ) : "—"}
-                        </td>
-                        <td className="py-3 px-4">
-                          {t.websiteStatus === "working" && (
-                            <Badge className="bg-green-100 text-green-700 text-xs">✓</Badge>
-                          )}
-                          {t.websiteStatus === "broken" && (
-                            <Badge className="bg-red-100 text-red-700 text-xs">✗</Badge>
-                          )}
-                          {!t.websiteStatus && <span className="text-xs text-muted-foreground">—</span>}
-                        </td>
-                        <td className="py-3 px-4">
-                          <div className="flex items-center gap-2">
-                            <div className="w-16">
-                              <Progress value={t.score} className="h-2" />
-                            </div>
-                            <span className="text-xs font-medium">{t.score}</span>
-                          </div>
-                        </td>
-                        <td className="py-3 px-4">
-                          {t.fitScore !== undefined && (
-                            <Badge 
-                              className={
-                                t.fitScore >= 75 ? "bg-green-100 text-green-700" :
-                                t.fitScore >= 50 ? "bg-yellow-100 text-yellow-700" :
-                                "bg-slate-100 text-slate-600"
-                              }
-                            >
-                              {t.fitScore}%
-                            </Badge>
-                          )}
-                        </td>
-                        <td className="py-3 px-4">
-                          {t.score >= scoreThreshold ? (
-                            <Badge className="bg-green-100 text-green-700 border-green-200">Priority</Badge>
-                          ) : (
-                            <span className="text-xs text-muted-foreground">—</span>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <TargetsTable
+                targets={grScored}
+                selectedTargets={selectedTargets}
+                onToggleTarget={toggleTarget}
+                onToggleAll={toggleSelectAll}
+                scoreThreshold={scoreThreshold}
+              />
               
               <div className="space-y-4 mt-6 pt-4 border-t border-slate-200">
                 <div className="flex flex-wrap gap-2">
