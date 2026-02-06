@@ -141,6 +141,9 @@ export default function OpsConsole(){
   const [saving, setSaving] = useState(false);
   const [reclassifyingSectors, setReclassifyingSectors] = useState(false);
   const [sectorProgress, setSectorProgress] = useState({ current: 0, total: 0 });
+  const [recalculatingScores, setRecalculatingScores] = useState(false);
+  const [generatingRationales, setGeneratingRationales] = useState(false);
+  const [rationaleProgress, setRationaleProgress] = useState({ current: 0, total: 0 });
 
   // Load saved settings from localStorage on mount
   useEffect(() => {
@@ -539,6 +542,42 @@ Instructions:
       setUploadError('Failed to recalculate scores: ' + error.message);
     }
     setRecalculatingScores(false);
+  };
+
+  const generateRationalesForSelected = async () => {
+    const selectedList = grScored.filter((_, index) => selectedTargets.has(index));
+    const highScoring = selectedList.filter(t => t.score >= scoreThreshold);
+    
+    if (highScoring.length === 0) {
+      setUploadError("No high-scoring (priority) targets selected. Select targets with score >= " + scoreThreshold);
+      return;
+    }
+
+    setGeneratingRationales(true);
+    setRationaleProgress({ current: 0, total: highScoring.length });
+
+    for (let i = 0; i < highScoring.length; i++) {
+      const target = highScoring[i];
+      setRationaleProgress({ current: i + 1, total: highScoring.length });
+
+      try {
+        const result = await base44.functions.invoke('generateRationale', { 
+          targetId: target.id,
+          weights 
+        });
+        
+        // Update local state with the rationale
+        target.notes = result.data.rationale;
+      } catch (error) {
+        console.error(`Error generating rationale for ${target.name}:`, error);
+      }
+    }
+
+    // Force re-render by updating the raw data
+    setGrCompaniesRaw([...grCompaniesRaw]);
+    setGeneratingRationales(false);
+    setRationaleProgress({ current: 0, total: 0 });
+    showSuccess(`Generated strategic rationales for ${highScoring.length} priority targets!`);
   };
 
   const reclassifySelectedSectors = async () => {
@@ -1005,6 +1044,24 @@ Instructions:
                       <>
                         <Building2 className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
                         AI Reclassify Sectors
+                      </>
+                    )}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={generateRationalesForSelected}
+                    disabled={generatingRationales || selectedTargets.size === 0}
+                    className="text-xs sm:text-sm"
+                  >
+                    {generatingRationales ? (
+                      <>
+                        <Loader2 className="w-3 h-3 sm:w-4 sm:h-4 mr-2 animate-spin" />
+                        Generating...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
+                        Generate Rationales ({selectedTargets.size})
                       </>
                     )}
                   </Button>
