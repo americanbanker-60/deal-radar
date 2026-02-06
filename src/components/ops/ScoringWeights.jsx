@@ -3,7 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Slider } from "@/components/ui/slider";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { TrendingUp, Users, MapPin, Globe, Sparkles } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { TrendingUp, Users, MapPin, Globe, Sparkles, RefreshCw } from "lucide-react";
 
 export default function ScoringWeights({ 
   weights, 
@@ -15,7 +16,8 @@ export default function ScoringWeights({
   targetMinRev,
   setTargetMinRev,
   targetMaxRev,
-  setTargetMaxRev
+  setTargetMaxRev,
+  onRecalculate
 }) {
   const totalWeight = Object.values(weights).reduce((a, b) => a + b, 0);
 
