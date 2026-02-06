@@ -30,20 +30,34 @@ Deno.serve(async (req) => {
         
         // Parse rows
         const rows = [];
+        const skipped = [];
         for (let i = 1; i < lines.length; i++) {
             const line = lines[i];
             const values = parseCSVLine(line);
             
-            if (values.length === headers.length) {
-                const row = {};
-                headers.forEach((header, index) => {
-                    row[header] = values[index];
-                });
+            const row = {};
+            headers.forEach((header, index) => {
+                row[header] = values[index] || '';
+            });
+            
+            // Check if row is completely empty
+            const hasData = Object.values(row).some(v => v && v.trim());
+            if (hasData) {
                 rows.push(row);
+            } else {
+                skipped.push(i + 1);
             }
         }
 
-        return Response.json({ headers, rows });
+        return Response.json({ 
+            headers, 
+            rows,
+            diagnostics: {
+                totalLines: lines.length,
+                rowsParsed: rows.length,
+                emptyRowsSkipped: skipped.length
+            }
+        });
     } catch (error) {
         return Response.json({ error: error.message }, { status: 500 });
     }

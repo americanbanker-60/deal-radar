@@ -227,7 +227,8 @@ export default function OpsConsole(){
           
           console.log("📊 Parsed data:", {
             headers: data.headers?.length,
-            rows: data.rows?.length
+            rows: data.rows?.length,
+            diagnostics: data.diagnostics
           });
           
           if (!data.headers || !data.rows) {
@@ -241,7 +242,11 @@ export default function OpsConsole(){
           }
           
           setLoading(false);
-          showSuccess(`Successfully uploaded ${data.rows.length} rows! ${Object.keys(grMap).length > 0 ? '✓ Using saved column mappings' : '⚠️ Go to Settings to map columns'}`);
+          const diagnostics = data.diagnostics;
+          const msg = diagnostics?.emptyRowsSkipped > 0 
+            ? `Uploaded ${data.rows.length} rows (${diagnostics.emptyRowsSkipped} empty rows skipped)`
+            : `Uploaded ${data.rows.length} rows`;
+          showSuccess(`${msg}! ${Object.keys(grMap).length > 0 ? '✓ Using saved column mappings' : '⚠️ Go to Settings to map columns'}`);
         } catch (innerError) {
           console.error("❌ Processing error:", innerError);
           setUploadError(innerError.message || String(innerError));

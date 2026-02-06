@@ -42,18 +42,32 @@ Deno.serve(async (req) => {
         
         // Convert remaining rows to objects
         const rows = [];
+        const skipped = [];
         for (let i = 1; i < jsonData.length; i++) {
             const rowArray = jsonData[i];
-            if (rowArray && rowArray.length > 0) {
-                const row = {};
-                headers.forEach((header, index) => {
-                    row[header] = rowArray[index] !== undefined ? String(rowArray[index]) : '';
-                });
+            const row = {};
+            headers.forEach((header, index) => {
+                row[header] = rowArray && rowArray[index] !== undefined ? String(rowArray[index]) : '';
+            });
+            
+            // Check if row is completely empty
+            const hasData = Object.values(row).some(v => v && v.trim());
+            if (hasData) {
                 rows.push(row);
+            } else {
+                skipped.push(i + 1);
             }
         }
 
-        return Response.json({ headers, rows });
+        return Response.json({ 
+            headers, 
+            rows,
+            diagnostics: {
+                totalRows: jsonData.length,
+                rowsParsed: rows.length,
+                emptyRowsSkipped: skipped.length
+            }
+        });
     } catch (error) {
         return Response.json({ error: error.message }, { status: 500 });
     }
