@@ -362,20 +362,100 @@ export default function OpsConsole(){
     setSaving(true);
     
     try {
-      // Get existing targets to check for duplicates (based on name)
-      const existingTargets = await base44.entities.BDTarget.list();
-      const existingNames = new Set(existingTargets.map(t => t.name?.toLowerCase()).filter(Boolean));
-
       const selectedList = grScored.filter((_, index) => selectedTargets.has(index));
+      
+      // Get existing targets for AI comparison
+      const existingTargets = await base44.entities.BDTarget.list();
+      
+      if (existingTargets.length === 0) {
+        // No existing records, save all
+        const targetsToSave = selectedList.map(t => ({
+          campaign: campaignName.trim(),
+          name: t.name,
+          companyShortName: t.companyShortName,
+          sectorFocus: t.sectorFocus,
+          website: t.website,
+          websiteStatus: t.websiteStatus,
+          city: t.city,
+          state: t.state,
+          hq: t.hq,
+          industry: t.industry,
+          subsector: t.subsector,
+          revenue: t.revenue,
+          employees: t.employees,
+          clinicCount: t.clinicCount,
+          ownership: t.ownership,
+          score: t.score,
+          contactEmail: t.contact?.email,
+          contactFirstName: t.contact?.firstName,
+          contactLastName: t.contact?.lastName,
+          contactTitle: t.contact?.title,
+          contactPhone: t.contact?.phone,
+          linkedin: t.linkedin,
+          notes: t.notes,
+          status: "new"
+        }));
+        
+        await base44.entities.BDTarget.bulkCreate(targetsToSave);
+        showSuccess(`Saved ${targetsToSave.length} companies to "${campaignName}"!`);
+        setSelectedTargets(new Set());
+        setCampaignName("");
+        setSaving(false);
+        return;
+      }
+
+      // Use AI to detect duplicates with fuzzy matching
+      const newCompaniesData = selectedList.map(t => ({
+        name: t.name,
+        domain: t.website,
+        city: t.city,
+        state: t.state
+      }));
+      
+      const existingCompaniesData = existingTargets.map(t => ({
+        name: t.name,
+        domain: t.website,
+        city: t.city,
+        state: t.state
+      }));
+
+      const prompt = `You are a duplicate detection system. Compare these two lists of companies and identify which companies from the NEW list are duplicates of companies in the EXISTING list.
+
+EXISTING COMPANIES:
+${JSON.stringify(existingCompaniesData, null, 2)}
+
+NEW COMPANIES TO CHECK:
+${JSON.stringify(newCompaniesData, null, 2)}
+
+Instructions:
+- Match companies by name similarity (e.g., "ABC Health" vs "ABC Healthcare"), domain similarity, or location if names are very similar
+- Return a JSON array of indices (0-based) from the NEW list that are duplicates
+- Be strict: only mark as duplicate if you're confident they're the same company
+- If no duplicates, return an empty array`;
+
+      const aiResult = await base44.integrations.Core.InvokeLLM({
+        prompt,
+        add_context_from_internet: false,
+        response_json_schema: {
+          type: "object",
+          properties: {
+            duplicate_indices: {
+              type: "array",
+              items: { type: "number" }
+            }
+          }
+        }
+      });
+
+      const duplicateIndices = new Set(aiResult.duplicate_indices || []);
       const targetsToSave = [];
       let duplicateCount = 0;
 
-      for (const t of selectedList) {
-        // Check for duplicate by name (case-insensitive)
-        if (t.name && existingNames.has(t.name.toLowerCase())) {
+      selectedList.forEach((t, idx) => {
+        if (duplicateIndices.has(idx)) {
           duplicateCount++;
-          console.log(`Skipping duplicate: ${t.name}`);
-          continue;
+          console.log(`AI detected duplicate: ${t.name}`);
+          return;
         }
 
         targetsToSave.push({
@@ -404,10 +484,10 @@ export default function OpsConsole(){
           notes: t.notes,
           status: "new"
         });
-      }
+      });
 
       if (targetsToSave.length === 0) {
-        setUploadError("All selected companies already exist in the database.");
+        setUploadError("All selected companies are duplicates of existing records.");
         setSaving(false);
         return;
       }
@@ -416,7 +496,7 @@ export default function OpsConsole(){
       await base44.entities.BDTarget.bulkCreate(targetsToSave);
       
       const message = duplicateCount > 0 
-        ? `Saved ${targetsToSave.length} companies to "${campaignName}"! (${duplicateCount} duplicates skipped)`
+        ? `Saved ${targetsToSave.length} companies to "${campaignName}"! (${duplicateCount} AI-detected duplicates skipped)`
         : `Saved ${targetsToSave.length} companies to "${campaignName}"!`;
       
       showSuccess(message);
