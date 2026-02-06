@@ -231,22 +231,19 @@ export default function OpsConsole(){
             diagnostics: data.diagnostics
           });
           
-          if (!data.headers || !data.rows) {
-            throw new Error("Invalid data format returned from parser");
+          if (!data.rows || data.rows.length === 0) {
+            throw new Error("No data extracted from file");
           }
           
           if (kind === "gr-companies") { 
             console.log("✅ Setting Grata companies:", data.rows.length);
             setGrCompaniesRaw(data.rows); 
-            setGrHeaders(data.headers); 
+            setGrHeaders(data.headers || Object.keys(data.rows[0])); 
           }
           
           setLoading(false);
-          const diagnostics = data.diagnostics;
-          const msg = diagnostics?.emptyRowsSkipped > 0 
-            ? `Uploaded ${data.rows.length} rows (${diagnostics.emptyRowsSkipped} empty rows skipped)`
-            : `Uploaded ${data.rows.length} rows`;
-          showSuccess(`${msg}! ${Object.keys(grMap).length > 0 ? '✓ Using saved column mappings' : '⚠️ Go to Settings to map columns'}`);
+          const method = data.diagnostics?.extractionMethod || "standard parsing";
+          showSuccess(`Uploaded ${data.rows.length} rows using ${method}!`);
         } catch (innerError) {
           console.error("❌ Processing error:", innerError);
           setUploadError(innerError.message || String(innerError));

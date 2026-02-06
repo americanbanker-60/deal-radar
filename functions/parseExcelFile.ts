@@ -1,5 +1,4 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
-import * as XLSX from 'npm:xlsx@0.18.5';
 
 Deno.serve(async (req) => {
     try {
@@ -23,49 +22,64 @@ Deno.serve(async (req) => {
             bytes[i] = binaryString.charCodeAt(i);
         }
 
-        // Parse Excel file
-        const workbook = XLSX.read(bytes, { type: 'array' });
-        
-        // Get first sheet
-        const firstSheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[firstSheetName];
-        
-        // Convert to JSON
-        const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-        
-        if (jsonData.length === 0) {
-            return Response.json({ error: 'Empty Excel file' }, { status: 400 });
+        // Create a blob and file
+        const blob = new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        const file = new File([blob], 'upload.xlsx', { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+
+        // Upload file to get URL
+        const uploadResult = await base44.asServiceRole.integrations.Core.UploadFile({ file });
+        const fileUrl = uploadResult.file_url;
+
+        // Define JSON schema for extraction
+        const jsonSchema = {
+            type: "object",
+            properties: {
+                "Name": { type: "string" },
+                "Domain": { type: "string" },
+                "Description": { type: "string" },
+                "LinkedIn": { type: "string" },
+                "Revenue Estimate": { type: "string" },
+                "Employee Estimate": { type: "string" },
+                "Employees on Professional Networks": { type: "string" },
+                "Total Review Count": { type: "string" },
+                "Aggregate Rating": { type: "string" },
+                "City": { type: "string" },
+                "State": { type: "string" },
+                "Country": { type: "string" },
+                "Zip Code": { type: "string" },
+                "Year Founded": { type: "string" },
+                "Primary Email": { type: "string" },
+                "Primary Phone": { type: "string" },
+                "Notes": { type: "string" },
+                "Executive First Name": { type: "string" },
+                "Executive Last Name": { type: "string" },
+                "Executive Title": { type: "string" },
+                "Executive Email": { type: "string" },
+                "Short Name": { type: "string" },
+                "Sector": { type: "string" },
+                "Clinic Location Count": { type: "string" }
+            }
+        };
+
+        // Extract data using AI
+        const extractResult = await base44.asServiceRole.integrations.Core.ExtractDataFromUploadedFile({
+            file_url: fileUrl,
+            json_schema: jsonSchema
+        });
+
+        if (extractResult.status === "error") {
+            return Response.json({ error: extractResult.details }, { status: 500 });
         }
 
-        // Extract headers from first row
-        const headers = jsonData[0].map(h => String(h || '').trim());
-        
-        // Convert remaining rows to objects
-        const rows = [];
-        const skipped = [];
-        for (let i = 1; i < jsonData.length; i++) {
-            const rowArray = jsonData[i];
-            const row = {};
-            headers.forEach((header, index) => {
-                row[header] = rowArray && rowArray[index] !== undefined ? String(rowArray[index]) : '';
-            });
-            
-            // Check if row is completely empty
-            const hasData = Object.values(row).some(v => v && v.trim());
-            if (hasData) {
-                rows.push(row);
-            } else {
-                skipped.push(i + 1);
-            }
-        }
+        const rows = Array.isArray(extractResult.output) ? extractResult.output : [extractResult.output];
+        const headers = Object.keys(rows[0] || {});
 
         return Response.json({ 
             headers, 
             rows,
             diagnostics: {
-                totalRows: jsonData.length,
-                rowsParsed: rows.length,
-                emptyRowsSkipped: skipped.length
+                totalRows: rows.length,
+                extractionMethod: "AI-powered fuzzy mapping"
             }
         });
     } catch (error) {

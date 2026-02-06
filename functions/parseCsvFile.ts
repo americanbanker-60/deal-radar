@@ -15,75 +15,74 @@ Deno.serve(async (req) => {
             return Response.json({ error: 'No file content provided' }, { status: 400 });
         }
 
-        // Decode base64 content
-        const decoded = atob(fileContent);
+        // Decode base64 to binary
+        const binaryString = atob(fileContent);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+        }
         
-        // Parse CSV
-        const lines = decoded.split('\n').filter(line => line.trim());
-        
-        if (lines.length === 0) {
-            return Response.json({ error: 'Empty CSV file' }, { status: 400 });
+        // Create a blob and file
+        const blob = new Blob([bytes], { type: 'text/csv' });
+        const file = new File([blob], 'upload.csv', { type: 'text/csv' });
+
+        // Upload file to get URL
+        const uploadResult = await base44.asServiceRole.integrations.Core.UploadFile({ file });
+        const fileUrl = uploadResult.file_url;
+
+        // Define JSON schema for extraction
+        const jsonSchema = {
+            type: "object",
+            properties: {
+                "Name": { type: "string" },
+                "Domain": { type: "string" },
+                "Description": { type: "string" },
+                "LinkedIn": { type: "string" },
+                "Revenue Estimate": { type: "string" },
+                "Employee Estimate": { type: "string" },
+                "Employees on Professional Networks": { type: "string" },
+                "Total Review Count": { type: "string" },
+                "Aggregate Rating": { type: "string" },
+                "City": { type: "string" },
+                "State": { type: "string" },
+                "Country": { type: "string" },
+                "Zip Code": { type: "string" },
+                "Year Founded": { type: "string" },
+                "Primary Email": { type: "string" },
+                "Primary Phone": { type: "string" },
+                "Notes": { type: "string" },
+                "Executive First Name": { type: "string" },
+                "Executive Last Name": { type: "string" },
+                "Executive Title": { type: "string" },
+                "Executive Email": { type: "string" },
+                "Short Name": { type: "string" },
+                "Sector": { type: "string" },
+                "Clinic Location Count": { type: "string" }
+            }
+        };
+
+        // Extract data using AI
+        const extractResult = await base44.asServiceRole.integrations.Core.ExtractDataFromUploadedFile({
+            file_url: fileUrl,
+            json_schema: jsonSchema
+        });
+
+        if (extractResult.status === "error") {
+            return Response.json({ error: extractResult.details }, { status: 500 });
         }
 
-        // Extract headers from first line
-        const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
-        
-        // Parse rows
-        const rows = [];
-        const skipped = [];
-        for (let i = 1; i < lines.length; i++) {
-            const line = lines[i];
-            const values = parseCSVLine(line);
-            
-            const row = {};
-            headers.forEach((header, index) => {
-                row[header] = values[index] || '';
-            });
-            
-            // Check if row is completely empty
-            const hasData = Object.values(row).some(v => v && v.trim());
-            if (hasData) {
-                rows.push(row);
-            } else {
-                skipped.push(i + 1);
-            }
-        }
+        const rows = Array.isArray(extractResult.output) ? extractResult.output : [extractResult.output];
+        const headers = Object.keys(rows[0] || {});
 
         return Response.json({ 
             headers, 
             rows,
             diagnostics: {
-                totalLines: lines.length,
-                rowsParsed: rows.length,
-                emptyRowsSkipped: skipped.length
+                totalRows: rows.length,
+                extractionMethod: "AI-powered fuzzy mapping"
             }
         });
     } catch (error) {
         return Response.json({ error: error.message }, { status: 500 });
     }
 });
-
-// Simple CSV line parser that handles quoted values
-function parseCSVLine(line) {
-    const values = [];
-    let currentValue = '';
-    let insideQuotes = false;
-    
-    for (let i = 0; i < line.length; i++) {
-        const char = line[i];
-        
-        if (char === '"') {
-            insideQuotes = !insideQuotes;
-        } else if (char === ',' && !insideQuotes) {
-            values.push(currentValue.trim().replace(/^"|"$/g, ''));
-            currentValue = '';
-        } else {
-            currentValue += char;
-        }
-    }
-    
-    // Push the last value
-    values.push(currentValue.trim().replace(/^"|"$/g, ''));
-    
-    return values;
-}
