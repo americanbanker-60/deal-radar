@@ -832,6 +832,21 @@ Instructions:
         </div>
       )}
 
+      {generatingRationales && (
+        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-50 flex items-center justify-center">
+          <div className="bg-white p-6 rounded-xl shadow-xl">
+            <div className="flex items-center gap-3 mb-4">
+              <Loader2 className="w-6 h-6 animate-spin text-purple-600" />
+              <span className="font-medium">Generating Strategic Rationales...</span>
+            </div>
+            <Progress value={(rationaleProgress.current / rationaleProgress.total) * 100} className="w-64" />
+            <div className="text-sm text-slate-600 mt-2 text-center">
+              {rationaleProgress.current} / {rationaleProgress.total} targets
+            </div>
+          </div>
+        </div>
+      )}
+
       <Tabs value={page} onValueChange={setPage}>
         <TabsList className="bg-white border border-slate-200">
           <TabsTrigger value="grata">Grata Data</TabsTrigger>

@@ -28,6 +28,7 @@ export default function TargetsTable({ targets, selectedTargets, onToggleTarget,
             <th className="py-3 px-4 font-semibold">Score</th>
             <th className="py-3 px-4 font-semibold">Fit</th>
             <th className="py-3 px-4 font-semibold">Priority</th>
+            <th className="py-3 px-4 font-semibold">Strategic Rationale</th>
           </tr>
         </thead>
         <tbody>
@@ -91,6 +92,13 @@ export default function TargetsTable({ targets, selectedTargets, onToggleTarget,
               <td className="py-3 px-4">
                 {t.score >= scoreThreshold ? (
                   <Badge className="bg-green-100 text-green-700 border-green-200">Priority</Badge>
+                ) : (
+                  <span className="text-xs text-muted-foreground">—</span>
+                )}
+              </td>
+              <td className="py-3 px-4 max-w-[300px]">
+                {t.notes ? (
+                  <span className="text-xs text-slate-600 italic">{t.notes}</span>
                 ) : (
                   <span className="text-xs text-muted-foreground">—</span>
                 )}
