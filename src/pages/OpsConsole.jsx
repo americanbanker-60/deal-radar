@@ -139,17 +139,12 @@ export default function OpsConsole(){
   const [reclassifyingSectors, setReclassifyingSectors] = useState(false);
   const [sectorProgress, setSectorProgress] = useState({ current: 0, total: 0 });
 
-  // Load saved mappings and settings from localStorage on mount
+  // Load saved settings from localStorage on mount
   useEffect(() => {
     try {
-      const savedGrMap = localStorage.getItem('ops_console_gr_map');
       const savedVertical = localStorage.getItem('ops_console_vertical');
       const savedTag = localStorage.getItem('ops_console_tag');
       
-      if (savedGrMap) {
-        setGrMap(JSON.parse(savedGrMap));
-        console.log("✅ Loaded saved Grata mappings");
-      }
       if (savedVertical) {
         setVertical(savedVertical);
       }
@@ -160,14 +155,6 @@ export default function OpsConsole(){
       console.error("Error loading saved settings:", error);
     }
   }, []);
-
-  // Save Grata mapping whenever it changes
-  useEffect(() => {
-    if (Object.keys(grMap).length > 0) {
-      localStorage.setItem('ops_console_gr_map', JSON.stringify(grMap));
-      console.log("💾 Saved Grata mappings");
-    }
-  }, [grMap]);
 
   // Save settings
   useEffect(() => {
@@ -291,7 +278,7 @@ export default function OpsConsole(){
     // Update the raw data with enriched information
     const enrichedMap = new Map(enrichedRows.map(r => [r.name, r]));
     const updatedRaw = grCompaniesRaw.map(raw => {
-      const normalized = normalizeRow(raw, grMap, { preferRangeMidpoint: true });
+      const normalized = normalizeRow(raw);
       const enriched = enrichedMap.get(normalized.name);
       if (enriched) {
         raw._websiteStatus = enriched.websiteStatus;
@@ -346,7 +333,7 @@ export default function OpsConsole(){
     // Update the raw data with enriched information
     const enrichedMap = new Map(enrichedRows.map(r => [r.name, r]));
     const updatedRaw = grCompaniesRaw.map(raw => {
-      const normalized = normalizeRow(raw, grMap, { preferRangeMidpoint: true });
+      const normalized = normalizeRow(raw);
       const enriched = enrichedMap.get(normalized.name);
       if (enriched) {
         raw._companyShortName = enriched.companyShortName;
@@ -489,7 +476,7 @@ export default function OpsConsole(){
     // Update the raw data
     const enrichedMap = new Map(enrichedRows.map(r => [r.name, r]));
     const updatedRaw = grCompaniesRaw.map(raw => {
-      const normalized = normalizeRow(raw, grMap, { preferRangeMidpoint: true });
+      const normalized = normalizeRow(raw);
       const enriched = enrichedMap.get(normalized.name);
       if (enriched) {
         raw._sectorFocus = enriched.sectorFocus;
@@ -504,15 +491,13 @@ export default function OpsConsole(){
   };
   
   const normalizedGR = useMemo(() => {
-    const normalized = grCompaniesRaw.map((r) => normalizeRow(r, grMap, { preferRangeMidpoint: true }));
+    const normalized = grCompaniesRaw.map((r) => normalizeRow(r));
     console.log("🔄 Normalized data:", {
       total: normalized.length,
-      sample: normalized[0],
-      stateMapping: grMap["State"],
-      sampleState: normalized[0]?.state
+      sample: normalized[0]
     });
     return normalized;
-  }, [grCompaniesRaw, grMap]);
+  }, [grCompaniesRaw]);
   
   const filteredGR = useMemo(() => {
     const filtered = filterTargets(normalizedGR, { regionFilter, minRev, maxRev, ownerPref });
@@ -1239,15 +1224,10 @@ export default function OpsConsole(){
         
           <Card className="shadow-sm border-slate-200">
             <CardHeader className="bg-gradient-to-r from-emerald-50 to-transparent">
-              <CardTitle>Schema Mapper – Grata</CardTitle>
+              <CardTitle>AI Column Detection</CardTitle>
             </CardHeader>
             <CardContent className="pt-4">
-              <SchemaMapper 
-                headers={grHeaders} 
-                mapping={grMap} 
-                setMapping={setGrMap} 
-                internalFields={DEFAULT_FIELDS} 
-              />
+              <SchemaMapper headers={grHeaders} />
             </CardContent>
           </Card>
 
@@ -1286,39 +1266,36 @@ export default function OpsConsole(){
 }
 
 // Helper functions
-function normalizeRow(row, map, opts) {
-  const pick = (k) => map[k] ? row[map[k]] : undefined;
-  const name = pick("Name") || row["\ufeffName"] || row.Name || "";
-
-  const revenue = toNumber(pick("Revenue Estimate"));
-  const employees = toNumber(pick("Employee Estimate"));
+function normalizeRow(row) {
+  const revenue = toNumber(row["Revenue Estimate"]);
+  const employees = toNumber(row["Employee Estimate"]);
 
   return {
-    name,
-    url: pick("Domain") || row.Domain || "",
-    website: pick("Domain") || row.Domain || "",
-    linkedin: pick("LinkedIn") || row.LinkedIn || "",
-    city: pick("City") || row.City || "",
-    state: pick("State") || row.State || "",
-    hq: (pick("City") || row.City || "") + (pick("State") ? ", " + pick("State") : row.State ? ", " + row.State : ""),
+    name: row.Name || "",
+    url: row.Domain || "",
+    website: row.Domain || "",
+    linkedin: row.LinkedIn || "",
+    city: row.City || "",
+    state: row.State || "",
+    hq: (row.City || "") + (row.State ? ", " + row.State : ""),
     industry: "Healthcare Services",
     subsector: "",
     revenue: isNaN(Number(revenue)) ? undefined : Math.round(Number(revenue) / 1_000_000),
     employees: employees,
     ownership: "Unknown",
-    lastFinancingYear: toNumber(pick("Year Founded")),
+    lastFinancingYear: toNumber(row["Year Founded"]),
     investors: "",
-    notes: pick("Notes") || row.Notes || "",
+    notes: row.Notes || "",
     websiteStatus: row._websiteStatus,
-    clinicCount: row._clinicCount || toNumber(pick("Clinic Location Count")),
-    companyShortName: row._companyShortName || pick("Short Name") || row["Short Name"],
-    sectorFocus: row._sectorFocus || pick("Sector") || row.Sector,
+    clinicCount: row._clinicCount || toNumber(row["Clinic Location Count"]),
+    companyShortName: row._companyShortName || row["Short Name"] || "",
+    sectorFocus: row._sectorFocus || row.Sector || "",
     contact: {
-      email: pick("Executive Email") || row["Executive Email"] || pick("Primary Email") || row["Primary Email"] || "",
-      firstName: pick("Executive First Name") || row["Executive First Name"] || "",
-      lastName: pick("Executive Last Name") || row["Executive Last Name"] || "",
-      title: pick("Executive Title") || row["Executive Title"] || "",
-      phone: pick("Primary Phone") || row["Primary Phone"] || "",
+      email: row["Executive Email"] || row["Primary Email"] || "",
+      firstName: row["Executive First Name"] || "",
+      lastName: row["Executive Last Name"] || "",
+      title: row["Executive Title"] || "",
+      phone: row["Primary Phone"] || "",
     }
   };
 }
