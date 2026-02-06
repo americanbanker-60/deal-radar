@@ -1291,42 +1291,37 @@ export default function OpsConsole(){
 // Helper functions
 function normalizeRow(row, map, opts) {
   const pick = (k) => map[k] ? row[map[k]] : undefined;
-  const name = pick("Company Name") || row.Company || row["Company"] || row["Name"] || "";
+  const name = pick("Name") || row["\ufeffName"] || row.Name || "";
 
-  const revenueRange = pick("Revenue Range");
-  const empRange = pick("Employee Range");
-  const employeeCountRaw = pick("Employee Count") || row.Employees;
-
-  const revenue = opts?.preferRangeMidpoint && revenueRange ? midpointFromRange(revenueRange) : toNumber(pick("Revenue"));
-  const employees = opts?.preferRangeMidpoint && empRange ? midpointFromRange(empRange) : toNumber(employeeCountRaw);
-  const lastFinancingYear = pick("Last Financing Year") || yearFrom(String(pick("Notes")||""));
+  const revenue = toNumber(pick("Revenue Estimate"));
+  const employees = toNumber(pick("Employee Estimate"));
 
   return {
     name,
-    url: pick("URL") || row.URL || row.Website || "",
-    website: pick("Website") || row.Website || "",
+    url: pick("Domain") || row.Domain || "",
+    website: pick("Domain") || row.Domain || "",
     linkedin: pick("LinkedIn") || row.LinkedIn || "",
     city: pick("City") || row.City || "",
     state: pick("State") || row.State || "",
-    hq: pick("HQ Location") || row["HQ"] || row.City || row.State || row.Country || "",
-    industry: pick("Industry") || row.Industry || "Healthcare Services",
-    subsector: pick("Subsector") || row.Subsector || "",
+    hq: (pick("City") || row.City || "") + (pick("State") ? ", " + pick("State") : row.State ? ", " + row.State : ""),
+    industry: "Healthcare Services",
+    subsector: "",
     revenue: isNaN(Number(revenue)) ? undefined : Math.round(Number(revenue) / 1_000_000),
     employees: employees,
-    ownership: pick("Ownership") || row.Ownership || "Unknown",
-    lastFinancingYear: lastFinancingYear ? parseInt(String(lastFinancingYear),10) : undefined,
-    investors: pick("Investors") || row.Investors || "",
-    notes: row.Notes || "",
+    ownership: "Unknown",
+    lastFinancingYear: toNumber(pick("Year Founded")),
+    investors: "",
+    notes: pick("Notes") || row.Notes || "",
     websiteStatus: row._websiteStatus,
     clinicCount: row._clinicCount || toNumber(pick("Clinic Location Count")),
-    companyShortName: row._companyShortName || pick("Short Name"),
-    sectorFocus: row._sectorFocus || pick("Sector"),
+    companyShortName: row._companyShortName || pick("Short Name") || row["Short Name"],
+    sectorFocus: row._sectorFocus || pick("Sector") || row.Sector,
     contact: {
-      email: pick("Email") || row.Email || "",
-      firstName: pick("First Name") || row["First Name"] || "",
-      lastName: pick("Last Name") || row["Last Name"] || "",
-      title: pick("Job Title") || row["Job Title"] || "",
-      phone: pick("Phone") || row.Phone || "",
+      email: pick("Executive Email") || row["Executive Email"] || pick("Primary Email") || row["Primary Email"] || "",
+      firstName: pick("Executive First Name") || row["Executive First Name"] || "",
+      lastName: pick("Executive Last Name") || row["Executive Last Name"] || "",
+      title: pick("Executive Title") || row["Executive Title"] || "",
+      phone: pick("Primary Phone") || row["Primary Phone"] || "",
     }
   };
 }
