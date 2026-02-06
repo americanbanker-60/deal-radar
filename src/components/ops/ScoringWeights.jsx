@@ -189,6 +189,15 @@ export default function ScoringWeights({
             💡 Leave ranges empty to use peer-median scoring (compares against uploaded dataset)
           </div>
         </div>
+
+        {onRecalculate && (
+          <div className="mt-6 pt-6 border-t border-slate-200">
+            <Button onClick={onRecalculate} className="w-full bg-emerald-600 hover:bg-emerald-700">
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Recalculate All Scores
+            </Button>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

@@ -519,6 +519,28 @@ Instructions:
     setSelectedTargets(newSelected);
   };
 
+  const recalculateAllScores = async () => {
+    setRecalculatingScores(true);
+    try {
+      const result = await base44.functions.invoke('calculateFitScores', {
+        weights,
+        targetRange: {
+          minEmployees: targetMinEmp ? parseInt(targetMinEmp) : null,
+          maxEmployees: targetMaxEmp ? parseInt(targetMaxEmp) : null,
+          minRevenue: targetMinRev ? parseFloat(targetMinRev) : null,
+          maxRevenue: targetMaxRev ? parseFloat(targetMaxRev) : null
+        },
+        fitKeywords: vertical
+      });
+      
+      showSuccess(`Updated scores for ${result.data.updated} saved targets!`);
+    } catch (error) {
+      console.error('Score calculation error:', error);
+      setUploadError('Failed to recalculate scores: ' + error.message);
+    }
+    setRecalculatingScores(false);
+  };
+
   const reclassifySelectedSectors = async () => {
     const selectedList = grScored.filter((_, index) => selectedTargets.has(index));
     
@@ -1163,6 +1185,7 @@ Instructions:
             setTargetMinRev={setTargetMinRev}
             targetMaxRev={targetMaxRev}
             setTargetMaxRev={setTargetMaxRev}
+            onRecalculate={recalculatingScores ? null : recalculateAllScores}
           />
 
           {insights && (
