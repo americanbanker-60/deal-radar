@@ -189,62 +189,50 @@ export default function OpsConsole(){
     setUploadError(null);
     
     try {
-      const reader = new FileReader();
-      reader.onload = async (e) => {
-        try {
-          console.log("📖 File loaded, processing...");
-          const content = e.target.result.split(',')[1];
-          const ext = file.name.toLowerCase().split(".").pop();
-          
-          console.log("📋 File extension:", ext);
-          console.log("📦 Content length:", content.length);
-          
-          let result;
-          if (ext === "csv") {
-            console.log("🔄 Calling parseCsvFile...");
-            result = await base44.functions.invoke('parseCsvFile', { fileContent: content });
-          } else {
-            console.log("🔄 Calling parseExcelFile...");
-            result = await base44.functions.invoke('parseExcelFile', { fileContent: content });
-          }
-          
-          console.log("✅ Function returned:", result);
-          
-          const data = result.data;
-          
-          console.log("📊 Parsed data:", {
-            headers: data.headers?.length,
-            rows: data.rows?.length,
-            diagnostics: data.diagnostics
-          });
-          
-          if (!data.rows || data.rows.length === 0) {
-            throw new Error("No data extracted from file");
-          }
-          
-          if (kind === "gr-companies") { 
-            console.log("✅ Setting Grata companies:", data.rows.length);
-            setGrCompaniesRaw(data.rows); 
-            setGrHeaders(data.headers || Object.keys(data.rows[0])); 
-          }
-          
-          setLoading(false);
-          const method = data.diagnostics?.extractionMethod || "standard parsing";
-          showSuccess(`Uploaded ${data.rows.length} rows using ${method}!`);
-        } catch (innerError) {
-          console.error("❌ Processing error:", innerError);
-          setUploadError(innerError.message || String(innerError));
-          setLoading(false);
-        }
-      };
+      // First, upload to Base44 CDN
+      console.log("☁️ Uploading to CDN...");
+      const uploadResult = await base44.integrations.Core.UploadFile({ file });
+      const fileUrl = uploadResult.file_url;
+      console.log("✅ File uploaded:", fileUrl);
+
+      // Determine file type and call appropriate parser
+      const ext = file.name.toLowerCase().split(".").pop();
+      console.log("📋 File extension:", ext);
       
-      reader.onerror = (error) => {
-        console.error("❌ FileReader error:", error);
-        setUploadError("Failed to read file");
-        setLoading(false);
-      };
+      let result;
+      if (ext === "csv") {
+        console.log("🔄 Calling parseCsvFile...");
+        result = await base44.functions.invoke('parseCsvFile', { fileUrl });
+      } else {
+        console.log("🔄 Calling parseExcelFile...");
+        result = await base44.functions.invoke('parseExcelFile', { fileUrl });
+      }
       
-      reader.readAsDataURL(file);
+      console.log("✅ Function returned:", result);
+      
+      const data = result.data;
+      
+      console.log("📊 Parsed data:", {
+        headers: data.headers?.length,
+        rows: data.rows?.length,
+        diagnostics: data.diagnostics
+      });
+      
+      if (!data.rows || data.rows.length === 0) {
+        throw new Error("No data extracted from file");
+      }
+      
+      if (kind === "gr-companies") { 
+        console.log("✅ Setting Grata companies:", data.rows.length);
+        // Store file URL in raw data for audit trail
+        const rowsWithSource = data.rows.map(r => ({ ...r, _sourceFileUrl: fileUrl }));
+        setGrCompaniesRaw(rowsWithSource); 
+        setGrHeaders(data.headers || Object.keys(data.rows[0])); 
+      }
+      
+      setLoading(false);
+      const method = data.diagnostics?.extractionMethod || "standard parsing";
+      showSuccess(`Uploaded ${data.rows.length} rows using ${method}!`);
     } catch (error) {
       console.error("❌ Upload error:", error);
       setUploadError(error.message || String(error));

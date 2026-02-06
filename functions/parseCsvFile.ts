@@ -3,26 +3,11 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
 Deno.serve(async (req) => {
     try {
         const base44 = createClientFromRequest(req);
-        const { fileContent } = await req.json();
+        const { fileUrl } = await req.json();
         
-        if (!fileContent) {
-            return Response.json({ error: 'No file content provided' }, { status: 400 });
+        if (!fileUrl) {
+            return Response.json({ error: 'No file URL provided' }, { status: 400 });
         }
-
-        // Decode base64 to binary
-        const binaryString = atob(fileContent);
-        const bytes = new Uint8Array(binaryString.length);
-        for (let i = 0; i < binaryString.length; i++) {
-            bytes[i] = binaryString.charCodeAt(i);
-        }
-        
-        // Create a blob and file
-        const blob = new Blob([bytes], { type: 'text/csv' });
-        const file = new File([blob], 'upload.csv', { type: 'text/csv' });
-
-        // Upload file to get URL
-        const uploadResult = await base44.asServiceRole.integrations.Core.UploadFile({ file });
-        const fileUrl = uploadResult.file_url;
 
         // Define JSON schema for extraction
         const jsonSchema = {
