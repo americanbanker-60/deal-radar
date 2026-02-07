@@ -37,6 +37,8 @@ export default function SavedTargets() {
   const [sectorProgress, setSectorProgress] = useState({ current: 0, total: 0 });
   const [showBulkSectorDialog, setShowBulkSectorDialog] = useState(false);
   const [bulkSectorValue, setBulkSectorValue] = useState("");
+  const [generatingShortNames, setGeneratingShortNames] = useState(false);
+  const [shortNameProgress, setShortNameProgress] = useState({ current: 0, total: 0 });
   const queryClient = useQueryClient();
 
   const [user, setUser] = useState(null);
@@ -158,6 +160,33 @@ export default function SavedTargets() {
       setReclassifyingSectors(false);
       setSectorProgress({ current: 0, total: 0 });
     }
+  };
+
+  const generateShortNamesForSelected = async () => {
+    const selectedList = filteredTargets.filter(t => selectedTargets.has(t.id));
+    
+    if (selectedList.length === 0) {
+      alert("Please select targets to generate short names");
+      return;
+    }
+
+    setGeneratingShortNames(true);
+    setShortNameProgress({ current: 0, total: selectedList.length });
+
+    for (let i = 0; i < selectedList.length; i++) {
+      const target = selectedList[i];
+      setShortNameProgress({ current: i + 1, total: selectedList.length });
+
+      try {
+        await base44.functions.invoke('generateShortNames', { targetId: target.id });
+      } catch (error) {
+        console.error(`Error generating short name for ${target.name}:`, error);
+      }
+    }
+
+    await queryClient.invalidateQueries({ queryKey: ['bdTargets'] });
+    setGeneratingShortNames(false);
+    setShortNameProgress({ current: 0, total: 0 });
   };
 
   const applyBulkSector = async () => {
@@ -424,6 +453,21 @@ export default function SavedTargets() {
         </DialogContent>
       </Dialog>
 
+      {generatingShortNames && (
+        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-50 flex items-center justify-center">
+          <div className="bg-white p-6 rounded-xl shadow-xl">
+            <div className="flex items-center gap-3 mb-4">
+              <Loader2 className="w-6 h-6 animate-spin text-purple-600" />
+              <span className="font-medium">Generating Short Names...</span>
+            </div>
+            <Progress value={(shortNameProgress.current / shortNameProgress.total) * 100} className="w-64" />
+            <div className="text-sm text-slate-600 mt-2 text-center">
+              {shortNameProgress.current} / {shortNameProgress.total} companies
+            </div>
+          </div>
+        </div>
+      )}
+
       {reclassifyingSectors && (
         <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-50 flex items-center justify-center">
           <div className="bg-white p-6 rounded-xl shadow-xl">
@@ -491,6 +535,26 @@ export default function SavedTargets() {
             <Download className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
             <span className="hidden sm:inline">Export All</span>
             <span className="sm:hidden">Export</span>
+          </Button>
+          <Button 
+            variant="outline" 
+            onClick={generateShortNamesForSelected} 
+            disabled={generatingShortNames || selectedTargets.size === 0}
+            className="text-xs sm:text-sm"
+          >
+            {generatingShortNames ? (
+              <>
+                <Loader2 className="w-3 h-3 sm:w-4 sm:h-4 mr-2 animate-spin" />
+                <span className="hidden sm:inline">Generating {shortNameProgress.current}/{shortNameProgress.total}</span>
+                <span className="sm:hidden">Gen...</span>
+              </>
+            ) : (
+              <>
+                <Sparkles className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
+                <span className="hidden lg:inline">Short Names ({selectedTargets.size})</span>
+                <span className="lg:hidden">Names ({selectedTargets.size})</span>
+              </>
+            )}
           </Button>
           <Button 
             variant="outline" 
