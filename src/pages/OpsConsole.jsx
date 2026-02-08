@@ -298,7 +298,7 @@ export default function OpsConsole(){
     setEnriching(true);
     setEnrichProgress({ current: 0, total: normalizedGR.length });
 
-    const { generateFriendlyName, classifyCompanySector } = await import("../components/ops/enrichmentHelpers");
+    const { generateFriendlyName, generateCorrespondenceName, classifyCompanySector } = await import("../components/ops/enrichmentHelpers");
     const enrichedRows = [];
 
     for (let i = 0; i < normalizedGR.length; i++) {
@@ -306,14 +306,16 @@ export default function OpsConsole(){
       setEnrichProgress({ current: i + 1, total: normalizedGR.length });
 
       try {
-        const [friendlyName, sector] = await Promise.all([
+        const [friendlyName, correspondenceName, sector] = await Promise.all([
           generateFriendlyName(company.name),
+          generateCorrespondenceName(company.name),
           classifyCompanySector(company)
         ]);
 
         enrichedRows.push({
           ...company,
           companyShortName: friendlyName,
+          correspondenceName: correspondenceName,
           sectorFocus: sector
         });
       } catch (error) {
@@ -321,6 +323,7 @@ export default function OpsConsole(){
         enrichedRows.push({
           ...company,
           companyShortName: company.name,
+          correspondenceName: company.name,
           sectorFocus: "HS: General"
         });
       }
@@ -333,6 +336,7 @@ export default function OpsConsole(){
       const enriched = enrichedMap.get(normalized.name);
       if (enriched) {
         raw._companyShortName = enriched.companyShortName;
+        raw._correspondenceName = enriched.correspondenceName;
         raw._sectorFocus = enriched.sectorFocus;
       }
       return raw;
@@ -788,6 +792,7 @@ Write ONLY the opening line, no quotes, no explanation. Make it sound natural an
       "Last Name": r.contact?.lastName || "",
       Company: r.name || "",
       "Company Short Name": r.companyShortName || r.name,
+      "Correspondence Name": r.correspondenceName || r.name,
       "Sector Focus": r.sectorFocus || "",
       "Job Title": r.contact?.title || "",
       "Account Name": r.name || "",
@@ -1460,6 +1465,7 @@ function normalizeRow(row) {
     lastActive: row._lastActive,
     dormancyFlag: row._dormancyFlag,
     companyShortName: row._companyShortName || row["Short Name"] || "",
+    correspondenceName: row._correspondenceName || "",
     sectorFocus: row._sectorFocus || row.Sector || "",
     personalization_snippet: row._personalization_snippet || "",
     contact: {
