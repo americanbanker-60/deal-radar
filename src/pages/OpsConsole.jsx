@@ -1282,6 +1282,33 @@ Instructions:
 }
 
 // Helper functions
+const STATE_MAP = {
+  'alabama': 'AL', 'alaska': 'AK', 'arizona': 'AZ', 'arkansas': 'AR', 'california': 'CA',
+  'colorado': 'CO', 'connecticut': 'CT', 'delaware': 'DE', 'florida': 'FL', 'georgia': 'GA',
+  'hawaii': 'HI', 'idaho': 'ID', 'illinois': 'IL', 'indiana': 'IN', 'iowa': 'IA',
+  'kansas': 'KS', 'kentucky': 'KY', 'louisiana': 'LA', 'maine': 'ME', 'maryland': 'MD',
+  'massachusetts': 'MA', 'michigan': 'MI', 'minnesota': 'MN', 'mississippi': 'MS',
+  'missouri': 'MO', 'montana': 'MT', 'nebraska': 'NE', 'nevada': 'NV', 'new hampshire': 'NH',
+  'new jersey': 'NJ', 'new mexico': 'NM', 'new york': 'NY', 'north carolina': 'NC',
+  'north dakota': 'ND', 'ohio': 'OH', 'oklahoma': 'OK', 'oregon': 'OR', 'pennsylvania': 'PA',
+  'rhode island': 'RI', 'south carolina': 'SC', 'south dakota': 'SD', 'tennessee': 'TN',
+  'texas': 'TX', 'utah': 'UT', 'vermont': 'VT', 'virginia': 'VA', 'washington': 'WA',
+  'west virginia': 'WV', 'wisconsin': 'WI', 'wyoming': 'WY', 'district of columbia': 'DC',
+  'puerto rico': 'PR', 'guam': 'GU', 'virgin islands': 'VI'
+};
+
+function normalizeState(state) {
+  if (!state) return '';
+  const trimmed = state.trim();
+  
+  // Already a 2-letter code
+  if (trimmed.length === 2) return trimmed.toUpperCase();
+  
+  // Convert full name to code
+  const lower = trimmed.toLowerCase();
+  return STATE_MAP[lower] || trimmed;
+}
+
 function cleanCompanyNameRegex(name) {
   if (!name) return name;
   
@@ -1298,6 +1325,7 @@ function normalizeRow(row) {
   const employees = toNumber(row["Employee Estimate"]);
   const rawName = row.Name || "";
   const cleanedName = cleanCompanyNameRegex(rawName);
+  const normalizedState = normalizeState(row.State);
 
   return {
     name: cleanedName,
@@ -1305,8 +1333,8 @@ function normalizeRow(row) {
     website: row.Domain || "",
     linkedin: row.LinkedIn || "",
     city: row.City || "",
-    state: row.State || "",
-    hq: (row.City || "") + (row.State ? ", " + row.State : ""),
+    state: normalizedState,
+    hq: (row.City || "") + (normalizedState ? ", " + normalizedState : ""),
     industry: "Healthcare Services",
     subsector: "",
     revenue: isNaN(Number(revenue)) ? undefined : Math.round(Number(revenue) / 1_000_000),
