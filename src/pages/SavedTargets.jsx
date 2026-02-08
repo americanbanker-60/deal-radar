@@ -1198,15 +1198,6 @@ Return JSON with brief summaries (1 sentence each):
                         )}
                       </td>
                       <td className="py-3 px-4">
-                        {t.growthSignals && t.growthSignals.length > 0 ? (
-                          <Badge className="bg-green-100 text-green-800 border-green-300 text-xs whitespace-nowrap">
-                            🚀 {t.growthSignals.length}
-                          </Badge>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">—</span>
-                        )}
-                      </td>
-                      <td className="py-3 px-4">
                         <div className="flex items-center gap-2">
                           <div className="w-16">
                             <Progress value={t.score} className="h-2" />
@@ -1235,6 +1226,22 @@ Return JSON with brief summaries (1 sentence each):
                         ) : (
                           <span className="text-xs text-muted-foreground">—</span>
                         )}
+                      </td>
+                      <td className="py-3 px-4">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => generateSingleRationale(t)}
+                          disabled={generatingSingleRationale === t.id}
+                          className="text-xs whitespace-nowrap"
+                        >
+                          {generatingSingleRationale === t.id ? (
+                            <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                          ) : (
+                            <Sparkles className="w-3 h-3 mr-1" />
+                          )}
+                          Rationale
+                        </Button>
                       </td>
                     </tr>
                   ))}
