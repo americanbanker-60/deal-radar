@@ -644,6 +644,67 @@ Write ONLY the opening line, no quotes, no explanation. Make it sound natural an
     showSuccess(`Generated personalized openers for ${selectedList.length} targets!`);
   };
 
+  const detectGrowthSignalsForSelected = async () => {
+    const selectedList = grScored.filter((_, index) => selectedTargets.has(index));
+    
+    if (selectedList.length === 0) {
+      setUploadError("Please select targets to analyze");
+      return;
+    }
+
+    setDetectingGrowth(true);
+    setGrowthProgress({ current: 0, total: selectedList.length });
+
+    for (let i = 0; i < selectedList.length; i++) {
+      const target = selectedList[i];
+      setGrowthProgress({ current: i + 1, total: selectedList.length });
+
+      try {
+        const prompt = `Search for recent news about "${target.name}" (${target.website || 'healthcare company'}) from the last 6 months.
+
+Look for:
+1. New office/clinic openings
+2. Awards and recognition
+3. Executive hires
+4. Funding/Investment
+5. Growth indicators
+
+Return JSON with brief summaries (1 sentence each):
+{
+  "signals": ["Opened 3rd location in Phoenix (Jan 2026)"],
+  "hasGrowthSignals": true
+}`;
+
+        const result = await base44.integrations.Core.InvokeLLM({
+          prompt,
+          add_context_from_internet: true,
+          response_json_schema: {
+            type: "object",
+            properties: {
+              signals: { type: "array", items: { type: "string" } },
+              hasGrowthSignals: { type: "boolean" }
+            }
+          }
+        });
+
+        // Update the raw data with growth signals
+        const enrichedIndex = grCompaniesRaw.findIndex(raw => 
+          normalizeRow(raw).name === target.name
+        );
+        if (enrichedIndex >= 0) {
+          grCompaniesRaw[enrichedIndex]._growthSignals = result.signals || [];
+        }
+      } catch (error) {
+        console.error(`Error detecting growth for ${target.name}:`, error);
+      }
+    }
+
+    setGrCompaniesRaw([...grCompaniesRaw]);
+    setDetectingGrowth(false);
+    setGrowthProgress({ current: 0, total: 0 });
+    showSuccess(`Detected growth signals for ${selectedList.length} companies!`);
+  };
+
   const reclassifySelectedSectors = async () => {
     const selectedList = grScored.filter((_, index) => selectedTargets.has(index));
     
@@ -967,6 +1028,21 @@ Write ONLY the opening line, no quotes, no explanation. Make it sound natural an
         </div>
       )}
 
+      {detectingGrowth && (
+        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-50 flex items-center justify-center">
+          <div className="bg-white p-6 rounded-xl shadow-xl">
+            <div className="flex items-center gap-3 mb-4">
+              <Loader2 className="w-6 h-6 animate-spin text-green-600" />
+              <span className="font-medium">Detecting Growth Signals...</span>
+            </div>
+            <Progress value={(growthProgress.current / growthProgress.total) * 100} className="w-64" />
+            <div className="text-sm text-slate-600 mt-2 text-center">
+              {growthProgress.current} / {growthProgress.total} companies
+            </div>
+          </div>
+        </div>
+      )}
+
       <Tabs value={page} onValueChange={setPage}>
         <TabsList className="bg-white border border-slate-200">
           <TabsTrigger value="grata">Grata Data</TabsTrigger>
@@ -1161,6 +1237,24 @@ Write ONLY the opening line, no quotes, no explanation. Make it sound natural an
                       <>
                         <Sparkles className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
                         Bulk Personalize ({selectedTargets.size})
+                      </>
+                    )}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={detectGrowthSignalsForSelected}
+                    disabled={detectingGrowth || selectedTargets.size === 0}
+                    className="text-xs sm:text-sm"
+                  >
+                    {detectingGrowth ? (
+                      <>
+                        <Loader2 className="w-3 h-3 sm:w-4 sm:h-4 mr-2 animate-spin" />
+                        Detecting...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
+                        Growth Signals ({selectedTargets.size})
                       </>
                     )}
                   </Button>
@@ -1469,6 +1563,7 @@ function normalizeRow(row) {
     correspondenceName: row._correspondenceName || "",
     sectorFocus: row._sectorFocus || row.Sector || "",
     personalization_snippet: row._personalization_snippet || "",
+    growthSignals: row._growthSignals || [],
     contact: {
       email: row["Executive Email"] || row["Primary Email"] || "",
       firstName: row["Executive First Name"] || "",
