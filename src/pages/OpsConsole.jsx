@@ -462,6 +462,7 @@ Instructions:
           campaign: campaignName.trim(),
           name: t.name,
           companyShortName: t.companyShortName,
+          correspondenceName: t.correspondenceName,
           sectorFocus: t.sectorFocus,
           website: t.website,
           websiteStatus: t.websiteStatus,
