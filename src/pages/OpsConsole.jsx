@@ -516,6 +516,11 @@ Instructions:
       showSuccess(message);
       setSelectedTargets(new Set());
       setCampaignName("");
+      
+      // Redirect to Saved Targets page after 1 second
+      setTimeout(() => {
+        window.location.href = createPageUrl("SavedTargets");
+      }, 1000);
     } catch (error) {
       console.error("Save error:", error);
       setUploadError("Failed to save: " + (error.message || String(error)));
@@ -1116,50 +1121,7 @@ Return JSON:
         </div>
       )}
 
-      {generatingRationales && (
-        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-50 flex items-center justify-center">
-          <div className="bg-white p-6 rounded-xl shadow-xl">
-            <div className="flex items-center gap-3 mb-4">
-              <Loader2 className="w-6 h-6 animate-spin text-purple-600" />
-              <span className="font-medium">Generating Strategic Rationales...</span>
-            </div>
-            <Progress value={(rationaleProgress.current / rationaleProgress.total) * 100} className="w-64" />
-            <div className="text-sm text-slate-600 mt-2 text-center">
-              {rationaleProgress.current} / {rationaleProgress.total} targets
-            </div>
-          </div>
-        </div>
-      )}
 
-      {personalizingTargets && (
-        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-50 flex items-center justify-center">
-          <div className="bg-white p-6 rounded-xl shadow-xl">
-            <div className="flex items-center gap-3 mb-4">
-              <Loader2 className="w-6 h-6 animate-spin text-indigo-600" />
-              <span className="font-medium">Creating Personalized Openers...</span>
-            </div>
-            <Progress value={(personalizeProgress.current / personalizeProgress.total) * 100} className="w-64" />
-            <div className="text-sm text-slate-600 mt-2 text-center">
-              {personalizeProgress.current} / {personalizeProgress.total} companies
-            </div>
-          </div>
-        </div>
-      )}
-
-      {detectingGrowth && (
-        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-50 flex items-center justify-center">
-          <div className="bg-white p-6 rounded-xl shadow-xl">
-            <div className="flex items-center gap-3 mb-4">
-              <Loader2 className="w-6 h-6 animate-spin text-green-600" />
-              <span className="font-medium">Detecting Growth Signals...</span>
-            </div>
-            <Progress value={(growthProgress.current / growthProgress.total) * 100} className="w-64" />
-            <div className="text-sm text-slate-600 mt-2 text-center">
-              {growthProgress.current} / {growthProgress.total} companies
-            </div>
-          </div>
-        </div>
-      )}
 
       <Dialog open={showLookalikeDialog} onOpenChange={setShowLookalikeDialog}>
         <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
@@ -1395,60 +1357,7 @@ Return JSON:
                       </>
                     )}
                   </Button>
-                  <Button
-                    variant="outline"
-                    onClick={generateRationalesForSelected}
-                    disabled={generatingRationales || selectedTargets.size === 0}
-                    className="text-xs sm:text-sm"
-                  >
-                    {generatingRationales ? (
-                      <>
-                        <Loader2 className="w-3 h-3 sm:w-4 sm:h-4 mr-2 animate-spin" />
-                        Generating...
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
-                        Generate Rationales ({selectedTargets.size})
-                      </>
-                    )}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={bulkPersonalizeSelected}
-                    disabled={personalizingTargets || selectedTargets.size === 0}
-                    className="text-xs sm:text-sm"
-                  >
-                    {personalizingTargets ? (
-                      <>
-                        <Loader2 className="w-3 h-3 sm:w-4 sm:h-4 mr-2 animate-spin" />
-                        Personalizing...
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
-                        Bulk Personalize ({selectedTargets.size})
-                      </>
-                    )}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={detectGrowthSignalsForSelected}
-                    disabled={detectingGrowth || selectedTargets.size === 0}
-                    className="text-xs sm:text-sm"
-                  >
-                    {detectingGrowth ? (
-                      <>
-                        <Loader2 className="w-3 h-3 sm:w-4 sm:h-4 mr-2 animate-spin" />
-                        Detecting...
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
-                        Growth Signals ({selectedTargets.size})
-                      </>
-                    )}
-                  </Button>
+
                   <Button
                     onClick={saveToDatabase}
                     disabled={saving || selectedTargets.size === 0 || !campaignName.trim()}
@@ -1469,7 +1378,7 @@ Return JSON:
                 <Alert className="bg-blue-50 border-blue-200">
                   <CircleAlert className="h-4 w-4 text-blue-600" />
                   <AlertDescription className="text-blue-800 text-xs">
-                    Duplicates (based on company name) are automatically skipped.
+                    Duplicates are auto-skipped. After saving, you'll be redirected to Saved Targets to begin enrichment and outreach.
                   </AlertDescription>
                 </Alert>
               </CardContent>
@@ -1507,6 +1416,12 @@ Return JSON:
               />
               
               <div className="space-y-4 mt-6 pt-4 border-t border-slate-200">
+                <Alert className="bg-purple-50 border-purple-200">
+                  <CircleAlert className="h-4 w-4 text-purple-600" />
+                  <AlertDescription className="text-purple-800 text-xs">
+                    <strong>Next Step:</strong> After saving, go to <strong>Saved Targets</strong> to run AI enrichment (Growth Signals, Rationales, Personalization) and sync to Outreach.
+                  </AlertDescription>
+                </Alert>
                 <div className="flex flex-wrap gap-2">
                   <Button 
                     variant="secondary" 
@@ -1529,21 +1444,7 @@ Return JSON:
                   >
                     <Download className="w-4 h-4 mr-2"/>Outreach CSV
                   </Button>
-                  <Button 
-                    onClick={() => generateOutputs("Grata", grScored)}
-                    className="bg-emerald-600 hover:bg-emerald-700"
-                    disabled={grScored.length === 0}
-                  >
-                    <Sparkles className="w-4 h-4 mr-2"/>Generate Insights + Email
-                  </Button>
                 </div>
-                
-                <OutreachIntegration 
-                  prospects={grScored.filter(t => t.score >= scoreThreshold)} 
-                  onSyncComplete={(result) => {
-                    console.log("Sync complete:", result);
-                  }}
-                />
               </div>
             </CardContent>
           </Card>

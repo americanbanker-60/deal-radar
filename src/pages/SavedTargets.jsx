@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
-import { Database, Filter, Download, Trash2, MapPin, Globe, Building2, Search, ArrowLeft, ArrowUpDown, ArrowUp, ArrowDown, RefreshCw, Loader2, CheckSquare, Globe2, UserCheck, Sparkles, Award, AlertTriangle, CheckCircle, Tag } from "lucide-react";
+import { Database, Filter, Download, Trash2, MapPin, Globe, Building2, Search, ArrowLeft, ArrowUpDown, ArrowUp, ArrowDown, RefreshCw, Loader2, CheckSquare, Globe2, UserCheck, Sparkles, Award, AlertTriangle, CheckCircle, Tag, Mail, ExternalLink } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -15,6 +15,7 @@ import { Link } from "react-router-dom";
 import { createPageUrl } from "../utils";
 
 import { scoreTargets } from "../components/ops/analyticsHelpers";
+import OutreachIntegration from "../components/ops/OutreachIntegration";
 
 export default function SavedTargets() {
   const [selectedCampaign, setSelectedCampaign] = useState("all");
@@ -41,6 +42,10 @@ export default function SavedTargets() {
   const [shortNameProgress, setShortNameProgress] = useState({ current: 0, total: 0 });
   const [personalizingTargets, setPersonalizingTargets] = useState(false);
   const [personalizeProgress, setPersonalizeProgress] = useState({ current: 0, total: 0 });
+  const [detectingGrowth, setDetectingGrowth] = useState(false);
+  const [growthProgress, setGrowthProgress] = useState({ current: 0, total: 0 });
+  const [generatingRationales, setGeneratingRationales] = useState(false);
+  const [rationaleProgress, setRationaleProgress] = useState({ current: 0, total: 0 });
   const queryClient = useQueryClient();
 
   const [user, setUser] = useState(null);
@@ -238,6 +243,97 @@ Write ONLY the opening line, no quotes, no explanation. Make it sound natural an
     await queryClient.invalidateQueries({ queryKey: ['bdTargets'] });
     setPersonalizingTargets(false);
     setPersonalizeProgress({ current: 0, total: 0 });
+  };
+
+  const detectGrowthSignalsForSelected = async () => {
+    const selectedList = filteredTargets.filter(t => selectedTargets.has(t.id));
+    
+    if (selectedList.length === 0) {
+      alert("Please select targets to analyze");
+      return;
+    }
+
+    setDetectingGrowth(true);
+    setGrowthProgress({ current: 0, total: selectedList.length });
+
+    for (let i = 0; i < selectedList.length; i++) {
+      const target = selectedList[i];
+      setGrowthProgress({ current: i + 1, total: selectedList.length });
+
+      try {
+        const prompt = `Search for recent news about "${target.name}" (${target.website || 'healthcare company'}) from the last 6 months.
+
+Look for:
+1. New office/clinic openings
+2. Awards and recognition
+3. Executive hires
+4. Funding/Investment
+5. Growth indicators
+
+Return JSON with brief summaries (1 sentence each):
+{
+  "signals": ["Opened 3rd location in Phoenix (Jan 2026)"],
+  "hasGrowthSignals": true
+}`;
+
+        const result = await base44.integrations.Core.InvokeLLM({
+          prompt,
+          add_context_from_internet: true,
+          response_json_schema: {
+            type: "object",
+            properties: {
+              signals: { type: "array", items: { type: "string" } },
+              hasGrowthSignals: { type: "boolean" }
+            }
+          }
+        });
+
+        await base44.entities.BDTarget.update(target.id, {
+          growthSignals: result.signals || [],
+          growthSignalsDate: new Date().toISOString()
+        });
+      } catch (error) {
+        console.error(`Error detecting growth for ${target.name}:`, error);
+      }
+    }
+
+    await queryClient.invalidateQueries({ queryKey: ['bdTargets'] });
+    setDetectingGrowth(false);
+    setGrowthProgress({ current: 0, total: 0 });
+  };
+
+  const generateRationalesForSelected = async () => {
+    const selectedList = filteredTargets.filter(t => selectedTargets.has(t.id));
+    
+    if (selectedList.length === 0) {
+      alert("Please select targets to generate rationales");
+      return;
+    }
+
+    setGeneratingRationales(true);
+    setRationaleProgress({ current: 0, total: selectedList.length });
+
+    for (let i = 0; i < selectedList.length; i++) {
+      const target = selectedList[i];
+      setRationaleProgress({ current: i + 1, total: selectedList.length });
+
+      try {
+        const result = await base44.functions.invoke('generateRationale', { 
+          targetId: target.id,
+          weights: JSON.parse(localStorage.getItem('ops_console_weights') || '{"employees":35,"clinics":25,"revenue":15,"website":15,"keywords":10}')
+        });
+        
+        await base44.entities.BDTarget.update(target.id, {
+          notes: result.data.rationale
+        });
+      } catch (error) {
+        console.error(`Error generating rationale for ${target.name}:`, error);
+      }
+    }
+
+    await queryClient.invalidateQueries({ queryKey: ['bdTargets'] });
+    setGeneratingRationales(false);
+    setRationaleProgress({ current: 0, total: 0 });
   };
 
   const applyBulkSector = async () => {
@@ -732,6 +828,46 @@ Write ONLY the opening line, no quotes, no explanation. Make it sound natural an
               </>
             )}
           </Button>
+          <Button 
+            variant="outline" 
+            onClick={detectGrowthSignalsForSelected} 
+            disabled={detectingGrowth || selectedTargets.size === 0}
+            className="text-xs sm:text-sm"
+          >
+            {detectingGrowth ? (
+              <>
+                <Loader2 className="w-3 h-3 sm:w-4 sm:h-4 mr-2 animate-spin" />
+                <span className="hidden sm:inline">Detecting...</span>
+                <span className="sm:hidden">Detect...</span>
+              </>
+            ) : (
+              <>
+                <Sparkles className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
+                <span className="hidden lg:inline">Growth Signals ({selectedTargets.size})</span>
+                <span className="lg:hidden">Growth ({selectedTargets.size})</span>
+              </>
+            )}
+          </Button>
+          <Button 
+            variant="outline" 
+            onClick={generateRationalesForSelected} 
+            disabled={generatingRationales || selectedTargets.size === 0}
+            className="text-xs sm:text-sm"
+          >
+            {generatingRationales ? (
+              <>
+                <Loader2 className="w-3 h-3 sm:w-4 sm:h-4 mr-2 animate-spin" />
+                <span className="hidden sm:inline">Generating...</span>
+                <span className="sm:hidden">Gen...</span>
+              </>
+            ) : (
+              <>
+                <Sparkles className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
+                <span className="hidden lg:inline">Rationales ({selectedTargets.size})</span>
+                <span className="lg:hidden">Rationale ({selectedTargets.size})</span>
+              </>
+            )}
+          </Button>
           <Button onClick={() => exportCSV(false)} disabled={selectedTargets.size === 0} className="text-xs sm:text-sm">
             <CheckSquare className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
             <span className="hidden sm:inline">Export Selected ({selectedTargets.size})</span>
@@ -875,6 +1011,7 @@ Write ONLY the opening line, no quotes, no explanation. Make it sound natural an
                     </th>
                     <th className="py-3 px-4 font-semibold whitespace-nowrap">Name</th>
                     <th className="py-3 px-4 font-semibold whitespace-nowrap">Short Name</th>
+                    <th className="py-3 px-4 font-semibold whitespace-nowrap">Correspondence</th>
                     <th className="py-3 px-4 font-semibold whitespace-nowrap">Sector</th>
                     <th className="py-3 px-4 font-semibold whitespace-nowrap">City</th>
                     <th className="py-3 px-4 font-semibold whitespace-nowrap">State</th>
@@ -882,6 +1019,7 @@ Write ONLY the opening line, no quotes, no explanation. Make it sound natural an
                     <SortHeader field="employees">Employees</SortHeader>
                     <SortHeader field="clinicCount">Clinics</SortHeader>
                     <th className="py-3 px-4 font-semibold">Website</th>
+                    <th className="py-3 px-4 font-semibold">Growth</th>
                     <SortHeader field="score">Score</SortHeader>
                     <th className="py-3 px-4 font-semibold">Fit</th>
                     <th className="py-3 px-4 font-semibold">Priority</th>
@@ -898,6 +1036,7 @@ Write ONLY the opening line, no quotes, no explanation. Make it sound natural an
                       </td>
                       <td className="py-3 px-4 max-w-[200px] truncate font-medium">{t.name}</td>
                       <td className="py-3 px-4 text-slate-600">{t.companyShortName || "—"}</td>
+                      <td className="py-3 px-4 text-slate-600">{t.correspondenceName || "—"}</td>
                       <td className="py-3 px-4">
                         {t.sectorFocus && (
                           <Badge variant="outline" className="text-xs whitespace-nowrap">{t.sectorFocus}</Badge>
@@ -925,6 +1064,15 @@ Write ONLY the opening line, no quotes, no explanation. Make it sound natural an
                         {!t.websiteStatus && <span className="text-xs text-muted-foreground">—</span>}
                       </td>
                       <td className="py-3 px-4">
+                        {t.growthSignals && t.growthSignals.length > 0 ? (
+                          <Badge className="bg-green-100 text-green-800 border-green-300 text-xs whitespace-nowrap">
+                            🚀 {t.growthSignals.length}
+                          </Badge>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
+                      </td>
+                      <td className="py-3 px-4">
                         <div className="flex items-center gap-2">
                           <div className="w-16">
                             <Progress value={t.score} className="h-2" />
@@ -933,15 +1081,17 @@ Write ONLY the opening line, no quotes, no explanation. Make it sound natural an
                         </div>
                       </td>
                       <td className="py-3 px-4">
-                        {t.fitScore !== undefined && (
-                          <Badge 
-                            className={
-                              t.fitScore >= 75 ? "bg-green-100 text-green-700" :
-                              t.fitScore >= 50 ? "bg-yellow-100 text-yellow-700" :
-                              "bg-slate-100 text-slate-600"
-                            }
-                          >
-                            {t.fitScore}%
+                        {t.score >= 75 ? (
+                          <Badge className="bg-green-100 text-green-700">
+                            {t.score}%
+                          </Badge>
+                        ) : t.score >= 50 ? (
+                          <Badge className="bg-yellow-100 text-yellow-700">
+                            {t.score}%
+                          </Badge>
+                        ) : (
+                          <Badge className="bg-slate-100 text-slate-600">
+                            {t.score}%
                           </Badge>
                         )}
                       </td>
@@ -959,6 +1109,55 @@ Write ONLY the opening line, no quotes, no explanation. Make it sound natural an
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {filteredTargets.length > 0 && (
+        <Card className="shadow-sm border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <ExternalLink className="w-5 h-5 text-blue-600" />
+              Outreach Integration
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <OutreachIntegration 
+              prospects={filteredTargets.filter(t => selectedTargets.has(t.id) && t.contactEmail)} 
+              onSyncComplete={(result) => {
+                console.log("Sync complete:", result);
+              }}
+            />
+          </CardContent>
+        </Card>
+      )}
+
+      {detectingGrowth && (
+        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-50 flex items-center justify-center">
+          <div className="bg-white p-6 rounded-xl shadow-xl">
+            <div className="flex items-center gap-3 mb-4">
+              <Loader2 className="w-6 h-6 animate-spin text-green-600" />
+              <span className="font-medium">Detecting Growth Signals...</span>
+            </div>
+            <Progress value={(growthProgress.current / growthProgress.total) * 100} className="w-64" />
+            <div className="text-sm text-slate-600 mt-2 text-center">
+              {growthProgress.current} / {growthProgress.total} companies
+            </div>
+          </div>
+        </div>
+      )}
+
+      {generatingRationales && (
+        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-50 flex items-center justify-center">
+          <div className="bg-white p-6 rounded-xl shadow-xl">
+            <div className="flex items-center gap-3 mb-4">
+              <Loader2 className="w-6 h-6 animate-spin text-purple-600" />
+              <span className="font-medium">Generating Strategic Rationales...</span>
+            </div>
+            <Progress value={(rationaleProgress.current / rationaleProgress.total) * 100} className="w-64" />
+            <div className="text-sm text-slate-600 mt-2 text-center">
+              {rationaleProgress.current} / {rationaleProgress.total} targets
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
