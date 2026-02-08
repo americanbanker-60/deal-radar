@@ -34,8 +34,8 @@ export default function Layout({ children }) {
   };
 
   const navItems = [
-    { name: "Ops Console", path: "OpsConsole", icon: Database },
     { name: "Saved Targets", path: "SavedTargets", icon: Database },
+    { name: "Ops Console", path: "OpsConsole", icon: Database },
   ];
 
   // Add admin-only items
@@ -63,7 +63,7 @@ export default function Layout({ children }) {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             {/* Logo */}
-            <Link to={createPageUrl("OpsConsole")} className="flex items-center gap-3">
+            <Link to={createPageUrl("SavedTargets")} className="flex items-center gap-3">
               <img 
                 src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/6914b46d39cf2944cbc25c62/f8da923e2_image.png" 
                 alt="Deal Radar Logo" 
