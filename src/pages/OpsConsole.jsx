@@ -463,6 +463,7 @@ Instructions:
           websiteStatus: t.websiteStatus,
           lastActive: t.lastActive,
           dormancyFlag: t.dormancyFlag,
+          personalization_snippet: t.personalization_snippet,
           city: t.city,
           state: t.state,
           hq: t.hq,
@@ -582,6 +583,60 @@ Instructions:
     setGeneratingRationales(false);
     setRationaleProgress({ current: 0, total: 0 });
     showSuccess(`Generated strategic rationales for ${highScoring.length} priority targets!`);
+  };
+
+  const bulkPersonalizeSelected = async () => {
+    const selectedList = grScored.filter((_, index) => selectedTargets.has(index));
+    
+    if (selectedList.length === 0) {
+      setUploadError("Please select targets to personalize");
+      return;
+    }
+
+    setPersonalizingTargets(true);
+    setPersonalizeProgress({ current: 0, total: selectedList.length });
+
+    for (let i = 0; i < selectedList.length; i++) {
+      const target = selectedList[i];
+      setPersonalizeProgress({ current: i + 1, total: selectedList.length });
+
+      try {
+        const city = target.city || "your area";
+        const sector = target.sectorFocus || target.subsector || "healthcare";
+        
+        const prompt = `Write a single, natural personalized opening line for a business development email to ${target.name}. 
+
+Location: ${city}
+Sector: ${sector}
+
+The opening should be conversational and reference their location and sector naturally. Examples:
+- "I saw your work in the Dallas pediatric space..."
+- "Your urgent care presence in Austin caught my attention..."
+- "I noticed your dermatology practice in Miami..."
+
+Write ONLY the opening line, no quotes, no explanation. Make it sound natural and genuine.`;
+
+        const result = await base44.integrations.Core.InvokeLLM({
+          prompt,
+          add_context_from_internet: false
+        });
+
+        // Update the raw data with personalization snippet
+        const enrichedMap = grCompaniesRaw.findIndex(raw => 
+          normalizeRow(raw).name === target.name
+        );
+        if (enrichedMap >= 0) {
+          grCompaniesRaw[enrichedMap]._personalization_snippet = result.trim();
+        }
+      } catch (error) {
+        console.error(`Error personalizing ${target.name}:`, error);
+      }
+    }
+
+    setGrCompaniesRaw([...grCompaniesRaw]);
+    setPersonalizingTargets(false);
+    setPersonalizeProgress({ current: 0, total: 0 });
+    showSuccess(`Generated personalized openers for ${selectedList.length} targets!`);
   };
 
   const reclassifySelectedSectors = async () => {
@@ -742,6 +797,7 @@ Instructions:
       Score: r.score ?? "",
       Region: r.hq || "",
       Clinics: r.clinicCount || "",
+      "Personalization": r.personalization_snippet || "",
     }));
     return out;
   };
@@ -885,6 +941,21 @@ Instructions:
             <Progress value={(rationaleProgress.current / rationaleProgress.total) * 100} className="w-64" />
             <div className="text-sm text-slate-600 mt-2 text-center">
               {rationaleProgress.current} / {rationaleProgress.total} targets
+            </div>
+          </div>
+        </div>
+      )}
+
+      {personalizingTargets && (
+        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-50 flex items-center justify-center">
+          <div className="bg-white p-6 rounded-xl shadow-xl">
+            <div className="flex items-center gap-3 mb-4">
+              <Loader2 className="w-6 h-6 animate-spin text-indigo-600" />
+              <span className="font-medium">Creating Personalized Openers...</span>
+            </div>
+            <Progress value={(personalizeProgress.current / personalizeProgress.total) * 100} className="w-64" />
+            <div className="text-sm text-slate-600 mt-2 text-center">
+              {personalizeProgress.current} / {personalizeProgress.total} companies
             </div>
           </div>
         </div>
@@ -1066,6 +1137,24 @@ Instructions:
                       <>
                         <Sparkles className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
                         Generate Rationales ({selectedTargets.size})
+                      </>
+                    )}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={bulkPersonalizeSelected}
+                    disabled={personalizingTargets || selectedTargets.size === 0}
+                    className="text-xs sm:text-sm"
+                  >
+                    {personalizingTargets ? (
+                      <>
+                        <Loader2 className="w-3 h-3 sm:w-4 sm:h-4 mr-2 animate-spin" />
+                        Personalizing...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
+                        Bulk Personalize ({selectedTargets.size})
                       </>
                     )}
                   </Button>
@@ -1372,6 +1461,7 @@ function normalizeRow(row) {
     dormancyFlag: row._dormancyFlag,
     companyShortName: row._companyShortName || row["Short Name"] || "",
     sectorFocus: row._sectorFocus || row.Sector || "",
+    personalization_snippet: row._personalization_snippet || "",
     contact: {
       email: row["Executive Email"] || row["Primary Email"] || "",
       firstName: row["Executive First Name"] || "",
