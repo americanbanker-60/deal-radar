@@ -296,7 +296,7 @@ export default function OpsConsole(){
     setEnriching(true);
     setEnrichProgress({ current: 0, total: normalizedGR.length });
 
-    const { generateShortName, classifyCompanySector } = await import("../components/ops/enrichmentHelpers");
+    const { generateFriendlyName, classifyCompanySector } = await import("../components/ops/enrichmentHelpers");
     const enrichedRows = [];
 
     for (let i = 0; i < normalizedGR.length; i++) {
@@ -304,14 +304,14 @@ export default function OpsConsole(){
       setEnrichProgress({ current: i + 1, total: normalizedGR.length });
 
       try {
-        const [shortName, sector] = await Promise.all([
-          generateShortName(company.name),
+        const [friendlyName, sector] = await Promise.all([
+          generateFriendlyName(company.name),
           classifyCompanySector(company)
         ]);
 
         enrichedRows.push({
           ...company,
-          companyShortName: shortName,
+          companyShortName: friendlyName,
           sectorFocus: sector
         });
       } catch (error) {
@@ -1282,12 +1282,25 @@ Instructions:
 }
 
 // Helper functions
+function cleanCompanyNameRegex(name) {
+  if (!name) return name;
+  
+  let cleaned = name
+    .replace(/,?\s+(LLC|L\.L\.C\.|Inc\.?|Incorporated|Corporation|Corp\.?|Ltd\.?|Limited|P\.A\.|PA|Co\.?|Company|Group|Holdings|Partners|Services|MSO|PC|P\.C\.|PLLC|P\.L\.L\.C\.)/gi, '')
+    .replace(/^(The|A|An)\s+/i, '')
+    .trim();
+  
+  return cleaned || name;
+}
+
 function normalizeRow(row) {
   const revenue = toNumber(row["Revenue Estimate"]);
   const employees = toNumber(row["Employee Estimate"]);
+  const rawName = row.Name || "";
+  const cleanedName = cleanCompanyNameRegex(rawName);
 
   return {
-    name: row.Name || "",
+    name: cleanedName,
     url: row.Domain || "",
     website: row.Domain || "",
     linkedin: row.LinkedIn || "",

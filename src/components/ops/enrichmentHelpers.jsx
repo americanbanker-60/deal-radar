@@ -172,28 +172,54 @@ Return your response as JSON with this exact structure:
 }
 
 /**
- * Generate clean short name for a company
+ * Clean company name with regex - strips legal suffixes
  */
-export async function generateShortName(companyName) {
-  try {
-    const prompt = `Given the full company name: "${companyName}"
+export function cleanCompanyName(name) {
+  if (!name) return name;
+  
+  // Remove legal suffixes with regex
+  let cleaned = name
+    .replace(/,?\s+(LLC|L\.L\.C\.|Inc\.?|Incorporated|Corporation|Corp\.?|Ltd\.?|Limited|P\.A\.|PA|Co\.?|Company|Group|Holdings|Partners|Services|MSO|PC|P\.C\.|PLLC|P\.L\.L\.C\.)/gi, '')
+    .replace(/^(The|A|An)\s+/i, '') // Remove leading articles
+    .trim();
+  
+  return cleaned || name; // Fallback to original if cleaning results in empty string
+}
 
-Generate a clean short name following these rules:
-- Remove leading articles: The, A, An
-- Remove legal terms: LLC, Inc, Incorporated, Corporation, Corp, Company, Co, Group, Holdings, Partners, Services, MSO, PC, PLLC, PA
-- Retain core unique identifiers + specialty term
-- Use Title Case
-- Do NOT add new words
-- Should look natural in an email subject line
+/**
+ * Generate friendly name for complex company names using AI
+ */
+export async function generateFriendlyName(companyName) {
+  try {
+    // First apply regex cleaning
+    const regexCleaned = cleanCompanyName(companyName);
+    
+    // If the name is simple after regex, return it
+    if (regexCleaned.split(' ').length <= 4) {
+      return regexCleaned;
+    }
+    
+    // For complex names, use AI to make it sound natural
+    const prompt = `Given the company name: "${companyName}"
+
+Generate a friendly name that sounds natural in a sentence (e.g., "I'm reaching out regarding Local Urgent Care Center...").
+
+Rules:
+- Remove "The", "A", "An" prefixes
+- Remove legal suffixes (LLC, Inc, Corp, Ltd, P.A., etc.)
+- Remove "of [Location]" if it makes the name overly long
+- Keep it concise but preserve brand identity
+- Should be 2-5 words maximum
+- Natural and conversational
 
 Examples:
-- "The River Pediatrics Group" → "River Pediatrics"
-- "Blue Oak Cardiology, LLC" → "Blue Oak Cardiology"
-- "Willow Grove Behavioral Health Services" → "Willow Grove Behavioral Health"
+- "The local Urgent Care Center of Florida, LLC" → "Local Urgent Care Center"
+- "Advanced Dermatology Associates of the Midwest, Inc." → "Advanced Dermatology"
+- "Sunshine Pediatrics Group, P.A." → "Sunshine Pediatrics"
 
 Return JSON:
 {
-  "shortName": "..."
+  "friendlyName": "..."
 }`;
 
     const result = await base44.integrations.Core.InvokeLLM({
@@ -201,14 +227,21 @@ Return JSON:
       response_json_schema: {
         type: "object",
         properties: {
-          shortName: { type: "string" }
+          friendlyName: { type: "string" }
         }
       }
     });
 
-    return result.shortName || companyName;
+    return result.friendlyName || regexCleaned;
   } catch (error) {
-    console.error(`Error generating short name for ${companyName}:`, error);
-    return companyName;
+    console.error(`Error generating friendly name for ${companyName}:`, error);
+    return cleanCompanyName(companyName);
   }
+}
+
+/**
+ * Generate clean short name for a company (used in existing flows)
+ */
+export async function generateShortName(companyName) {
+  return generateFriendlyName(companyName);
 }

@@ -21,26 +21,41 @@ Deno.serve(async (req) => {
             return Response.json({ error: 'Target not found' }, { status: 404 });
         }
 
-        // Generate short name using AI
-        const prompt = `Generate a clean, concise company name for outreach emails.
+        // Generate friendly name using AI
+        const prompt = `Given the company name: "${target.name}"
 
-Company name: "${target.name}"
+Generate a friendly name that sounds natural in a sentence (e.g., "I'm reaching out regarding Local Urgent Care Center...").
 
 Rules:
-- Remove legal suffixes (LLC, Inc, Corp, Ltd, etc.)
-- Remove "The" prefix
-- Keep brand identity intact
-- Max 3-4 words
-- Natural and professional
+- Remove "The", "A", "An" prefixes
+- Remove legal suffixes (LLC, Inc, Corp, Ltd, P.A., etc.)
+- Remove "of [Location]" if it makes the name overly long
+- Keep it concise but preserve brand identity
+- Should be 2-5 words maximum
+- Natural and conversational
 
-Return ONLY the short name, nothing else.`;
+Examples:
+- "The local Urgent Care Center of Florida, LLC" → "Local Urgent Care Center"
+- "Advanced Dermatology Associates of the Midwest, Inc." → "Advanced Dermatology"
+- "Sunshine Pediatrics Group, P.A." → "Sunshine Pediatrics"
 
-        const shortName = await base44.asServiceRole.integrations.Core.InvokeLLM({
+Return JSON:
+{
+  "friendlyName": "..."
+}`;
+
+        const result = await base44.asServiceRole.integrations.Core.InvokeLLM({
             prompt,
-            add_context_from_internet: false
+            add_context_from_internet: false,
+            response_json_schema: {
+                type: "object",
+                properties: {
+                    friendlyName: { type: "string" }
+                }
+            }
         });
 
-        const cleanShortName = shortName.trim().replace(/^["']|["']$/g, '');
+        const cleanShortName = result.friendlyName?.trim() || target.name;
 
         await base44.entities.BDTarget.update(targetId, { 
             companyShortName: cleanShortName 
