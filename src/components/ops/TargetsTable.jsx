@@ -2,9 +2,10 @@ import React from "react";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Checkbox } from "@/components/ui/checkbox";
-import { MapPin, Calendar, AlertTriangle } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { MapPin, Calendar, AlertTriangle, Search } from "lucide-react";
 
-export default function TargetsTable({ targets, selectedTargets, onToggleTarget, onToggleAll, scoreThreshold }) {
+export default function TargetsTable({ targets, selectedTargets, onToggleTarget, onToggleAll, scoreThreshold, onFindLookalikes }) {
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-sm min-w-[1200px]">
@@ -31,6 +32,7 @@ export default function TargetsTable({ targets, selectedTargets, onToggleTarget,
             <th className="py-3 px-4 font-semibold">Fit</th>
             <th className="py-3 px-4 font-semibold">Priority</th>
             <th className="py-3 px-4 font-semibold">Strategic Rationale</th>
+            <th className="py-3 px-4 font-semibold whitespace-nowrap">Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -138,6 +140,17 @@ export default function TargetsTable({ targets, selectedTargets, onToggleTarget,
                 ) : (
                   <span className="text-xs text-muted-foreground">—</span>
                 )}
+              </td>
+              <td className="py-3 px-4">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onFindLookalikes && onFindLookalikes(t)}
+                  className="text-xs whitespace-nowrap"
+                >
+                  <Search className="w-3 h-3 mr-1" />
+                  Find Lookalikes
+                </Button>
               </td>
             </tr>
           ))}

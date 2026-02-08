@@ -9,9 +9,10 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Slider } from "@/components/ui/slider";
 import { Progress } from "@/components/ui/progress";
 import { Textarea } from "@/components/ui/textarea";
-import { Download, Upload, Filter, Sparkles, Database, Settings, CircleAlert, Workflow, Mail, Loader2, HelpCircle, CheckCircle2, X, AlertTriangle, Globe, MapPin, Building2, Save } from "lucide-react";
+import { Download, Upload, Filter, Sparkles, Database, Settings, CircleAlert, Workflow, Mail, Loader2, HelpCircle, CheckCircle2, X, AlertTriangle, Globe, MapPin, Building2, Save, Plus } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "../utils";
 
@@ -148,6 +149,11 @@ export default function OpsConsole(){
   const [personalizeProgress, setPersonalizeProgress] = useState({ current: 0, total: 0 });
   const [detectingGrowth, setDetectingGrowth] = useState(false);
   const [growthProgress, setGrowthProgress] = useState({ current: 0, total: 0 });
+  const [showLookalikeDialog, setShowLookalikeDialog] = useState(false);
+  const [lookalikeTarget, setLookalikeTarget] = useState(null);
+  const [lookalikes, setLookalikes] = useState([]);
+  const [findingLookalikes, setFindingLookalikes] = useState(false);
+  const [addingLookalike, setAddingLookalike] = useState(null);
 
   // Load saved settings from localStorage on mount
   useEffect(() => {
@@ -709,6 +715,114 @@ Return JSON with brief summaries (1 sentence each):
     showSuccess(`Detected growth signals for ${selectedList.length} companies!`);
   };
 
+  const findLookalikes = async (target) => {
+    setLookalikeTarget(target);
+    setShowLookalikeDialog(true);
+    setFindingLookalikes(true);
+    setLookalikes([]);
+
+    try {
+      const prompt = `Search for 3 similar healthcare companies to "${target.name}" that match these criteria:
+
+Target Company Profile:
+- Name: ${target.name}
+- Sector: ${target.sectorFocus || target.subsector || "Healthcare Services"}
+- Location: ${target.city}, ${target.state}
+- Revenue: ~$${target.revenue}M
+- Employees: ~${target.employees}
+
+Search Criteria:
+- Same or similar subsector (${target.sectorFocus || target.subsector || "Healthcare Services"})
+- Similar geographic region (${target.state} or nearby states)
+- Revenue range: $${minRev}M - $${maxRev}M
+- Employee range: similar size to target
+
+For each company found, provide:
+1. Full company name
+2. Website URL
+3. City and State
+4. Estimated revenue (in millions)
+5. Estimated employee count
+6. Brief description of what they do
+
+Return JSON:
+{
+  "companies": [
+    {
+      "name": "Company Name",
+      "website": "https://example.com",
+      "city": "City",
+      "state": "State",
+      "revenue": 10,
+      "employees": 50,
+      "description": "Brief description"
+    }
+  ]
+}`;
+
+      const result = await base44.integrations.Core.InvokeLLM({
+        prompt,
+        add_context_from_internet: true,
+        response_json_schema: {
+          type: "object",
+          properties: {
+            companies: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  name: { type: "string" },
+                  website: { type: "string" },
+                  city: { type: "string" },
+                  state: { type: "string" },
+                  revenue: { type: "number" },
+                  employees: { type: "number" },
+                  description: { type: "string" }
+                }
+              }
+            }
+          }
+        }
+      });
+
+      setLookalikes(result.companies || []);
+    } catch (error) {
+      console.error("Error finding lookalikes:", error);
+      setUploadError("Failed to find lookalikes: " + error.message);
+    }
+    
+    setFindingLookalikes(false);
+  };
+
+  const addLookalikeToDatabase = async (lookalike) => {
+    setAddingLookalike(lookalike.name);
+    
+    try {
+      await base44.entities.BDTarget.create({
+        campaign: campaignName.trim() || "Lookalike Discovery",
+        name: lookalike.name,
+        website: lookalike.website,
+        city: lookalike.city,
+        state: lookalike.state,
+        revenue: lookalike.revenue,
+        employees: lookalike.employees,
+        notes: lookalike.description,
+        sectorFocus: lookalikeTarget.sectorFocus,
+        status: "new"
+      });
+
+      showSuccess(`Added ${lookalike.name} to database!`);
+      
+      // Remove from lookalikes list
+      setLookalikes(prev => prev.filter(l => l.name !== lookalike.name));
+    } catch (error) {
+      console.error("Error adding lookalike:", error);
+      setUploadError("Failed to add lookalike: " + error.message);
+    }
+    
+    setAddingLookalike(null);
+  };
+
   const reclassifySelectedSectors = async () => {
     const selectedList = grScored.filter((_, index) => selectedTargets.has(index));
     
@@ -1047,6 +1161,79 @@ Return JSON with brief summaries (1 sentence each):
         </div>
       )}
 
+      <Dialog open={showLookalikeDialog} onOpenChange={setShowLookalikeDialog}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Find Lookalike Companies</DialogTitle>
+            <DialogDescription>
+              {lookalikeTarget && (
+                <span>Similar companies to <strong>{lookalikeTarget.name}</strong> in {lookalikeTarget.sectorFocus || "Healthcare Services"}</span>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          
+          {findingLookalikes ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="text-center">
+                <Loader2 className="w-8 h-8 animate-spin text-blue-600 mx-auto mb-3" />
+                <p className="text-sm text-slate-600">Searching for similar companies...</p>
+              </div>
+            </div>
+          ) : lookalikes.length === 0 ? (
+            <div className="text-center py-12">
+              <p className="text-sm text-slate-600">No lookalike companies found. Try adjusting your filters.</p>
+            </div>
+          ) : (
+            <div className="space-y-4 py-4">
+              {lookalikes.map((lookalike, idx) => (
+                <div key={idx} className="border rounded-lg p-4 hover:bg-slate-50 transition-colors">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1">
+                      <h3 className="font-semibold text-slate-900 mb-1">{lookalike.name}</h3>
+                      <div className="space-y-1 text-sm text-slate-600">
+                        <div className="flex items-center gap-4">
+                          <span>📍 {lookalike.city}, {lookalike.state}</span>
+                          <span>💰 ${lookalike.revenue}M revenue</span>
+                          <span>👥 {lookalike.employees} employees</span>
+                        </div>
+                        {lookalike.website && (
+                          <div className="flex items-center gap-2">
+                            <Globe className="w-3 h-3" />
+                            <a href={lookalike.website} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                              {lookalike.website}
+                            </a>
+                          </div>
+                        )}
+                        {lookalike.description && (
+                          <p className="text-slate-600 mt-2">{lookalike.description}</p>
+                        )}
+                      </div>
+                    </div>
+                    <Button
+                      onClick={() => addLookalikeToDatabase(lookalike)}
+                      disabled={addingLookalike === lookalike.name}
+                      className="bg-emerald-600 hover:bg-emerald-700"
+                    >
+                      {addingLookalike === lookalike.name ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Adding...
+                        </>
+                      ) : (
+                        <>
+                          <Plus className="w-4 h-4 mr-2" />
+                          Add to Database
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
       <Tabs value={page} onValueChange={setPage}>
         <TabsList className="bg-white border border-slate-200">
           <TabsTrigger value="grata">Grata Data</TabsTrigger>
@@ -1316,6 +1503,7 @@ Return JSON with brief summaries (1 sentence each):
                 onToggleTarget={toggleTarget}
                 onToggleAll={toggleSelectAll}
                 scoreThreshold={scoreThreshold}
+                onFindLookalikes={findLookalikes}
               />
               
               <div className="space-y-4 mt-6 pt-4 border-t border-slate-200">
