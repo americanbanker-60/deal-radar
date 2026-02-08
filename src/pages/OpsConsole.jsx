@@ -130,11 +130,6 @@ export default function OpsConsole(){
   // Outreach custom fields
   const [vertical, setVertical] = useState("Healthcare Services");
   const [tag, setTag] = useState("BD-Priority");
-  const [fitKeywords, setFitKeywords] = useState("Healthcare Services");
-
-  // Email draft
-  const [emailSubject, setEmailSubject] = useState("BD Targets & Market Snapshot");
-  const [emailBody, setEmailBody] = useState("");
 
   // New states for saving targets
   const [selectedTargets, setSelectedTargets] = useState(new Set());
@@ -143,12 +138,6 @@ export default function OpsConsole(){
   const [reclassifyingSectors, setReclassifyingSectors] = useState(false);
   const [sectorProgress, setSectorProgress] = useState({ current: 0, total: 0 });
   const [recalculatingScores, setRecalculatingScores] = useState(false);
-  const [generatingRationales, setGeneratingRationales] = useState(false);
-  const [rationaleProgress, setRationaleProgress] = useState({ current: 0, total: 0 });
-  const [personalizingTargets, setPersonalizingTargets] = useState(false);
-  const [personalizeProgress, setPersonalizeProgress] = useState({ current: 0, total: 0 });
-  const [detectingGrowth, setDetectingGrowth] = useState(false);
-  const [growthProgress, setGrowthProgress] = useState({ current: 0, total: 0 });
   const [showLookalikeDialog, setShowLookalikeDialog] = useState(false);
   const [lookalikeTarget, setLookalikeTarget] = useState(null);
   const [lookalikes, setLookalikes] = useState([]);
@@ -890,7 +879,7 @@ Return JSON:
   
   const grScored = useMemo(() => {
     const scored = scoreTargets(filteredGR, { 
-      fitKeywords,
+      fitKeywords: vertical,
       weights,
       targetRange: {
         minEmployees: targetMinEmp ? parseInt(targetMinEmp) : null,
@@ -901,11 +890,11 @@ Return JSON:
     });
     console.log("🔄 Scored data:", {
       total: scored.length,
-      fitKeywords,
+      fitKeywords: vertical,
       weights
     });
     return scored;
-  }, [filteredGR, fitKeywords, weights, targetMinEmp, targetMaxEmp, targetMinRev, targetMaxRev]);
+  }, [filteredGR, vertical, weights, targetMinEmp, targetMaxEmp, targetMinRev, targetMaxRev]);
 
   const downloadText = (filename, text) => {
     const blob = new Blob([text], { type: "text/csv;charset=utf-8;" });
@@ -917,31 +906,7 @@ Return JSON:
     URL.revokeObjectURL(url);
   };
 
-  const copy = async (text) => { 
-    try { 
-      await navigator.clipboard.writeText(text);
-      showSuccess("Copied to clipboard!");
-    } catch(e) {
-      console.error("Copy failed:", e);
-      setUploadError("Failed to copy to clipboard");
-    } 
-  };
 
-  const insightsFor = (label, scored) => {
-    const top = scored.slice(0, 10);
-    const names = top.map((t) => t.name).filter(Boolean).slice(0,5).join(", ");
-    const lines = [
-      `${label}: ${scored.length} qualified targets; top 5: ${names || "(add data)"}.`,
-      `Prioritized ${top.length} targets with Score ≥ ${scoreThreshold}.`,
-    ].filter(Boolean);
-    return `• ${lines.join("\n• ")}`;
-  };
-
-  const generateOutputs = (label, scored) => {
-    const text = insightsFor(label, scored);
-    setInsights(text);
-    setEmailBody(`Hi team,\n\n${text}\n\nAttached are the cleaned targets and snapshot.\n\n- ${label} export generated from Ops Console`);
-  };
 
   const exportExcel = async (filename, data) => {
     setLoading(true);
@@ -992,11 +957,7 @@ Return JSON:
     return out;
   };
 
-  useEffect(() => {
-    if (!fitKeywords || fitKeywords.trim().toLowerCase() === "healthcare services") {
-      setFitKeywords(vertical);
-    }
-  }, [vertical]);
+
 
   return (
     <div className="w-full mx-auto p-3 sm:p-4 md:p-6 space-y-4 sm:space-y-6 bg-gradient-to-br from-slate-50 to-blue-50 min-h-screen">
@@ -1010,7 +971,7 @@ Return JSON:
         />
         <div className="flex-1 min-w-0">
           <h1 className="text-xl sm:text-2xl font-bold text-slate-900">Grata Ops Console</h1>
-          <p className="text-xs sm:text-sm text-slate-600 mt-1">Top-of-funnel deal sourcing for bootstrapped companies</p>
+          <p className="text-xs sm:text-sm text-slate-600 mt-1">Import, filter, and score Grata data • All enrichment and outreach happens on Saved Targets</p>
         </div>
         <div className="flex flex-wrap gap-2 w-full sm:w-auto">
           <Link to={createPageUrl("SavedTargets")} className="flex-1 sm:flex-none">
@@ -1211,9 +1172,9 @@ Return JSON:
                     <HelpCircle className="w-6 h-6 text-white" />
                   </div>
                   <div className="flex-1">
-                    <h3 className="font-semibold text-emerald-900 mb-2">Getting Started with Grata Data</h3>
+                    <h3 className="font-semibold text-emerald-900 mb-2">Data Intake & Filtering</h3>
                     <p className="text-sm text-emerald-700 mb-3">
-                      Upload your Grata company exports to discover and score potential targets. Focus on bootstrapped, privately-held companies.
+                      Upload Grata exports, filter and score companies, then save to your database. All AI enrichment and outreach happens on the Saved Targets page.
                     </p>
                     <Button
                       onClick={() => setShowHowTo(true)}
@@ -1449,30 +1410,7 @@ Return JSON:
             </CardContent>
           </Card>
 
-          {insights && (
-            <Card className="shadow-sm border-slate-200">
-              <CardHeader className="bg-gradient-to-r from-green-50 to-transparent">
-                <CardTitle className="flex items-center gap-2">
-                  <Mail className="w-5 h-5 text-green-600"/>
-                  Email Draft
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3 pt-4">
-                <div className="space-y-2">
-                  <div className="text-sm font-medium">Subject</div>
-                  <Input value={emailSubject} onChange={(e) => setEmailSubject(e.target.value)} />
-                </div>
-                <div className="space-y-2">
-                  <div className="text-sm font-medium">Body</div>
-                  <Textarea value={emailBody} onChange={(e) => setEmailBody(e.target.value)} className="h-40" />
-                </div>
-                <div className="flex gap-2">
-                  <Button variant="secondary" onClick={() => copy(emailSubject)}>Copy Subject</Button>
-                  <Button onClick={() => copy(emailBody)} className="bg-green-600 hover:bg-green-700">Copy Body</Button>
-                </div>
-              </CardContent>
-            </Card>
-          )}
+
         </TabsContent>
 
         <TabsContent value="settings" className="space-y-6">

@@ -11,6 +11,7 @@ import { Database, Filter, Download, Trash2, MapPin, Globe, Building2, Search, A
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Textarea } from "@/components/ui/textarea";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "../utils";
 
@@ -46,6 +47,13 @@ export default function SavedTargets() {
   const [growthProgress, setGrowthProgress] = useState({ current: 0, total: 0 });
   const [generatingRationales, setGeneratingRationales] = useState(false);
   const [rationaleProgress, setRationaleProgress] = useState({ current: 0, total: 0 });
+  const [generatingSingleRationale, setGeneratingSingleRationale] = useState(null);
+  const [cleaningNames, setCleaningNames] = useState(false);
+  const [cleanProgress, setCleanProgress] = useState({ current: 0, total: 0 });
+  const [insights, setInsights] = useState("");
+  const [emailSubject, setEmailSubject] = useState("BD Targets & Market Snapshot");
+  const [emailBody, setEmailBody] = useState("");
+  const [fitKeywords, setFitKeywords] = useState("Healthcare Services");
   const queryClient = useQueryClient();
 
   const [user, setUser] = useState(null);
@@ -336,6 +344,90 @@ Return JSON with brief summaries (1 sentence each):
     setRationaleProgress({ current: 0, total: 0 });
   };
 
+  const generateSingleRationale = async (target) => {
+    setGeneratingSingleRationale(target.id);
+    
+    try {
+      const result = await base44.functions.invoke('generateRationale', { 
+        targetId: target.id,
+        weights: JSON.parse(localStorage.getItem('ops_console_weights') || '{"employees":35,"clinics":25,"revenue":15,"website":15,"keywords":10}')
+      });
+      
+      await base44.entities.BDTarget.update(target.id, {
+        notes: result.data.rationale
+      });
+
+      await queryClient.invalidateQueries({ queryKey: ['bdTargets'] });
+    } catch (error) {
+      console.error(`Error generating rationale for ${target.name}:`, error);
+      alert("Failed to generate rationale: " + error.message);
+    }
+    
+    setGeneratingSingleRationale(null);
+  };
+
+  const cleanCompanyNamesForSelected = async () => {
+    const selectedList = filteredTargets.filter(t => selectedTargets.has(t.id));
+    
+    if (selectedList.length === 0) {
+      alert("Please select targets to clean names");
+      return;
+    }
+
+    setCleaningNames(true);
+    setCleanProgress({ current: 0, total: selectedList.length });
+
+    const { generateFriendlyName, generateCorrespondenceName } = await import("../components/ops/enrichmentHelpers");
+
+    for (let i = 0; i < selectedList.length; i++) {
+      const target = selectedList[i];
+      setCleanProgress({ current: i + 1, total: selectedList.length });
+
+      try {
+        const [friendlyName, correspondenceName] = await Promise.all([
+          generateFriendlyName(target.name),
+          generateCorrespondenceName(target.name)
+        ]);
+
+        await base44.entities.BDTarget.update(target.id, {
+          companyShortName: friendlyName,
+          correspondenceName: correspondenceName
+        });
+      } catch (error) {
+        console.error(`Error cleaning name for ${target.name}:`, error);
+      }
+    }
+
+    await queryClient.invalidateQueries({ queryKey: ['bdTargets'] });
+    setCleaningNames(false);
+    setCleanProgress({ current: 0, total: 0 });
+  };
+
+  const generateInsightsAndEmail = () => {
+    const top = filteredTargets.slice(0, 10);
+    const names = top.map(t => t.name).slice(0, 5).join(", ");
+    const withGrowth = filteredTargets.filter(t => t.growthSignals?.length > 0).length;
+    
+    const insightText = [
+      `${filteredTargets.length} qualified targets across ${campaigns.length} campaigns`,
+      `Top 5: ${names || "(add data)"}`,
+      `${withGrowth} companies with recent growth signals`,
+      `${filteredTargets.filter(t => t.score >= 70).length} high-priority targets (Score ≥ 70)`
+    ].join("\n• ");
+
+    setInsights(`• ${insightText}`);
+    setEmailBody(`Hi team,\n\n${insightText}\n\nAttached is the latest target snapshot.\n\n- BD Team`);
+  };
+
+  const copyToClipboard = async (text) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      alert("Copied to clipboard!");
+    } catch (error) {
+      console.error("Copy failed:", error);
+    }
+  };
+
   const applyBulkSector = async () => {
     if (!bulkSectorValue) {
       alert("Please select a sector");
@@ -514,6 +606,7 @@ Return JSON with brief summaries (1 sentence each):
       Campaign: t.campaign,
       "Company Name": t.name,
       "Short Name": t.companyShortName,
+      "Correspondence Name": t.correspondenceName,
       "Sector Focus": t.sectorFocus,
       City: t.city,
       State: t.state,
@@ -521,12 +614,15 @@ Return JSON with brief summaries (1 sentence each):
       Employees: t.employees,
       Clinics: t.clinicCount,
       Score: t.score,
+      "Fit Score": t.score,
+      "Growth Signals": t.growthSignals?.join("; ") || "",
       Status: t.status,
       Email: t.contactEmail,
       "First Name": t.contactFirstName,
       "Last Name": t.contactLastName,
       Title: t.contactTitle,
       Website: t.website,
+      "Strategic Rationale": t.notes || ""
     }));
 
     const result = await base44.functions.invoke('dataToCsv', { data });
@@ -693,10 +789,39 @@ Return JSON with brief summaries (1 sentence each):
             <span className="hidden sm:inline">Re-score All</span>
             <span className="sm:hidden">Re-score</span>
           </Button>
+          <Button 
+            variant="outline" 
+            onClick={cleanCompanyNamesForSelected} 
+            disabled={cleaningNames || selectedTargets.size === 0}
+            className="text-xs sm:text-sm"
+          >
+            {cleaningNames ? (
+              <>
+                <Loader2 className="w-3 h-3 sm:w-4 sm:h-4 mr-2 animate-spin" />
+                <span className="hidden sm:inline">Cleaning {cleanProgress.current}/{cleanProgress.total}</span>
+                <span className="sm:hidden">Clean...</span>
+              </>
+            ) : (
+              <>
+                <Sparkles className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
+                <span className="hidden lg:inline">Clean Names ({selectedTargets.size})</span>
+                <span className="lg:hidden">Clean ({selectedTargets.size})</span>
+              </>
+            )}
+          </Button>
           <Button variant="outline" onClick={() => exportCSV(true)} disabled={filteredTargets.length === 0} className="text-xs sm:text-sm">
             <Download className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
             <span className="hidden sm:inline">Export All</span>
             <span className="sm:hidden">Export</span>
+          </Button>
+          <Button 
+            onClick={generateInsightsAndEmail} 
+            disabled={filteredTargets.length === 0}
+            className="bg-emerald-600 hover:bg-emerald-700 text-xs sm:text-sm"
+          >
+            <Sparkles className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
+            <span className="hidden sm:inline">Generate Insights</span>
+            <span className="sm:hidden">Insights</span>
           </Button>
           <Button 
             variant="outline" 
@@ -1073,6 +1198,15 @@ Return JSON with brief summaries (1 sentence each):
                         )}
                       </td>
                       <td className="py-3 px-4">
+                        {t.growthSignals && t.growthSignals.length > 0 ? (
+                          <Badge className="bg-green-100 text-green-800 border-green-300 text-xs whitespace-nowrap">
+                            🚀 {t.growthSignals.length}
+                          </Badge>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
+                      </td>
+                      <td className="py-3 px-4">
                         <div className="flex items-center gap-2">
                           <div className="w-16">
                             <Progress value={t.score} className="h-2" />
@@ -1111,12 +1245,37 @@ Return JSON with brief summaries (1 sentence each):
         </Card>
       )}
 
-      {filteredTargets.length > 0 && (
+      {insights && (
+        <Card className="shadow-sm border-slate-200">
+          <CardHeader className="bg-gradient-to-r from-green-50 to-transparent">
+            <CardTitle className="flex items-center gap-2">
+              <Mail className="w-5 h-5 text-green-600"/>
+              Email Draft & Insights
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3 pt-4">
+            <div className="space-y-2">
+              <div className="text-sm font-medium">Subject</div>
+              <Input value={emailSubject} onChange={(e) => setEmailSubject(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <div className="text-sm font-medium">Body</div>
+              <Textarea value={emailBody} onChange={(e) => setEmailBody(e.target.value)} className="h-40" />
+            </div>
+            <div className="flex gap-2">
+              <Button variant="secondary" onClick={() => copyToClipboard(emailSubject)}>Copy Subject</Button>
+              <Button onClick={() => copyToClipboard(emailBody)} className="bg-green-600 hover:bg-green-700">Copy Body</Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {selectedTargets.size > 0 && (
         <Card className="shadow-sm border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <ExternalLink className="w-5 h-5 text-blue-600" />
-              Outreach Integration
+              Outreach Integration ({selectedTargets.size} selected)
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -1128,6 +1287,21 @@ Return JSON with brief summaries (1 sentence each):
             />
           </CardContent>
         </Card>
+      )}
+
+      {cleaningNames && (
+        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-50 flex items-center justify-center">
+          <div className="bg-white p-6 rounded-xl shadow-xl">
+            <div className="flex items-center gap-3 mb-4">
+              <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
+              <span className="font-medium">Cleaning Company Names...</span>
+            </div>
+            <Progress value={(cleanProgress.current / cleanProgress.total) * 100} className="w-64" />
+            <div className="text-sm text-slate-600 mt-2 text-center">
+              {cleanProgress.current} / {cleanProgress.total} companies
+            </div>
+          </div>
+        </div>
       )}
 
       {detectingGrowth && (
