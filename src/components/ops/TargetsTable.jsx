@@ -2,7 +2,7 @@ import React from "react";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Checkbox } from "@/components/ui/checkbox";
-import { MapPin } from "lucide-react";
+import { MapPin, Calendar, AlertTriangle } from "lucide-react";
 
 export default function TargetsTable({ targets, selectedTargets, onToggleTarget, onToggleAll, scoreThreshold }) {
   return (
@@ -25,6 +25,7 @@ export default function TargetsTable({ targets, selectedTargets, onToggleTarget,
             <th className="py-3 px-4 font-semibold">Employees</th>
             <th className="py-3 px-4 font-semibold">Clinics</th>
             <th className="py-3 px-4 font-semibold">Website</th>
+            <th className="py-3 px-4 font-semibold">Last Active</th>
             <th className="py-3 px-4 font-semibold">Score</th>
             <th className="py-3 px-4 font-semibold">Fit</th>
             <th className="py-3 px-4 font-semibold">Priority</th>
@@ -67,6 +68,21 @@ export default function TargetsTable({ targets, selectedTargets, onToggleTarget,
                   <Badge className="bg-red-100 text-red-700 text-xs">✗</Badge>
                 )}
                 {!t.websiteStatus && <span className="text-xs text-muted-foreground">—</span>}
+              </td>
+              <td className="py-3 px-4">
+                {t.dormancyFlag ? (
+                  <div className="flex items-center gap-1">
+                    <AlertTriangle className="w-3 h-3 text-orange-600" />
+                    <span className="text-xs text-orange-700 font-medium">Dormant</span>
+                  </div>
+                ) : t.lastActive ? (
+                  <div className="flex items-center gap-1">
+                    <Calendar className="w-3 h-3 text-blue-600" />
+                    <span className="text-xs text-slate-600">{t.lastActive}</span>
+                  </div>
+                ) : (
+                  <span className="text-xs text-muted-foreground">—</span>
+                )}
               </td>
               <td className="py-3 px-4">
                 <div className="flex items-center gap-2">
