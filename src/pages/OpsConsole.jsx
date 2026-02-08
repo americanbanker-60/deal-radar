@@ -1325,11 +1325,30 @@ function cleanCompanyNameRegex(name) {
 }
 
 function normalizeRow(row) {
-  const revenue = toNumber(row["Revenue Estimate"]);
-  const employees = toNumber(row["Employee Estimate"]);
+  const rawRevenue = row["Revenue Estimate"];
+  const rawEmployees = row["Employee Estimate"];
   const rawName = row.Name || "";
   const cleanedName = cleanCompanyNameRegex(rawName);
   const normalizedState = normalizeState(row.State);
+
+  // Use midpointFromRange for revenue (handles ranges and formats)
+  let revenue = midpointFromRange(rawRevenue);
+  if (revenue && revenue > 1_000_000) {
+    // Already in absolute value, convert to millions
+    revenue = Math.round(revenue / 1_000_000);
+  } else if (revenue === undefined) {
+    // Fallback to old parsing if midpoint fails
+    const numRevenue = toNumber(rawRevenue);
+    revenue = isNaN(Number(numRevenue)) ? undefined : Math.round(Number(numRevenue) / 1_000_000);
+  }
+
+  // Use midpointFromRange for employees (handles ranges)
+  let employees = midpointFromRange(rawEmployees);
+  if (employees === undefined) {
+    // Fallback to old parsing if midpoint fails
+    employees = toNumber(rawEmployees);
+  }
+  employees = employees ? Math.round(employees) : undefined;
 
   return {
     name: cleanedName,
@@ -1341,7 +1360,7 @@ function normalizeRow(row) {
     hq: (row.City || "") + (normalizedState ? ", " + normalizedState : ""),
     industry: "Healthcare Services",
     subsector: "",
-    revenue: isNaN(Number(revenue)) ? undefined : Math.round(Number(revenue) / 1_000_000),
+    revenue: revenue,
     employees: employees,
     ownership: "Unknown",
     lastFinancingYear: toNumber(row["Year Founded"]),
@@ -1372,18 +1391,51 @@ const toNumber = (v) => {
 };
 
 const midpointFromRange = (val) => {
-  if (!val) return undefined;
-  const s = String(val).replace(/[$,\s]/g, "").replace(/[–—]/g, "-").toLowerCase();
-  const unit = s.endsWith("m") ? 1_000_000 : s.endsWith("b") ? 1_000_000_000 : s.endsWith("k") ? 1_000 : 1;
-  const stripped = s.replace(/[mbk]$/i, "");
-  const m = stripped.match(/(\d+(?:\.\d+)?)[^\d]+(\d+(?:\.\d+)?)/);
-  if (m) {
-    const a = parseFloat(m[1]) * unit;
-    const b = parseFloat(m[2]) * unit;
-    return (a + b) / 2;
+  if (!val || val === null || val === undefined) return undefined;
+  
+  // Convert to string and normalize
+  let s = String(val).trim().toLowerCase();
+  
+  // Remove currency symbols, commas, spaces, and normalize dashes
+  s = s.replace(/[$€£¥₹,\s]/g, "").replace(/[–—]/g, "-");
+  
+  // Detect unit multipliers (must come at the end)
+  let unit = 1;
+  if (s.endsWith("bn") || s.endsWith("billion")) {
+    unit = 1_000_000_000;
+    s = s.replace(/(bn|billion)$/i, "");
+  } else if (s.endsWith("m") || s.endsWith("mn") || s.endsWith("mil") || s.endsWith("million")) {
+    unit = 1_000_000;
+    s = s.replace(/(m|mn|mil|million)$/i, "");
+  } else if (s.endsWith("k") || s.endsWith("thousand")) {
+    unit = 1_000;
+    s = s.replace(/(k|thousand)$/i, "");
   }
-  const single = parseFloat(stripped);
-  return isNaN(single) ? undefined : single * unit;
+  
+  // Handle range patterns: "10-20", "10 to 20", "10..20", "between 10 and 20"
+  const rangePatterns = [
+    /(\d+(?:\.\d+)?)\s*(?:-|to|\.\.)\s*(\d+(?:\.\d+)?)/,  // "10-20", "10 to 20", "10..20"
+    /between\s*(\d+(?:\.\d+)?)\s*and\s*(\d+(?:\.\d+)?)/,  // "between 10 and 20"
+    /(\d+(?:\.\d+)?)\s*[~≈]\s*(\d+(?:\.\d+)?)/            // "10~20", "10≈20"
+  ];
+  
+  for (const pattern of rangePatterns) {
+    const match = s.match(pattern);
+    if (match) {
+      const a = parseFloat(match[1]) * unit;
+      const b = parseFloat(match[2]) * unit;
+      return (a + b) / 2;
+    }
+  }
+  
+  // Single value - extract first number found
+  const numMatch = s.match(/(\d+(?:\.\d+)?)/);
+  if (numMatch) {
+    const single = parseFloat(numMatch[1]) * unit;
+    return isNaN(single) ? undefined : single;
+  }
+  
+  return undefined;
 };
 
 const yearFrom = (d) => {
