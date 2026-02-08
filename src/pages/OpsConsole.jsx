@@ -461,6 +461,8 @@ Instructions:
           sectorFocus: t.sectorFocus,
           website: t.website,
           websiteStatus: t.websiteStatus,
+          lastActive: t.lastActive,
+          dormancyFlag: t.dormancyFlag,
           city: t.city,
           state: t.state,
           hq: t.hq,
