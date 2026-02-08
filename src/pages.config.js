@@ -68,7 +68,7 @@ export const PAGES = {
 }
 
 export const pagesConfig = {
-    mainPage: "OpsConsole",
+    mainPage: "SavedTargets",
     Pages: PAGES,
     Layout: __Layout,
 };
