@@ -39,6 +39,8 @@ export default function SavedTargets() {
   const [bulkSectorValue, setBulkSectorValue] = useState("");
   const [generatingShortNames, setGeneratingShortNames] = useState(false);
   const [shortNameProgress, setShortNameProgress] = useState({ current: 0, total: 0 });
+  const [personalizingTargets, setPersonalizingTargets] = useState(false);
+  const [personalizeProgress, setPersonalizeProgress] = useState({ current: 0, total: 0 });
   const queryClient = useQueryClient();
 
   const [user, setUser] = useState(null);
@@ -187,6 +189,55 @@ export default function SavedTargets() {
     await queryClient.invalidateQueries({ queryKey: ['bdTargets'] });
     setGeneratingShortNames(false);
     setShortNameProgress({ current: 0, total: 0 });
+  };
+
+  const bulkPersonalizeSelected = async () => {
+    const selectedList = filteredTargets.filter(t => selectedTargets.has(t.id));
+    
+    if (selectedList.length === 0) {
+      alert("Please select targets to personalize");
+      return;
+    }
+
+    setPersonalizingTargets(true);
+    setPersonalizeProgress({ current: 0, total: selectedList.length });
+
+    for (let i = 0; i < selectedList.length; i++) {
+      const target = selectedList[i];
+      setPersonalizeProgress({ current: i + 1, total: selectedList.length });
+
+      try {
+        const city = target.city || "your area";
+        const sector = target.sectorFocus || target.subsector || "healthcare";
+        
+        const prompt = `Write a single, natural personalized opening line for a business development email to ${target.name}. 
+
+Location: ${city}
+Sector: ${sector}
+
+The opening should be conversational and reference their location and sector naturally. Examples:
+- "I saw your work in the Dallas pediatric space..."
+- "Your urgent care presence in Austin caught my attention..."
+- "I noticed your dermatology practice in Miami..."
+
+Write ONLY the opening line, no quotes, no explanation. Make it sound natural and genuine.`;
+
+        const result = await base44.integrations.Core.InvokeLLM({
+          prompt,
+          add_context_from_internet: false
+        });
+
+        await base44.entities.BDTarget.update(target.id, {
+          personalization_snippet: result.trim()
+        });
+      } catch (error) {
+        console.error(`Error personalizing ${target.name}:`, error);
+      }
+    }
+
+    await queryClient.invalidateQueries({ queryKey: ['bdTargets'] });
+    setPersonalizingTargets(false);
+    setPersonalizeProgress({ current: 0, total: 0 });
   };
 
   const applyBulkSector = async () => {
@@ -482,6 +533,21 @@ export default function SavedTargets() {
           </div>
         </div>
       )}
+
+      {personalizingTargets && (
+        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-50 flex items-center justify-center">
+          <div className="bg-white p-6 rounded-xl shadow-xl">
+            <div className="flex items-center gap-3 mb-4">
+              <Loader2 className="w-6 h-6 animate-spin text-indigo-600" />
+              <span className="font-medium">Creating Personalized Openers...</span>
+            </div>
+            <Progress value={(personalizeProgress.current / personalizeProgress.total) * 100} className="w-64" />
+            <div className="text-sm text-slate-600 mt-2 text-center">
+              {personalizeProgress.current} / {personalizeProgress.total} companies
+            </div>
+          </div>
+        </div>
+      )}
       <div className="bg-white p-4 md:p-6 rounded-xl shadow-sm border border-slate-200">
         <div className="flex flex-col sm:flex-row items-start gap-3">
           <Link to={createPageUrl("OpsConsole")}>
@@ -643,6 +709,26 @@ export default function SavedTargets() {
                 <Globe2 className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
                 <span className="hidden lg:inline">Crawl Sites ({selectedTargets.size})</span>
                 <span className="lg:hidden">Sites ({selectedTargets.size})</span>
+              </>
+            )}
+          </Button>
+          <Button 
+            variant="outline" 
+            onClick={bulkPersonalizeSelected} 
+            disabled={personalizingTargets || selectedTargets.size === 0}
+            className="text-xs sm:text-sm"
+          >
+            {personalizingTargets ? (
+              <>
+                <Loader2 className="w-3 h-3 sm:w-4 sm:h-4 mr-2 animate-spin" />
+                <span className="hidden sm:inline">Personalizing...</span>
+                <span className="sm:hidden">Pers...</span>
+              </>
+            ) : (
+              <>
+                <Sparkles className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
+                <span className="hidden lg:inline">Bulk Personalize ({selectedTargets.size})</span>
+                <span className="lg:hidden">Personalize ({selectedTargets.size})</span>
               </>
             )}
           </Button>
