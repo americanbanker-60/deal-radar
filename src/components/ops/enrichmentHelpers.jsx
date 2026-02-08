@@ -199,6 +199,52 @@ export function cleanCompanyName(name) {
 }
 
 /**
+ * Generate correspondence name - natural name for email templates
+ */
+export async function generateCorrespondenceName(companyName) {
+  if (!companyName) return companyName;
+
+  // First try regex-based cleaning
+  const cleaned = cleanCompanyName(companyName);
+
+  // If the name is already simple after regex (no commas, short), return it
+  if (cleaned.length < 30 && !cleaned.includes(',')) {
+    return cleaned;
+  }
+
+  // Use AI for complex names
+  try {
+    const prompt = `Transform this formal company name into what a human would naturally say in an email.
+
+Company Name: "${companyName}"
+
+Rules:
+- Remove all legal suffixes (LLC, Inc., Corporation, etc.)
+- Remove "The" at the beginning
+- Remove geographic descriptors if they make it awkward (e.g., "of North Atlanta")
+- Keep the core business identity
+- Make it conversational and natural
+
+Examples:
+"The Pediatric Dental Group of North Atlanta, LLC" → "Pediatric Dental Group"
+"Advanced Healthcare Solutions, Inc." → "Advanced Healthcare Solutions"
+"Smith & Associates Medical Practice, P.A." → "Smith & Associates"
+
+Return ONLY the transformed name, no quotes, no explanation.`;
+
+    const result = await base44.integrations.Core.InvokeLLM({
+      prompt,
+      add_context_from_internet: false
+    });
+
+    return result.trim();
+  } catch (error) {
+    console.error("Error generating correspondence name:", error);
+    return cleaned;
+  }
+}
+
+/**
  * Generate friendly name for complex company names using AI
  */
 export async function generateFriendlyName(companyName) {
