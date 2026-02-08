@@ -144,6 +144,10 @@ export default function OpsConsole(){
   const [recalculatingScores, setRecalculatingScores] = useState(false);
   const [generatingRationales, setGeneratingRationales] = useState(false);
   const [rationaleProgress, setRationaleProgress] = useState({ current: 0, total: 0 });
+  const [personalizingTargets, setPersonalizingTargets] = useState(false);
+  const [personalizeProgress, setPersonalizeProgress] = useState({ current: 0, total: 0 });
+  const [detectingGrowth, setDetectingGrowth] = useState(false);
+  const [growthProgress, setGrowthProgress] = useState({ current: 0, total: 0 });
 
   // Load saved settings from localStorage on mount
   useEffect(() => {

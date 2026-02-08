@@ -24,9 +24,10 @@ export default function TargetsTable({ targets, selectedTargets, onToggleTarget,
             <th className="py-3 px-4 font-semibold whitespace-nowrap">Revenue</th>
             <th className="py-3 px-4 font-semibold">Employees</th>
             <th className="py-3 px-4 font-semibold">Clinics</th>
-            <th className="py-3 px-4 font-semibold">Website</th>
-            <th className="py-3 px-4 font-semibold">Last Active</th>
-            <th className="py-3 px-4 font-semibold">Score</th>
+            <th className="py-3 px-4 font-semibold whitespace-nowrap">Website</th>
+            <th className="py-3 px-4 font-semibold whitespace-nowrap">Last Active</th>
+            <th className="py-3 px-4 font-semibold whitespace-nowrap">Growth Alerts</th>
+            <th className="py-3 px-4 font-semibold whitespace-nowrap">Score</th>
             <th className="py-3 px-4 font-semibold">Fit</th>
             <th className="py-3 px-4 font-semibold">Priority</th>
             <th className="py-3 px-4 font-semibold">Strategic Rationale</th>
@@ -79,6 +80,25 @@ export default function TargetsTable({ targets, selectedTargets, onToggleTarget,
                   <div className="flex items-center gap-1">
                     <Calendar className="w-3 h-3 text-blue-600" />
                     <span className="text-xs text-slate-600">{t.lastActive}</span>
+                  </div>
+                ) : (
+                  <span className="text-xs text-muted-foreground">—</span>
+                )}
+              </td>
+              <td className="py-3 px-4">
+                {t.growthSignals && t.growthSignals.length > 0 ? (
+                  <div className="flex items-start gap-1">
+                    <Badge className="bg-green-100 text-green-800 border-green-300 text-xs whitespace-nowrap">
+                      🚀 {t.growthSignals.length}
+                    </Badge>
+                    <div className="text-xs text-slate-600 max-w-[200px]">
+                      {t.growthSignals[0]}
+                      {t.growthSignals.length > 1 && (
+                        <div className="text-muted-foreground mt-0.5">
+                          +{t.growthSignals.length - 1} more
+                        </div>
+                      )}
+                    </div>
                   </div>
                 ) : (
                   <span className="text-xs text-muted-foreground">—</span>
