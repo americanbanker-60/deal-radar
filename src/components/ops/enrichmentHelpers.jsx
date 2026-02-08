@@ -123,27 +123,33 @@ Return JSON:
 }
 
 /**
- * Website crawling for clinic count and health status
+ * Website crawling for clinic count, health status, and social activity
  */
 export async function crawlCompanyWebsite(company) {
   if (!company.website) {
     return {
       websiteStatus: "missing",
-      clinicCount: undefined
+      clinicCount: undefined,
+      lastActive: null,
+      dormancyFlag: false
     };
   }
 
   try {
-    const prompt = `Visit the website ${company.website} for the company "${company.name}". 
+    const prompt = `Visit the website ${company.website} and social media for the company "${company.name}". 
 
 Extract the following information:
 1. Website Status: Does the website load properly? (answer: "working" or "broken")
 2. Number of Locations/Clinics: How many physical locations, clinics, or offices does this company operate? Look for phrases like "locations", "clinics", "offices", "facilities". If you can't find this information, return null.
+3. Last Active Date: Check the company's LinkedIn page, Facebook page, or website blog/news section for the most recent post, update, or activity. Return the date in YYYY-MM-DD format. If no recent activity is found, return null.
+4. Is the company active? Based on the last active date, determine if there has been ANY activity (social media, website updates, news) in the past 12 months.
 
 Return your response as JSON with this exact structure:
 {
   "websiteStatus": "working" or "broken",
-  "clinicCount": number or null
+  "clinicCount": number or null,
+  "lastActiveDate": "YYYY-MM-DD" or null,
+  "hasRecentActivity": true or false
 }`;
 
     const result = await base44.integrations.Core.InvokeLLM({
@@ -153,20 +159,26 @@ Return your response as JSON with this exact structure:
         type: "object",
         properties: {
           websiteStatus: { type: "string" },
-          clinicCount: { type: ["number", "null"] }
+          clinicCount: { type: ["number", "null"] },
+          lastActiveDate: { type: ["string", "null"] },
+          hasRecentActivity: { type: "boolean" }
         }
       }
     });
 
     return {
       websiteStatus: result.websiteStatus || "unknown",
-      clinicCount: result.clinicCount
+      clinicCount: result.clinicCount,
+      lastActive: result.lastActiveDate,
+      dormancyFlag: !result.hasRecentActivity
     };
   } catch (error) {
     console.error(`Error crawling ${company.name}:`, error);
     return {
       websiteStatus: "error",
-      clinicCount: undefined
+      clinicCount: undefined,
+      lastActive: null,
+      dormancyFlag: false
     };
   }
 }

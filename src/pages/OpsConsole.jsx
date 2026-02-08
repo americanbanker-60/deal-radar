@@ -277,6 +277,8 @@ export default function OpsConsole(){
       if (enriched) {
         raw._websiteStatus = enriched.websiteStatus;
         raw._clinicCount = enriched.clinicCount;
+        raw._lastActive = enriched.lastActive;
+        raw._dormancyFlag = enriched.dormancyFlag;
       }
       return raw;
     });
@@ -1345,6 +1347,8 @@ function normalizeRow(row) {
     notes: row.Notes || "",
     websiteStatus: row._websiteStatus,
     clinicCount: row._clinicCount || toNumber(row["Clinic Location Count"]),
+    lastActive: row._lastActive,
+    dormancyFlag: row._dormancyFlag,
     companyShortName: row._companyShortName || row["Short Name"] || "",
     sectorFocus: row._sectorFocus || row.Sector || "",
     contact: {
