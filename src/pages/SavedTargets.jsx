@@ -18,6 +18,8 @@ import { createPageUrl } from "../utils";
 
 import OutreachIntegration from "../components/ops/OutreachIntegration";
 import TargetRow from "../components/targets/TargetRow";
+import ActionButtons from "../components/targets/ActionButtons";
+import { LoadingOverlay } from "@/components/ui/loading-overlay";
 
 export default function SavedTargets() {
   const [selectedCampaign, setSelectedCampaign] = useState("all");
@@ -603,13 +605,15 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
     </th>
   );
 
-  const toggleSelectAll = () => {
-    if (selectedTargets.size === filteredTargets.length) {
-      setSelectedTargets(new Set());
-    } else {
-      setSelectedTargets(new Set(filteredTargets.map(t => t.id)));
-    }
-  };
+  const toggleSelectAll = useCallback(() => {
+    setSelectedTargets(prev => {
+      if (prev.size === filteredTargets.length) {
+        return new Set();
+      } else {
+        return new Set(filteredTargets.map(t => t.id));
+      }
+    });
+  }, [filteredTargets]);
 
   const toggleTarget = useCallback((id) => {
     setSelectedTargets(prev => {
@@ -721,48 +725,15 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
       </Dialog>
 
       {generatingShortNames && (
-        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-50 flex items-center justify-center">
-          <div className="bg-white p-6 rounded-xl shadow-xl">
-            <div className="flex items-center gap-3 mb-4">
-              <Loader2 className="w-6 h-6 animate-spin text-purple-600" />
-              <span className="font-medium">Generating Short Names...</span>
-            </div>
-            <Progress value={(shortNameProgress.current / shortNameProgress.total) * 100} className="w-64" />
-            <div className="text-sm text-slate-600 mt-2 text-center">
-              {shortNameProgress.current} / {shortNameProgress.total} companies
-            </div>
-          </div>
-        </div>
+        <LoadingOverlay message="Generating Short Names..." progress={shortNameProgress} />
       )}
 
       {reclassifyingSectors && (
-        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-50 flex items-center justify-center">
-          <div className="bg-white p-6 rounded-xl shadow-xl">
-            <div className="flex items-center gap-3 mb-4">
-              <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
-              <span className="font-medium">Reclassifying Sectors...</span>
-            </div>
-            <Progress value={(sectorProgress.current / sectorProgress.total) * 100} className="w-64" />
-            <div className="text-sm text-slate-600 mt-2 text-center">
-              {sectorProgress.current} / {sectorProgress.total} companies
-            </div>
-          </div>
-        </div>
+        <LoadingOverlay message="Reclassifying Sectors..." progress={sectorProgress} />
       )}
 
       {personalizingTargets && (
-        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-50 flex items-center justify-center">
-          <div className="bg-white p-6 rounded-xl shadow-xl">
-            <div className="flex items-center gap-3 mb-4">
-              <Loader2 className="w-6 h-6 animate-spin text-indigo-600" />
-              <span className="font-medium">Creating Personalized Openers...</span>
-            </div>
-            <Progress value={(personalizeProgress.current / personalizeProgress.total) * 100} className="w-64" />
-            <div className="text-sm text-slate-600 mt-2 text-center">
-              {personalizeProgress.current} / {personalizeProgress.total} companies
-            </div>
-          </div>
-        </div>
+        <LoadingOverlay message="Creating Personalized Openers..." progress={personalizeProgress} />
       )}
       <div className="bg-white p-4 md:p-6 rounded-xl shadow-sm border border-slate-200">
         <div className="flex flex-col sm:flex-row items-start gap-3">
@@ -798,231 +769,41 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
             )}
           </div>
         </div>
-        <div className="flex flex-wrap gap-2 mt-4">
-          <Button 
-            variant="outline" 
-            onClick={rescoreTargets} 
-            disabled={rescoring || targets.length === 0}
-            className="text-xs sm:text-sm"
-          >
-            {rescoring ? (
-              <Loader2 className="w-3 h-3 sm:w-4 sm:h-4 mr-2 animate-spin" />
-            ) : (
-              <RefreshCw className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
-            )}
-            <span className="hidden sm:inline">Re-score All</span>
-            <span className="sm:hidden">Re-score</span>
-          </Button>
-          <Button 
-            variant="outline" 
-            onClick={cleanCompanyNamesForSelected} 
-            disabled={cleaningNames || selectedTargets.size === 0}
-            className="text-xs sm:text-sm"
-          >
-            {cleaningNames ? (
-              <>
-                <Loader2 className="w-3 h-3 sm:w-4 sm:h-4 mr-2 animate-spin" />
-                <span className="hidden sm:inline">Cleaning {cleanProgress.current}/{cleanProgress.total}</span>
-                <span className="sm:hidden">Clean...</span>
-              </>
-            ) : (
-              <>
-                <Sparkles className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
-                <span className="hidden lg:inline">Clean Names ({selectedTargets.size})</span>
-                <span className="lg:hidden">Clean ({selectedTargets.size})</span>
-              </>
-            )}
-          </Button>
-          <Button variant="outline" onClick={() => exportCSV(true)} disabled={filteredTargets.length === 0} className="text-xs sm:text-sm">
-            <Download className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
-            <span className="hidden sm:inline">Export All</span>
-            <span className="sm:hidden">Export</span>
-          </Button>
-          <Button 
-            onClick={generateInsightsAndEmail} 
-            disabled={filteredTargets.length === 0}
-            className="bg-emerald-600 hover:bg-emerald-700 text-xs sm:text-sm"
-          >
-            <Sparkles className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
-            <span className="hidden sm:inline">Generate Insights</span>
-            <span className="sm:hidden">Insights</span>
-          </Button>
-          <Button 
-            variant="outline" 
-            onClick={generateShortNamesForSelected} 
-            disabled={generatingShortNames || selectedTargets.size === 0}
-            className="text-xs sm:text-sm"
-          >
-            {generatingShortNames ? (
-              <>
-                <Loader2 className="w-3 h-3 sm:w-4 sm:h-4 mr-2 animate-spin" />
-                <span className="hidden sm:inline">Generating {shortNameProgress.current}/{shortNameProgress.total}</span>
-                <span className="sm:hidden">Gen...</span>
-              </>
-            ) : (
-              <>
-                <Sparkles className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
-                <span className="hidden lg:inline">Short Names ({selectedTargets.size})</span>
-                <span className="lg:hidden">Names ({selectedTargets.size})</span>
-              </>
-            )}
-          </Button>
-          <Button 
-            variant="outline" 
-            onClick={reclassifySelectedSectors} 
-            disabled={reclassifyingSectors || selectedTargets.size === 0}
-            className="text-xs sm:text-sm"
-          >
-            {reclassifyingSectors ? (
-              <>
-                <Loader2 className="w-3 h-3 sm:w-4 sm:h-4 mr-2 animate-spin" />
-                <span className="hidden sm:inline">Reclassifying {sectorProgress.current}/{sectorProgress.total}</span>
-                <span className="sm:hidden">Classify...</span>
-              </>
-            ) : (
-              <>
-                <Building2 className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
-                <span className="hidden lg:inline">AI Reclassify ({selectedTargets.size})</span>
-                <span className="lg:hidden">AI ({selectedTargets.size})</span>
-              </>
-            )}
-          </Button>
-          <Button 
-            variant="outline" 
-            onClick={() => setShowBulkSectorDialog(true)} 
-            disabled={selectedTargets.size === 0}
-            className="text-xs sm:text-sm"
-          >
-            <Tag className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
-            <span className="hidden lg:inline">Assign Sector ({selectedTargets.size})</span>
-            <span className="lg:hidden">Assign ({selectedTargets.size})</span>
-          </Button>
-          <Button 
-            variant="outline" 
-            onClick={scoreSelectedQuality} 
-            disabled={scoringQuality || selectedTargets.size === 0}
-            className="text-xs sm:text-sm"
-          >
-            {scoringQuality ? (
-              <>
-                <Loader2 className="w-3 h-3 sm:w-4 sm:h-4 mr-2 animate-spin" />
-                <span className="hidden sm:inline">Scoring {qualityProgress.current}/{qualityProgress.total}</span>
-                <span className="sm:hidden">Score...</span>
-              </>
-            ) : (
-              <>
-                <Award className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
-                <span className="hidden lg:inline">Score Quality ({selectedTargets.size})</span>
-                <span className="lg:hidden">Quality ({selectedTargets.size})</span>
-              </>
-            )}
-          </Button>
-          <Button 
-            variant="outline" 
-            onClick={enrichSelectedContacts} 
-            disabled={enrichingContacts || selectedTargets.size === 0}
-            className="text-xs sm:text-sm"
-          >
-            {enrichingContacts ? (
-              <>
-                <Loader2 className="w-3 h-3 sm:w-4 sm:h-4 mr-2 animate-spin" />
-                <span className="hidden sm:inline">Enriching {enrichProgress.current}/{enrichProgress.total}</span>
-                <span className="sm:hidden">Enrich...</span>
-              </>
-            ) : (
-              <>
-                <UserCheck className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
-                <span className="hidden lg:inline">Enrich Contacts ({selectedTargets.size})</span>
-                <span className="lg:hidden">Contacts ({selectedTargets.size})</span>
-              </>
-            )}
-          </Button>
-          <Button 
-            variant="outline" 
-            onClick={crawlSelectedWebsites} 
-            disabled={crawling || selectedTargets.size === 0}
-            className="text-xs sm:text-sm"
-          >
-            {crawling ? (
-              <>
-                <Loader2 className="w-3 h-3 sm:w-4 sm:h-4 mr-2 animate-spin" />
-                <span className="hidden sm:inline">Crawling {crawlProgress.current}/{crawlProgress.total}</span>
-                <span className="sm:hidden">Crawl...</span>
-              </>
-            ) : (
-              <>
-                <Globe2 className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
-                <span className="hidden lg:inline">Crawl Sites ({selectedTargets.size})</span>
-                <span className="lg:hidden">Sites ({selectedTargets.size})</span>
-              </>
-            )}
-          </Button>
-          <Button 
-            variant="outline" 
-            onClick={bulkPersonalizeSelected} 
-            disabled={personalizingTargets || selectedTargets.size === 0}
-            className="text-xs sm:text-sm"
-          >
-            {personalizingTargets ? (
-              <>
-                <Loader2 className="w-3 h-3 sm:w-4 sm:h-4 mr-2 animate-spin" />
-                <span className="hidden sm:inline">Personalizing...</span>
-                <span className="sm:hidden">Pers...</span>
-              </>
-            ) : (
-              <>
-                <Sparkles className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
-                <span className="hidden lg:inline">Bulk Personalize ({selectedTargets.size})</span>
-                <span className="lg:hidden">Personalize ({selectedTargets.size})</span>
-              </>
-            )}
-          </Button>
-          <Button 
-            variant="outline" 
-            onClick={detectGrowthSignalsForSelected} 
-            disabled={detectingGrowth || selectedTargets.size === 0}
-            className="text-xs sm:text-sm"
-          >
-            {detectingGrowth ? (
-              <>
-                <Loader2 className="w-3 h-3 sm:w-4 sm:h-4 mr-2 animate-spin" />
-                <span className="hidden sm:inline">Detecting...</span>
-                <span className="sm:hidden">Detect...</span>
-              </>
-            ) : (
-              <>
-                <Sparkles className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
-                <span className="hidden lg:inline">Growth Signals ({selectedTargets.size})</span>
-                <span className="lg:hidden">Growth ({selectedTargets.size})</span>
-              </>
-            )}
-          </Button>
-          <Button 
-            variant="outline" 
-            onClick={generateRationalesForSelected} 
-            disabled={generatingRationales || selectedTargets.size === 0}
-            className="text-xs sm:text-sm"
-          >
-            {generatingRationales ? (
-              <>
-                <Loader2 className="w-3 h-3 sm:w-4 sm:h-4 mr-2 animate-spin" />
-                <span className="hidden sm:inline">Generating...</span>
-                <span className="sm:hidden">Gen...</span>
-              </>
-            ) : (
-              <>
-                <Sparkles className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
-                <span className="hidden lg:inline">Rationales ({selectedTargets.size})</span>
-                <span className="lg:hidden">Rationale ({selectedTargets.size})</span>
-              </>
-            )}
-          </Button>
-          <Button onClick={() => exportCSV(false)} disabled={selectedTargets.size === 0} className="text-xs sm:text-sm">
-            <CheckSquare className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
-            <span className="hidden sm:inline">Export Selected ({selectedTargets.size})</span>
-            <span className="sm:hidden">Sel. ({selectedTargets.size})</span>
-          </Button>
-        </div>
+        <ActionButtons
+          rescoring={rescoring}
+          cleaningNames={cleaningNames}
+          cleanProgress={cleanProgress}
+          generatingShortNames={generatingShortNames}
+          shortNameProgress={shortNameProgress}
+          reclassifyingSectors={reclassifyingSectors}
+          sectorProgress={sectorProgress}
+          scoringQuality={scoringQuality}
+          qualityProgress={qualityProgress}
+          enrichingContacts={enrichingContacts}
+          enrichProgress={enrichProgress}
+          crawling={crawling}
+          crawlProgress={crawlProgress}
+          personalizingTargets={personalizingTargets}
+          detectingGrowth={detectingGrowth}
+          generatingRationales={generatingRationales}
+          selectedCount={selectedTargets.size}
+          filteredCount={filteredTargets.length}
+          targetsCount={targets.length}
+          onRescore={rescoreTargets}
+          onCleanNames={cleanCompanyNamesForSelected}
+          onExportAll={() => exportCSV(true)}
+          onGenerateInsights={generateInsightsAndEmail}
+          onGenerateShortNames={generateShortNamesForSelected}
+          onReclassify={reclassifySelectedSectors}
+          onAssignSector={() => setShowBulkSectorDialog(true)}
+          onScoreQuality={scoreSelectedQuality}
+          onEnrichContacts={enrichSelectedContacts}
+          onCrawlWebsites={crawlSelectedWebsites}
+          onBulkPersonalize={bulkPersonalizeSelected}
+          onDetectGrowth={detectGrowthSignalsForSelected}
+          onGenerateRationales={generateRationalesForSelected}
+          onExportSelected={() => exportCSV(false)}
+        />
       </div>
 
       <Card className="shadow-sm border-slate-200">
@@ -1244,48 +1025,15 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
       )}
 
       {cleaningNames && (
-        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-50 flex items-center justify-center">
-          <div className="bg-white p-6 rounded-xl shadow-xl">
-            <div className="flex items-center gap-3 mb-4">
-              <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
-              <span className="font-medium">Cleaning Company Names...</span>
-            </div>
-            <Progress value={(cleanProgress.current / cleanProgress.total) * 100} className="w-64" />
-            <div className="text-sm text-slate-600 mt-2 text-center">
-              {cleanProgress.current} / {cleanProgress.total} companies
-            </div>
-          </div>
-        </div>
+        <LoadingOverlay message="Cleaning Company Names..." progress={cleanProgress} />
       )}
 
       {detectingGrowth && (
-        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-50 flex items-center justify-center">
-          <div className="bg-white p-6 rounded-xl shadow-xl">
-            <div className="flex items-center gap-3 mb-4">
-              <Loader2 className="w-6 h-6 animate-spin text-green-600" />
-              <span className="font-medium">Detecting Growth Signals...</span>
-            </div>
-            <Progress value={(growthProgress.current / growthProgress.total) * 100} className="w-64" />
-            <div className="text-sm text-slate-600 mt-2 text-center">
-              {growthProgress.current} / {growthProgress.total} companies
-            </div>
-          </div>
-        </div>
+        <LoadingOverlay message="Detecting Growth Signals..." progress={growthProgress} />
       )}
 
       {generatingRationales && (
-        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-50 flex items-center justify-center">
-          <div className="bg-white p-6 rounded-xl shadow-xl">
-            <div className="flex items-center gap-3 mb-4">
-              <Loader2 className="w-6 h-6 animate-spin text-purple-600" />
-              <span className="font-medium">Generating Strategic Rationales...</span>
-            </div>
-            <Progress value={(rationaleProgress.current / rationaleProgress.total) * 100} className="w-64" />
-            <div className="text-sm text-slate-600 mt-2 text-center">
-              {rationaleProgress.current} / {rationaleProgress.total} targets
-            </div>
-          </div>
-        </div>
+        <LoadingOverlay message="Generating Strategic Rationales..." progress={rationaleProgress} />
       )}
     </div>
   );

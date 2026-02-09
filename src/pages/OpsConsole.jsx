@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from "react";
+import React, { useMemo, useState, useEffect, useCallback } from "react";
 import { base44 } from "@/api/base44Client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -463,15 +463,17 @@ Instructions:
     }
   };
 
-  const toggleTarget = (index) => {
-    const newSelected = new Set(selectedTargets);
-    if (newSelected.has(index)) {
-      newSelected.delete(index);
-    } else {
-      newSelected.add(index);
-    }
-    setSelectedTargets(newSelected);
-  };
+  const toggleTarget = useCallback((index) => {
+    setSelectedTargets(prev => {
+      const newSelected = new Set(prev);
+      if (newSelected.has(index)) {
+        newSelected.delete(index);
+      } else {
+        newSelected.add(index);
+      }
+      return newSelected;
+    });
+  }, []);
 
   const recalculateAllScores = async () => {
     setRecalculatingScores(true);
@@ -796,6 +798,62 @@ Return JSON:
     showSuccess(`Reclassified ${enrichedRows.length} company sectors!`);
   };
   
+  const normalizeRow = useCallback((row) => {
+    const rawRevenue = row["Revenue Estimate"];
+    const rawEmployees = row["Employee Estimate"];
+    const rawName = row.Name || "";
+    const cleanedName = cleanCompanyNameRegex(rawName);
+    const normalizedState = normalizeState(row.State);
+
+    let revenue = midpointFromRange(rawRevenue);
+    if (revenue && revenue > 1_000_000) {
+      revenue = Math.round(revenue / 1_000_000);
+    } else if (revenue === undefined) {
+      const numRevenue = toNumber(rawRevenue);
+      revenue = isNaN(Number(numRevenue)) ? undefined : Math.round(Number(numRevenue) / 1_000_000);
+    }
+
+    let employees = midpointFromRange(rawEmployees);
+    if (employees === undefined) {
+      employees = toNumber(rawEmployees);
+    }
+    employees = employees ? Math.round(employees) : undefined;
+
+    return {
+      name: cleanedName,
+      url: row.Domain || "",
+      website: row.Domain || "",
+      linkedin: row.LinkedIn || "",
+      city: row.City || "",
+      state: normalizedState,
+      hq: (row.City || "") + (normalizedState ? ", " + normalizedState : ""),
+      industry: "Healthcare Services",
+      subsector: "",
+      revenue: revenue,
+      employees: employees,
+      ownership: "Unknown",
+      lastFinancingYear: toNumber(row["Year Founded"]),
+      investors: "",
+      notes: row.Notes || "",
+      websiteStatus: row._websiteStatus,
+      clinicCount: row._clinicCount || toNumber(row["Clinic Location Count"]),
+      lastActive: row._lastActive,
+      dormancyFlag: row._dormancyFlag,
+      companyShortName: row._companyShortName || row["Short Name"] || "",
+      correspondenceName: row._correspondenceName || "",
+      sectorFocus: row._sectorFocus || row.Sector || "",
+      personalization_snippet: row._personalization_snippet || "",
+      growthSignals: (row._growthSignals || []).join(", "),
+      contact: {
+        email: row["Executive Email"] || row["Primary Email"] || "",
+        firstName: row["Executive First Name"] || "",
+        lastName: row["Executive Last Name"] || "",
+        title: row["Executive Title"] || "",
+        phone: row["Primary Phone"] || "",
+      }
+    };
+  }, []);
+
   const normalizedGR = useMemo(() => {
     const normalized = grCompaniesRaw.map((r) => normalizeRow(r));
     console.log("🔄 Normalized data:", {
@@ -803,7 +861,7 @@ Return JSON:
       sample: normalized[0]
     });
     return normalized;
-  }, [grCompaniesRaw]);
+  }, [grCompaniesRaw, normalizeRow]);
   
   const filteredGR = useMemo(() => {
     const filtered = filterTargets(normalizedGR, { regionFilter, minRev, maxRev, ownerPref });
@@ -1380,64 +1438,4 @@ Return JSON:
   );
 }
 
-// Helper functions
-function normalizeRow(row) {
-  const rawRevenue = row["Revenue Estimate"];
-  const rawEmployees = row["Employee Estimate"];
-  const rawName = row.Name || "";
-  const cleanedName = cleanCompanyNameRegex(rawName);
-  const normalizedState = normalizeState(row.State);
-
-  // Use midpointFromRange for revenue (handles ranges and formats)
-  let revenue = midpointFromRange(rawRevenue);
-  if (revenue && revenue > 1_000_000) {
-    // Already in absolute value, convert to millions
-    revenue = Math.round(revenue / 1_000_000);
-  } else if (revenue === undefined) {
-    // Fallback to old parsing if midpoint fails
-    const numRevenue = toNumber(rawRevenue);
-    revenue = isNaN(Number(numRevenue)) ? undefined : Math.round(Number(numRevenue) / 1_000_000);
-  }
-
-  // Use midpointFromRange for employees (handles ranges)
-  let employees = midpointFromRange(rawEmployees);
-  if (employees === undefined) {
-    // Fallback to old parsing if midpoint fails
-    employees = toNumber(rawEmployees);
-  }
-  employees = employees ? Math.round(employees) : undefined;
-
-  return {
-    name: cleanedName,
-    url: row.Domain || "",
-    website: row.Domain || "",
-    linkedin: row.LinkedIn || "",
-    city: row.City || "",
-    state: normalizedState,
-    hq: (row.City || "") + (normalizedState ? ", " + normalizedState : ""),
-    industry: "Healthcare Services",
-    subsector: "",
-    revenue: revenue,
-    employees: employees,
-    ownership: "Unknown",
-    lastFinancingYear: toNumber(row["Year Founded"]),
-    investors: "",
-    notes: row.Notes || "",
-    websiteStatus: row._websiteStatus,
-    clinicCount: row._clinicCount || toNumber(row["Clinic Location Count"]),
-    lastActive: row._lastActive,
-    dormancyFlag: row._dormancyFlag,
-    companyShortName: row._companyShortName || row["Short Name"] || "",
-    correspondenceName: row._correspondenceName || "",
-    sectorFocus: row._sectorFocus || row.Sector || "",
-    personalization_snippet: row._personalization_snippet || "",
-    growthSignals: (row._growthSignals || []).join(", "),
-    contact: {
-      email: row["Executive Email"] || row["Primary Email"] || "",
-      firstName: row["Executive First Name"] || "",
-      lastName: row["Executive Last Name"] || "",
-      title: row["Executive Title"] || "",
-      phone: row["Primary Phone"] || "",
-    }
-  };
-}
+// normalizeRow moved to useCallback inside component for performance
