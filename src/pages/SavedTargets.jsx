@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useCallback } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,6 +17,7 @@ import { createPageUrl } from "../utils";
 
 import { scoreTargets } from "../components/ops/analyticsHelpers";
 import OutreachIntegration from "../components/ops/OutreachIntegration";
+import TargetRow from "../components/targets/TargetRow";
 
 export default function SavedTargets() {
   const [selectedCampaign, setSelectedCampaign] = useState("all");
@@ -610,15 +611,17 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
     }
   };
 
-  const toggleTarget = (id) => {
-    const newSelected = new Set(selectedTargets);
-    if (newSelected.has(id)) {
-      newSelected.delete(id);
-    } else {
-      newSelected.add(id);
-    }
-    setSelectedTargets(newSelected);
-  };
+  const toggleTarget = useCallback((id) => {
+    setSelectedTargets(prev => {
+      const newSelected = new Set(prev);
+      if (newSelected.has(id)) {
+        newSelected.delete(id);
+      } else {
+        newSelected.add(id);
+      }
+      return newSelected;
+    });
+  }, []);
 
   const exportCSV = async (exportAll = true) => {
     const toExport = exportAll ? filteredTargets : filteredTargets.filter(t => selectedTargets.has(t.id));
@@ -1173,98 +1176,14 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
                 </thead>
                 <tbody>
                   {filteredTargets.map((t) => (
-                    <tr key={t.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
-                      <td className="py-3 px-4">
-                        <Checkbox
-                          checked={selectedTargets.has(t.id)}
-                          onCheckedChange={() => toggleTarget(t.id)}
-                        />
-                      </td>
-                      <td className="py-3 px-4 max-w-[200px] truncate font-medium">{t.name}</td>
-                      <td className="py-3 px-4 text-slate-600">{t.companyShortName || "—"}</td>
-                      <td className="py-3 px-4 text-slate-600">{t.correspondenceName || "—"}</td>
-                      <td className="py-3 px-4">
-                        {t.sectorFocus && (
-                          <Badge variant="outline" className="text-xs whitespace-nowrap">{t.sectorFocus}</Badge>
-                        )}
-                      </td>
-                      <td className="py-3 px-4 text-slate-600 whitespace-nowrap">{t.city || "—"}</td>
-                      <td className="py-3 px-4 text-slate-600 whitespace-nowrap">{t.state || "—"}</td>
-                      <td className="py-3 px-4 text-slate-600 whitespace-nowrap">{t.revenue ? `$${t.revenue}M` : "—"}</td>
-                      <td className="py-3 px-4 text-slate-600">{t.employees || "—"}</td>
-                      <td className="py-3 px-4 text-slate-600">
-                        {t.clinicCount ? (
-                          <div className="flex items-center gap-1">
-                            <MapPin className="w-3 h-3 text-blue-600" />
-                            {t.clinicCount}
-                          </div>
-                        ) : "—"}
-                      </td>
-                      <td className="py-3 px-4">
-                        {t.websiteStatus === "working" && (
-                          <Badge className="bg-green-100 text-green-700 text-xs">✓</Badge>
-                        )}
-                        {t.websiteStatus === "broken" && (
-                          <Badge className="bg-red-100 text-red-700 text-xs">✗</Badge>
-                        )}
-                        {!t.websiteStatus && <span className="text-xs text-muted-foreground">—</span>}
-                      </td>
-                      <td className="py-3 px-4">
-                        {t.growthSignals && t.growthSignals.trim() ? (
-                          <Badge className="bg-green-100 text-green-800 border-green-300 text-xs whitespace-nowrap">
-                            🚀 Signals
-                          </Badge>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">—</span>
-                        )}
-                      </td>
-                      <td className="py-3 px-4">
-                        <div className="flex items-center gap-2">
-                          <div className="w-16">
-                            <Progress value={t.score} className="h-2" />
-                          </div>
-                          <span className="text-xs font-medium">{t.score}</span>
-                        </div>
-                      </td>
-                      <td className="py-3 px-4">
-                        {t.score >= 75 ? (
-                          <Badge className="bg-green-100 text-green-700">
-                            {t.score}%
-                          </Badge>
-                        ) : t.score >= 50 ? (
-                          <Badge className="bg-yellow-100 text-yellow-700">
-                            {t.score}%
-                          </Badge>
-                        ) : (
-                          <Badge className="bg-slate-100 text-slate-600">
-                            {t.score}%
-                          </Badge>
-                        )}
-                      </td>
-                      <td className="py-3 px-4">
-                        {t.score >= 70 ? (
-                          <Badge className="bg-green-100 text-green-700 border-green-200">Priority</Badge>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">—</span>
-                        )}
-                      </td>
-                      <td className="py-3 px-4">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => generateSingleRationale(t)}
-                          disabled={generatingSingleRationale === t.id}
-                          className="text-xs whitespace-nowrap"
-                        >
-                          {generatingSingleRationale === t.id ? (
-                            <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-                          ) : (
-                            <Sparkles className="w-3 h-3 mr-1" />
-                          )}
-                          Rationale
-                        </Button>
-                      </td>
-                    </tr>
+                    <TargetRow
+                      key={t.id}
+                      target={t}
+                      isSelected={selectedTargets.has(t.id)}
+                      onToggle={toggleTarget}
+                      onGenerateRationale={generateSingleRationale}
+                      isGeneratingRationale={generatingSingleRationale === t.id}
+                    />
                   ))}
                 </tbody>
               </table>
