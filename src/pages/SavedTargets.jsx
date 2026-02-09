@@ -59,19 +59,22 @@ export default function SavedTargets() {
   const [fitKeywords, setFitKeywords] = useState("Healthcare Services");
   const queryClient = useQueryClient();
 
-  const [currentPage, setCurrentPage] = useState(1);
-  const rowsPerPage = 50;
+  const [user, setUser] = useState(null);
 
   const { data: targets = [], isLoading } = useQuery({
     queryKey: ['bdTargets'],
-    queryFn: () => base44.entities.BDTarget.list('-created_date', 5000, {
-      fields: [
-        'id', 'campaign', 'name', 'companyShortName', 'correspondenceName',
-        'sectorFocus', 'city', 'state', 'revenue', 'employees', 'clinicCount',
-        'websiteStatus', 'growthSignals', 'score', 'status', 'qualityTier',
-        'created_date', 'website'
-      ]
-    }),
+    queryFn: async () => {
+      const currentUser = await base44.auth.me();
+      setUser(currentUser);
+      return base44.entities.BDTarget.list('-created_date', 1000, {
+        fields: [
+          'id', 'campaign', 'name', 'companyShortName', 'correspondenceName',
+          'sectorFocus', 'city', 'state', 'revenue', 'employees', 'clinicCount',
+          'websiteStatus', 'growthSignals', 'score', 'status', 'qualityTier',
+          'created_date', 'website'
+        ]
+      });
+    },
   });
 
   const fetchFullTarget = async (targetId) => {
@@ -577,19 +580,6 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
     return filtered;
   }, [targets, selectedCampaign, statusFilter, clinicFilter, qualityFilter, sectorFilter, searchQuery, sortField, sortDirection]);
 
-  const paginatedTargets = useMemo(() => {
-    const startIndex = (currentPage - 1) * rowsPerPage;
-    const endIndex = startIndex + rowsPerPage;
-    return filteredTargets.slice(startIndex, endIndex);
-  }, [filteredTargets, currentPage, rowsPerPage]);
-
-  const totalPages = Math.ceil(filteredTargets.length / rowsPerPage);
-
-  // Reset to page 1 when filters change
-  React.useEffect(() => {
-    setCurrentPage(1);
-  }, [selectedCampaign, statusFilter, clinicFilter, qualityFilter, sectorFilter, searchQuery]);
-
   const toggleSort = (field) => {
     if (sortField === field) {
       setSortDirection(prev => prev === "asc" ? "desc" : "asc");
@@ -765,6 +755,18 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
                 <span className="text-amber-600 ml-2">• {targets.filter(t => !t.campaign).length} missing campaign name</span>
               )}
             </p>
+            {user && targets.length > 0 && (
+              <Alert className="mt-3 bg-blue-50 border-blue-200">
+                <AlertDescription className="text-blue-800 text-xs">
+                  <strong>Viewing as:</strong> {user.email} • 
+                  <strong className="ml-2">Most recent:</strong> {new Date(targets[0].created_date).toLocaleDateString()} • 
+                  <strong className="ml-2">Oldest:</strong> {new Date(targets[targets.length - 1].created_date).toLocaleDateString()}
+                  <div className="mt-1 text-blue-700">
+                    ℹ️ You can only see targets you uploaded. If missing recent uploads, check if you used a different account.
+                  </div>
+                </AlertDescription>
+              </Alert>
+            )}
           </div>
         </div>
         <ActionButtons
@@ -961,7 +963,7 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
                   </tr>
                 </thead>
                 <tbody>
-                  {paginatedTargets.map((t) => (
+                  {filteredTargets.map((t) => (
                     <TargetRow
                       key={t.id}
                       target={t}
@@ -974,56 +976,6 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
                 </tbody>
               </table>
             </div>
-            {totalPages > 1 && (
-              <div className="flex items-center justify-between px-4 py-3 border-t border-slate-200">
-                <div className="text-sm text-slate-600">
-                  Showing {((currentPage - 1) * rowsPerPage) + 1} - {Math.min(currentPage * rowsPerPage, filteredTargets.length)} of {filteredTargets.length}
-                </div>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                    disabled={currentPage === 1}
-                  >
-                    Previous
-                  </Button>
-                  <div className="flex items-center gap-1">
-                    {[...Array(Math.min(5, totalPages))].map((_, i) => {
-                      let pageNum;
-                      if (totalPages <= 5) {
-                        pageNum = i + 1;
-                      } else if (currentPage <= 3) {
-                        pageNum = i + 1;
-                      } else if (currentPage >= totalPages - 2) {
-                        pageNum = totalPages - 4 + i;
-                      } else {
-                        pageNum = currentPage - 2 + i;
-                      }
-                      return (
-                        <Button
-                          key={pageNum}
-                          variant={currentPage === pageNum ? "default" : "outline"}
-                          size="sm"
-                          onClick={() => setCurrentPage(pageNum)}
-                          className="w-8 h-8 p-0"
-                        >
-                          {pageNum}
-                        </Button>
-                      );
-                    })}
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                    disabled={currentPage === totalPages}
-                  >
-                    Next
-                  </Button>
-                </div>
-              </div>
-            )}
           </CardContent>
         </Card>
       )}
