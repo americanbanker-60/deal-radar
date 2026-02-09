@@ -60,13 +60,13 @@ export default function SavedTargets() {
   const queryClient = useQueryClient();
 
   const [user, setUser] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const rowsPerPage = 50;
 
   const { data: targets = [], isLoading } = useQuery({
     queryKey: ['bdTargets'],
     queryFn: async () => {
-      const currentUser = await base44.auth.me();
-      setUser(currentUser);
-      return base44.entities.BDTarget.list('-created_date', 1000, {
+      return base44.entities.BDTarget.list('-created_date', 5000, {
         fields: [
           'id', 'campaign', 'name', 'companyShortName', 'correspondenceName',
           'sectorFocus', 'city', 'state', 'revenue', 'employees', 'clinicCount',
@@ -76,6 +76,11 @@ export default function SavedTargets() {
       });
     },
   });
+
+  // Load user separately for display purposes only
+  React.useEffect(() => {
+    base44.auth.me().then(setUser).catch(() => {});
+  }, []);
 
   const fetchFullTarget = async (targetId) => {
     return await base44.entities.BDTarget.get(targetId);
@@ -580,6 +585,19 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
     return filtered;
   }, [targets, selectedCampaign, statusFilter, clinicFilter, qualityFilter, sectorFilter, searchQuery, sortField, sortDirection]);
 
+  const paginatedTargets = useMemo(() => {
+    const startIndex = (currentPage - 1) * rowsPerPage;
+    const endIndex = startIndex + rowsPerPage;
+    return filteredTargets.slice(startIndex, endIndex);
+  }, [filteredTargets, currentPage, rowsPerPage]);
+
+  const totalPages = Math.ceil(filteredTargets.length / rowsPerPage);
+
+  // Reset to page 1 when filters change
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedCampaign, statusFilter, clinicFilter, qualityFilter, sectorFilter, searchQuery]);
+
   const toggleSort = (field) => {
     if (sortField === field) {
       setSortDirection(prev => prev === "asc" ? "desc" : "asc");
@@ -963,7 +981,7 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredTargets.map((t) => (
+                  {paginatedTargets.map((t) => (
                     <TargetRow
                       key={t.id}
                       target={t}
@@ -976,6 +994,56 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
                 </tbody>
               </table>
             </div>
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between px-4 py-3 border-t border-slate-200">
+                <div className="text-sm text-slate-600">
+                  Showing {((currentPage - 1) * rowsPerPage) + 1} - {Math.min(currentPage * rowsPerPage, filteredTargets.length)} of {filteredTargets.length}
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                  >
+                    Previous
+                  </Button>
+                  <div className="flex items-center gap-1">
+                    {[...Array(Math.min(5, totalPages))].map((_, i) => {
+                      let pageNum;
+                      if (totalPages <= 5) {
+                        pageNum = i + 1;
+                      } else if (currentPage <= 3) {
+                        pageNum = i + 1;
+                      } else if (currentPage >= totalPages - 2) {
+                        pageNum = totalPages - 4 + i;
+                      } else {
+                        pageNum = currentPage - 2 + i;
+                      }
+                      return (
+                        <Button
+                          key={pageNum}
+                          variant={currentPage === pageNum ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => setCurrentPage(pageNum)}
+                          className="w-8 h-8 p-0"
+                        >
+                          {pageNum}
+                        </Button>
+                      );
+                    })}
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
