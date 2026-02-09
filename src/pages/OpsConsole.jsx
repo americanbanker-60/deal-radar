@@ -20,7 +20,7 @@ import HowToUse from "../components/ops/HowToUse";
 import DataPipelineDebug from "../components/ops/DataPipelineDebug";
 import WorkflowSummary from "../components/ops/WorkflowSummary";
 import TargetsTable from "../components/ops/TargetsTable";
-import { filterTargets, scoreTargets, toNumber, midpointFromRange, normalizeState, cleanCompanyNameRegex } from "../utils/data-engine";
+import { filterTargets, scoreTargets, toNumber, midpointFromRange, normalizeState, cleanCompanyNameRegex } from "../components/utils/data-engine";
 
 export default function OpsConsole(){
   const [page, setPage] = useState("grata");
@@ -191,7 +191,7 @@ export default function OpsConsole(){
     setCrawling(true);
     setCrawlProgress({ current: 0, total: normalizedGR.length });
 
-    const { crawlCompanyWebsite } = await import("../utils/data-engine");
+    const { crawlCompanyWebsite } = await import("../components/utils/data-engine");
     const enrichedRows = [];
 
     for (let i = 0; i < normalizedGR.length; i++) {
@@ -234,7 +234,7 @@ export default function OpsConsole(){
     setEnriching(true);
     setEnrichProgress({ current: 0, total: normalizedGR.length });
 
-    const { generateFriendlyName, generateCorrespondenceName, classifyCompanySector } = await import("../utils/data-engine");
+    const { generateFriendlyName, generateCorrespondenceName, classifyCompanySector } = await import("../components/utils/data-engine");
     const enrichedRows = [];
 
     for (let i = 0; i < normalizedGR.length; i++) {
@@ -765,7 +765,7 @@ Return JSON:
     setReclassifyingSectors(true);
     setSectorProgress({ current: 0, total: selectedList.length });
 
-    const { classifyCompanySector } = await import("../utils/data-engine");
+    const { classifyCompanySector } = await import("../components/utils/data-engine");
     const enrichedRows = [];
 
     for (let i = 0; i < selectedList.length; i++) {

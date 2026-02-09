@@ -17,7 +17,7 @@ import { createPageUrl } from "../utils";
 
 import OutreachIntegration from "../components/ops/OutreachIntegration";
 import TargetRow from "../components/targets/TargetRow";
-import { scoreTargets } from "../utils/data-engine";
+import { scoreTargets } from "../components/utils/data-engine";
 
 export default function SavedTargets() {
   const [selectedCampaign, setSelectedCampaign] = useState("all");
@@ -148,7 +148,7 @@ export default function SavedTargets() {
     setReclassifyingSectors(true);
     setSectorProgress({ current: 0, total: selectedList.length });
 
-    const { classifyCompanySector } = await import("../utils/data-engine");
+    const { classifyCompanySector } = await import("../components/utils/data-engine");
     let successCount = 0;
     let errorCount = 0;
 
@@ -398,7 +398,7 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
     setCleaningNames(true);
     setCleanProgress({ current: 0, total: selectedList.length });
 
-    const { generateFriendlyName, generateCorrespondenceName } = await import("../utils/data-engine");
+    const { generateFriendlyName, generateCorrespondenceName } = await import("../components/utils/data-engine");
 
     for (let i = 0; i < selectedList.length; i++) {
       const target = selectedList[i];
@@ -473,7 +473,7 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
     setCrawling(true);
     setCrawlProgress({ current: 0, total: selectedList.length });
 
-    const { crawlCompanyWebsite } = await import("../utils/data-engine");
+    const { crawlCompanyWebsite } = await import("../components/utils/data-engine");
 
     for (let i = 0; i < selectedList.length; i++) {
       const target = selectedList[i];
