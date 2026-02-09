@@ -69,14 +69,7 @@ export default function SavedTargets() {
 
   const { data: targets = [], isLoading } = useQuery({
     queryKey: ['bdTargets'],
-    queryFn: () => base44.entities.BDTarget.list('-created_date', 5000, {
-      fields: [
-        'id', 'campaign', 'name', 'companyShortName', 'correspondenceName',
-        'sectorFocus', 'city', 'state', 'revenue', 'employees', 'clinicCount',
-        'websiteStatus', 'growthSignals', 'score', 'status', 'qualityTier',
-        'created_date', 'website', 'assignedTo'
-      ]
-    }),
+    queryFn: () => base44.entities.BDTarget.list('-created_date', 5000),
   });
 
   const fetchFullTarget = async (targetId) => {
