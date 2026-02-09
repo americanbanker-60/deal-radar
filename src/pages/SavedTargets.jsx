@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Checkbox } from "@/components/ui/checkbox";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Textarea } from "@/components/ui/textarea";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "../utils";
 
@@ -1025,102 +1026,109 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
       </div>
 
       <Card className="shadow-sm border-slate-200">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Filter className="w-5 h-5" />
-            Filters
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="grid md:grid-cols-7 gap-4">
-          <div className="space-y-2">
-            <div className="text-sm font-medium">Campaign</div>
-            <Select value={selectedCampaign} onValueChange={setSelectedCampaign}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Campaigns</SelectItem>
-                {campaigns.map(c => (
-                  <SelectItem key={c} value={c}>{c}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+        <Collapsible defaultOpen={true}>
+          <CardHeader className="pb-3">
+            <CollapsibleTrigger className="w-full">
+              <CardTitle className="flex items-center gap-2 hover:text-slate-700 transition-colors">
+                <Filter className="w-5 h-5" />
+                Filters
+                <Badge variant="outline" className="ml-auto">{filteredTargets.length} results</Badge>
+              </CardTitle>
+            </CollapsibleTrigger>
+          </CardHeader>
+          <CollapsibleContent>
+            <CardContent className="grid md:grid-cols-7 gap-4 pt-0">
+              <div className="space-y-2">
+                <div className="text-sm font-medium">Campaign</div>
+                <Select value={selectedCampaign} onValueChange={setSelectedCampaign}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Campaigns</SelectItem>
+                    {campaigns.map(c => (
+                      <SelectItem key={c} value={c}>{c}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-          <div className="space-y-2">
-            <div className="text-sm font-medium">Status</div>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="new">New</SelectItem>
-                <SelectItem value="contacted">Contacted</SelectItem>
-                <SelectItem value="qualified">Qualified</SelectItem>
-                <SelectItem value="disqualified">Disqualified</SelectItem>
-                <SelectItem value="closed">Closed</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+              <div className="space-y-2">
+                <div className="text-sm font-medium">Status</div>
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Status</SelectItem>
+                    <SelectItem value="new">New</SelectItem>
+                    <SelectItem value="contacted">Contacted</SelectItem>
+                    <SelectItem value="qualified">Qualified</SelectItem>
+                    <SelectItem value="disqualified">Disqualified</SelectItem>
+                    <SelectItem value="closed">Closed</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
 
-          <div className="space-y-2">
-            <div className="text-sm font-medium">Clinic Count</div>
-            <Select value={clinicFilter} onValueChange={setClinicFilter}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All</SelectItem>
-                <SelectItem value="missing">Missing Clinic Count</SelectItem>
-                <SelectItem value="has">Has Clinic Count</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+              <div className="space-y-2">
+                <div className="text-sm font-medium">Clinic Count</div>
+                <Select value={clinicFilter} onValueChange={setClinicFilter}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All</SelectItem>
+                    <SelectItem value="missing">Missing Clinic Count</SelectItem>
+                    <SelectItem value="has">Has Clinic Count</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
 
-          <div className="space-y-2">
-            <div className="text-sm font-medium">Quality Tier</div>
-            <Select value={qualityFilter} onValueChange={setQualityFilter}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Quality</SelectItem>
-                <SelectItem value="great">GREAT</SelectItem>
-                <SelectItem value="good">GOOD</SelectItem>
-                <SelectItem value="bad">BAD</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+              <div className="space-y-2">
+                <div className="text-sm font-medium">Quality Tier</div>
+                <Select value={qualityFilter} onValueChange={setQualityFilter}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Quality</SelectItem>
+                    <SelectItem value="great">GREAT</SelectItem>
+                    <SelectItem value="good">GOOD</SelectItem>
+                    <SelectItem value="bad">BAD</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
 
-          <div className="space-y-2">
-            <div className="text-sm font-medium">Sector</div>
-            <Select value={sectorFilter} onValueChange={setSectorFilter}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Sectors</SelectItem>
-                {uniqueSectors.map(s => (
-                  <SelectItem key={s} value={s}>{s}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+              <div className="space-y-2">
+                <div className="text-sm font-medium">Sector</div>
+                <Select value={sectorFilter} onValueChange={setSectorFilter}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Sectors</SelectItem>
+                    {uniqueSectors.map(s => (
+                      <SelectItem key={s} value={s}>{s}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-          <div className="space-y-2">
-            <div className="text-sm font-medium">Search</div>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <Input
-                placeholder="Search by name or location..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9"
-              />
-            </div>
-          </div>
-        </CardContent>
+              <div className="space-y-2">
+                <div className="text-sm font-medium">Search</div>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <Input
+                    placeholder="Search by name or location..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-9"
+                  />
+                </div>
+              </div>
+            </CardContent>
+          </CollapsibleContent>
+        </Collapsible>
       </Card>
 
       {filteredTargets.length === 0 ? (
