@@ -63,9 +63,20 @@ export default function SavedTargets() {
     queryFn: async () => {
       const currentUser = await base44.auth.me();
       setUser(currentUser);
-      return base44.entities.BDTarget.list('-created_date');
+      return base44.entities.BDTarget.list('-created_date', 1000, {
+        fields: [
+          'id', 'campaign', 'name', 'companyShortName', 'correspondenceName',
+          'sectorFocus', 'city', 'state', 'revenue', 'employees', 'clinicCount',
+          'websiteStatus', 'growthSignals', 'score', 'status', 'qualityTier',
+          'created_date', 'website'
+        ]
+      });
     },
   });
+
+  const fetchFullTarget = async (targetId) => {
+    return await base44.entities.BDTarget.get(targetId);
+  };
 
   const deleteTargetMutation = useMutation({
     mutationFn: (id) => base44.entities.BDTarget.delete(id),
