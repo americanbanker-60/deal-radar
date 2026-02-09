@@ -59,28 +59,20 @@ export default function SavedTargets() {
   const [fitKeywords, setFitKeywords] = useState("Healthcare Services");
   const queryClient = useQueryClient();
 
-  const [user, setUser] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const rowsPerPage = 50;
 
   const { data: targets = [], isLoading } = useQuery({
     queryKey: ['bdTargets'],
-    queryFn: async () => {
-      return base44.entities.BDTarget.list('-created_date', 5000, {
-        fields: [
-          'id', 'campaign', 'name', 'companyShortName', 'correspondenceName',
-          'sectorFocus', 'city', 'state', 'revenue', 'employees', 'clinicCount',
-          'websiteStatus', 'growthSignals', 'score', 'status', 'qualityTier',
-          'created_date', 'website'
-        ]
-      });
-    },
+    queryFn: () => base44.entities.BDTarget.list('-created_date', 5000, {
+      fields: [
+        'id', 'campaign', 'name', 'companyShortName', 'correspondenceName',
+        'sectorFocus', 'city', 'state', 'revenue', 'employees', 'clinicCount',
+        'websiteStatus', 'growthSignals', 'score', 'status', 'qualityTier',
+        'created_date', 'website'
+      ]
+    }),
   });
-
-  // Load user separately for display purposes only
-  React.useEffect(() => {
-    base44.auth.me().then(setUser).catch(() => {});
-  }, []);
 
   const fetchFullTarget = async (targetId) => {
     return await base44.entities.BDTarget.get(targetId);
@@ -773,18 +765,6 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
                 <span className="text-amber-600 ml-2">• {targets.filter(t => !t.campaign).length} missing campaign name</span>
               )}
             </p>
-            {user && targets.length > 0 && (
-              <Alert className="mt-3 bg-blue-50 border-blue-200">
-                <AlertDescription className="text-blue-800 text-xs">
-                  <strong>Viewing as:</strong> {user.email} • 
-                  <strong className="ml-2">Most recent:</strong> {new Date(targets[0].created_date).toLocaleDateString()} • 
-                  <strong className="ml-2">Oldest:</strong> {new Date(targets[targets.length - 1].created_date).toLocaleDateString()}
-                  <div className="mt-1 text-blue-700">
-                    ℹ️ You can only see targets you uploaded. If missing recent uploads, check if you used a different account.
-                  </div>
-                </AlertDescription>
-              </Alert>
-            )}
           </div>
         </div>
         <ActionButtons
