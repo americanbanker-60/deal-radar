@@ -72,6 +72,7 @@ export default function OpsConsole(){
   const [selectedTargets, setSelectedTargets] = useState(new Set());
   const [campaignName, setCampaignName] = useState("");
   const [saving, setSaving] = useState(false);
+  const [scoreThreshold] = useState(70);
   const [reclassifyingSectors, setReclassifyingSectors] = useState(false);
   const [sectorProgress, setSectorProgress] = useState({ current: 0, total: 0 });
   const [recalculatingScores, setRecalculatingScores] = useState(false);
