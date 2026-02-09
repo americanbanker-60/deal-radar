@@ -297,7 +297,7 @@ Return JSON with brief summaries (1 sentence each):
         });
 
         await base44.entities.BDTarget.update(target.id, {
-          growthSignals: result.signals || [],
+          growthSignals: (result.signals || []).join(", "),
           growthSignalsDate: new Date().toISOString()
         });
       } catch (error) {
@@ -326,13 +326,23 @@ Return JSON with brief summaries (1 sentence each):
       setRationaleProgress({ current: i + 1, total: selectedList.length });
 
       try {
-        const result = await base44.functions.invoke('generateRationale', { 
-          targetId: target.id,
-          weights: JSON.parse(localStorage.getItem('ops_console_weights') || '{"employees":35,"clinics":25,"revenue":15,"website":15,"keywords":10}')
+        const prompt = `Research "${target.name}" (${target.website || 'healthcare company'} in ${target.city}, ${target.state}) and write a 2-sentence strategic investment thesis explaining why this would be a good acquisition target.
+
+Company Details:
+- Sector: ${target.sectorFocus || 'Healthcare Services'}
+- Revenue: ~$${target.revenue}M
+- Employees: ${target.employees}
+- Clinics: ${target.clinicCount || 'unknown'}
+
+Focus on: market position, growth potential, strategic fit, and competitive advantages. Be specific and data-driven.`;
+
+        const rationale = await base44.integrations.Core.InvokeLLM({
+          prompt,
+          add_context_from_internet: true
         });
         
         await base44.entities.BDTarget.update(target.id, {
-          notes: result.data.rationale
+          strategicRationale: rationale.trim()
         });
       } catch (error) {
         console.error(`Error generating rationale for ${target.name}:`, error);
@@ -348,13 +358,23 @@ Return JSON with brief summaries (1 sentence each):
     setGeneratingSingleRationale(target.id);
     
     try {
-      const result = await base44.functions.invoke('generateRationale', { 
-        targetId: target.id,
-        weights: JSON.parse(localStorage.getItem('ops_console_weights') || '{"employees":35,"clinics":25,"revenue":15,"website":15,"keywords":10}')
+      const prompt = `Research "${target.name}" (${target.website || 'healthcare company'} in ${target.city}, ${target.state}) and write a 2-sentence strategic investment thesis explaining why this would be a good acquisition target.
+
+Company Details:
+- Sector: ${target.sectorFocus || 'Healthcare Services'}
+- Revenue: ~$${target.revenue}M
+- Employees: ${target.employees}
+- Clinics: ${target.clinicCount || 'unknown'}
+
+Focus on: market position, growth potential, strategic fit, and competitive advantages. Be specific and data-driven.`;
+
+      const rationale = await base44.integrations.Core.InvokeLLM({
+        prompt,
+        add_context_from_internet: true
       });
       
       await base44.entities.BDTarget.update(target.id, {
-        notes: result.data.rationale
+        strategicRationale: rationale.trim()
       });
 
       await queryClient.invalidateQueries({ queryKey: ['bdTargets'] });
@@ -406,7 +426,7 @@ Return JSON with brief summaries (1 sentence each):
   const generateInsightsAndEmail = () => {
     const top = filteredTargets.slice(0, 10);
     const names = top.map(t => t.name).slice(0, 5).join(", ");
-    const withGrowth = filteredTargets.filter(t => t.growthSignals?.length > 0).length;
+    const withGrowth = filteredTargets.filter(t => t.growthSignals && t.growthSignals.trim()).length;
     
     const insightText = [
       `${filteredTargets.length} qualified targets across ${campaigns.length} campaigns`,
@@ -615,14 +635,15 @@ Return JSON with brief summaries (1 sentence each):
       Clinics: t.clinicCount,
       Score: t.score,
       "Fit Score": t.score,
-      "Growth Signals": t.growthSignals?.join("; ") || "",
+      "Growth Signals": t.growthSignals || "",
       Status: t.status,
       Email: t.contactEmail,
       "First Name": t.contactFirstName,
       "Last Name": t.contactLastName,
       Title: t.contactTitle,
       Website: t.website,
-      "Strategic Rationale": t.notes || ""
+      "Strategic Rationale": t.strategicRationale || "",
+      Notes: t.notes || ""
     }));
 
     const result = await base44.functions.invoke('dataToCsv', { data });
@@ -1189,9 +1210,9 @@ Return JSON with brief summaries (1 sentence each):
                         {!t.websiteStatus && <span className="text-xs text-muted-foreground">—</span>}
                       </td>
                       <td className="py-3 px-4">
-                        {t.growthSignals && t.growthSignals.length > 0 ? (
+                        {t.growthSignals && t.growthSignals.trim() ? (
                           <Badge className="bg-green-100 text-green-800 border-green-300 text-xs whitespace-nowrap">
-                            🚀 {t.growthSignals.length}
+                            🚀 Signals
                           </Badge>
                         ) : (
                           <span className="text-xs text-muted-foreground">—</span>

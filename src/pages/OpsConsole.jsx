@@ -1594,7 +1594,7 @@ function normalizeRow(row) {
     correspondenceName: row._correspondenceName || "",
     sectorFocus: row._sectorFocus || row.Sector || "",
     personalization_snippet: row._personalization_snippet || "",
-    growthSignals: row._growthSignals || [],
+    growthSignals: (row._growthSignals || []).join(", "),
     contact: {
       email: row["Executive Email"] || row["Primary Email"] || "",
       firstName: row["Executive First Name"] || "",
