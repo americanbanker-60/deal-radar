@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
-import { Database, Filter, Download, MapPin, Building2, Search, ArrowLeft, ArrowUpDown, ArrowUp, ArrowDown, RefreshCw, Loader2, CheckSquare, Globe2, UserCheck, Sparkles, Award, Tag, Mail, ExternalLink } from "lucide-react";
+import { Database, Filter, Download, MapPin, Building2, Search, ArrowLeft, ArrowUpDown, ArrowUp, ArrowDown, RefreshCw, Loader2, CheckSquare, Globe2, UserCheck, Sparkles, Award, Tag, Mail, ExternalLink, ChevronLeft, ChevronRight } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -57,24 +57,26 @@ export default function SavedTargets() {
   const [emailSubject, setEmailSubject] = useState("BD Targets & Market Snapshot");
   const [emailBody, setEmailBody] = useState("");
   const [fitKeywords, setFitKeywords] = useState("Healthcare Services");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(50);
   const queryClient = useQueryClient();
 
   const [user, setUser] = useState(null);
 
+  React.useEffect(() => {
+    base44.auth.me().then(setUser).catch(() => setUser(null));
+  }, []);
+
   const { data: targets = [], isLoading } = useQuery({
     queryKey: ['bdTargets'],
-    queryFn: async () => {
-      const currentUser = await base44.auth.me();
-      setUser(currentUser);
-      return base44.entities.BDTarget.list('-created_date', 1000, {
-        fields: [
-          'id', 'campaign', 'name', 'companyShortName', 'correspondenceName',
-          'sectorFocus', 'city', 'state', 'revenue', 'employees', 'clinicCount',
-          'websiteStatus', 'growthSignals', 'score', 'status', 'qualityTier',
-          'created_date', 'website'
-        ]
-      });
-    },
+    queryFn: () => base44.entities.BDTarget.list('-created_date', 5000, {
+      fields: [
+        'id', 'campaign', 'name', 'companyShortName', 'correspondenceName',
+        'sectorFocus', 'city', 'state', 'revenue', 'employees', 'clinicCount',
+        'websiteStatus', 'growthSignals', 'score', 'status', 'qualityTier',
+        'created_date', 'website', 'assignedTo'
+      ]
+    }),
   });
 
   const fetchFullTarget = async (targetId) => {
@@ -580,6 +582,18 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
     return filtered;
   }, [targets, selectedCampaign, statusFilter, clinicFilter, qualityFilter, sectorFilter, searchQuery, sortField, sortDirection]);
 
+  const paginatedTargets = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    return filteredTargets.slice(startIndex, endIndex);
+  }, [filteredTargets, currentPage, itemsPerPage]);
+
+  const totalPages = Math.ceil(filteredTargets.length / itemsPerPage);
+
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedCampaign, statusFilter, clinicFilter, qualityFilter, sectorFilter, searchQuery]);
+
   const toggleSort = (field) => {
     if (sortField === field) {
       setSortDirection(prev => prev === "asc" ? "desc" : "asc");
@@ -930,9 +944,34 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle>Saved Companies</CardTitle>
-              <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">
-                {filteredTargets.length} results
-              </Badge>
+              <div className="flex items-center gap-3">
+                <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">
+                  {filteredTargets.length} results
+                </Badge>
+                {totalPages > 1 && (
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                      disabled={currentPage === 1}
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                    </Button>
+                    <span className="text-sm text-slate-600">
+                      Page {currentPage} of {totalPages}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                      disabled={currentPage === totalPages}
+                    >
+                      <ChevronRight className="w-4 h-4" />
+                    </Button>
+                  </div>
+                )}
+              </div>
             </div>
           </CardHeader>
           <CardContent className="p-0">
@@ -963,7 +1002,7 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredTargets.map((t) => (
+                  {paginatedTargets.map((t) => (
                     <TargetRow
                       key={t.id}
                       target={t}
