@@ -17,7 +17,6 @@ import { createPageUrl } from "../utils";
 
 import OutreachIntegration from "../components/ops/OutreachIntegration";
 import TargetRow from "../components/targets/TargetRow";
-import { scoreTargets } from "../components/utils/data-engine";
 
 export default function SavedTargets() {
   const [selectedCampaign, setSelectedCampaign] = useState("all");
@@ -501,7 +500,6 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
     
     setRescoring(true);
     try {
-      // Load weights and ranges from localStorage
       const weights = JSON.parse(localStorage.getItem('ops_console_weights') || '{"employees":35,"clinics":25,"revenue":15,"website":15,"keywords":10}');
       const targetMinEmp = localStorage.getItem('ops_console_targetMinEmp') || "";
       const targetMaxEmp = localStorage.getItem('ops_console_targetMaxEmp') || "";
@@ -509,33 +507,23 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
       const targetMaxRev = localStorage.getItem('ops_console_targetMaxRev') || "";
       const fitKeywords = localStorage.getItem('ops_console_vertical') || "Healthcare Services";
 
-      console.log("Re-scoring with:", { weights, targetMinEmp, targetMaxEmp, targetMinRev, targetMaxRev, fitKeywords });
-
-      // Score them
-      const scored = scoreTargets(targets, {
-        fitKeywords,
+      const result = await base44.functions.invoke('processBatchScoring', {
+        targetIds: targets.map(t => t.id),
         weights,
         targetRange: {
           minEmployees: targetMinEmp ? parseInt(targetMinEmp) : null,
           maxEmployees: targetMaxEmp ? parseInt(targetMaxEmp) : null,
           minRevenue: targetMinRev ? parseFloat(targetMinRev) : null,
           maxRevenue: targetMaxRev ? parseFloat(targetMaxRev) : null
-        }
+        },
+        fitKeywords
       });
 
-      console.log("Scored results:", scored.slice(0, 3));
-
-      // Update all targets with new scores
-      let updated = 0;
-      for (const target of scored) {
-        await base44.entities.BDTarget.update(target.id, { score: target.score });
-        updated++;
-      }
-
-      console.log(`Updated ${updated} targets`);
       await queryClient.invalidateQueries({ queryKey: ['bdTargets'] });
+      alert(`Successfully re-scored ${result.data.updated} targets!`);
     } catch (error) {
       console.error("Re-score error:", error);
+      alert("Failed to re-score: " + error.message);
     }
     setRescoring(false);
   };
