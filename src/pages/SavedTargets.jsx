@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
-import { Database, Filter, Download, Trash2, MapPin, Globe, Building2, Search, ArrowLeft, ArrowUpDown, ArrowUp, ArrowDown, RefreshCw, Loader2, CheckSquare, Globe2, UserCheck, Sparkles, Award, AlertTriangle, CheckCircle, Tag, Mail, ExternalLink } from "lucide-react";
+import { Database, Filter, Download, MapPin, Building2, Search, ArrowLeft, ArrowUpDown, ArrowUp, ArrowDown, RefreshCw, Loader2, CheckSquare, Globe2, UserCheck, Sparkles, Award, Tag, Mail, ExternalLink } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -15,9 +15,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "../utils";
 
-import { scoreTargets } from "../components/ops/analyticsHelpers";
 import OutreachIntegration from "../components/ops/OutreachIntegration";
 import TargetRow from "../components/targets/TargetRow";
+import { scoreTargets } from "../utils/data-engine";
 
 export default function SavedTargets() {
   const [selectedCampaign, setSelectedCampaign] = useState("all");
@@ -148,7 +148,7 @@ export default function SavedTargets() {
     setReclassifyingSectors(true);
     setSectorProgress({ current: 0, total: selectedList.length });
 
-    const { classifyCompanySector } = await import("../components/ops/enrichmentHelpers");
+    const { classifyCompanySector } = await import("../utils/data-engine");
     let successCount = 0;
     let errorCount = 0;
 
@@ -398,7 +398,7 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
     setCleaningNames(true);
     setCleanProgress({ current: 0, total: selectedList.length });
 
-    const { generateFriendlyName, generateCorrespondenceName } = await import("../components/ops/enrichmentHelpers");
+    const { generateFriendlyName, generateCorrespondenceName } = await import("../utils/data-engine");
 
     for (let i = 0; i < selectedList.length; i++) {
       const target = selectedList[i];
@@ -473,7 +473,7 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
     setCrawling(true);
     setCrawlProgress({ current: 0, total: selectedList.length });
 
-    const { crawlCompanyWebsite } = await import("../components/ops/enrichmentHelpers");
+    const { crawlCompanyWebsite } = await import("../utils/data-engine");
 
     for (let i = 0; i < selectedList.length; i++) {
       const target = selectedList[i];

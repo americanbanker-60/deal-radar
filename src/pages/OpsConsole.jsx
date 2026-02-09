@@ -6,10 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Slider } from "@/components/ui/slider";
 import { Progress } from "@/components/ui/progress";
-import { Textarea } from "@/components/ui/textarea";
-import { Download, Upload, Filter, Sparkles, Database, Settings, CircleAlert, Workflow, Mail, Loader2, HelpCircle, CheckCircle2, X, AlertTriangle, Globe, MapPin, Building2, Save, Plus } from "lucide-react";
+import { Download, Upload, Sparkles, Database, Settings, CircleAlert, Loader2, HelpCircle, CheckCircle2, X, Globe, Building2, Save, Plus } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -18,68 +16,11 @@ import { createPageUrl } from "../utils";
 
 import SchemaMapper from "../components/ops/SchemaMapper";
 import ScoringWeights from "../components/ops/ScoringWeights";
-import { filterTargets, scoreTargets } from "../components/ops/analyticsHelpers";
 import HowToUse from "../components/ops/HowToUse";
-import OutreachIntegration from "../components/ops/OutreachIntegration";
 import DataPipelineDebug from "../components/ops/DataPipelineDebug";
 import WorkflowSummary from "../components/ops/WorkflowSummary";
 import TargetsTable from "../components/ops/TargetsTable";
-
-const DEFAULT_FIELDS = [
-  "Name","Domain","Description","LinkedIn","Revenue Estimate","Employee Estimate","Employees on Professional Networks","Total Review Count","Aggregate Rating","City","State","Country","Zip Code","Year Founded","Primary Email","Primary Phone","Notes","Executive First Name","Executive Last Name","Executive Title","Executive Email"
-];
-
-const SECTOR_OPTIONS = `HS: Allergy, Ear, Nose and Throat
-HS: Anesthesiology
-HS: ASC
-HS: Behavioral - ABA
-HS: Behavioral - IDD
-HS: Behavioral - Interventional Pysch
-HS: Behavioral - Mental
-HS: Behavioral - Psych
-HS: Behavioral - Psych / Residential
-HS: Behavioral - SUD
-HS: Cardiology
-HS: Compound Pharmacy
-HS: Dentistry
-HS: Dermatology
-HS: DME
-HS: DPC
-HS: Employer | Self Insured Services
-HS: Functional Medicine / Wellness
-HS: Gastroenterology
-HS: General
-HS: Health Systems
-HS: Home Care
-HS: Imaging
-HS: Infusion Center
-HS: Lab
-HS: Medical Transportation
-HS: MedSpa & Aesthetics
-HS: Nephrology
-HS: Neurology
-HS: Optometry
-HS: Ortho
-HS: PAC - Home Health
-HS: PAC - Hospice
-HS: PAC - Skilled Nursing (SNF)
-HS: Pain Management
-HS: Pediatrics
-HS: Physical Therapy
-HS: Podiatry
-HS: PPM
-HS: Primary Care
-HS: Sleep
-HS: Speech Pathology
-HS: Staffing
-HS: Urgent Care
-HS: Urology
-HS: Vascular & Vein
-HS: Veterinary
-HS: Veterinary / Animal Health
-HS: Vision
-HS: Women's Health
-HS: Wound Care`;
+import { filterTargets, scoreTargets, toNumber, midpointFromRange, normalizeState, cleanCompanyNameRegex } from "../utils/data-engine";
 
 export default function OpsConsole(){
   const [page, setPage] = useState("grata");
@@ -95,15 +36,11 @@ export default function OpsConsole(){
   // Grata states
   const [grCompaniesRaw, setGrCompaniesRaw] = useState([]);
   const [grHeaders, setGrHeaders] = useState([]);
-  const [grMap, setGrMap] = useState({});
-
-  // Shared filters & settings - ALL DEFAULTS OPEN
+  // Shared filters & settings
   const [regionFilter, setRegionFilter] = useState("");
   const [minRev, setMinRev] = useState(0);
   const [maxRev, setMaxRev] = useState(100000);
   const [ownerPref, setOwnerPref] = useState("Any");
-  const [scoreThreshold, setScoreThreshold] = useState(0);
-  const [insights, setInsights] = useState("");
 
   // Scoring weights - load from localStorage
   const [weights, setWeights] = useState(() => {
@@ -254,7 +191,7 @@ export default function OpsConsole(){
     setCrawling(true);
     setCrawlProgress({ current: 0, total: normalizedGR.length });
 
-    const { crawlCompanyWebsite } = await import("../components/ops/enrichmentHelpers");
+    const { crawlCompanyWebsite } = await import("../utils/data-engine");
     const enrichedRows = [];
 
     for (let i = 0; i < normalizedGR.length; i++) {
@@ -297,7 +234,7 @@ export default function OpsConsole(){
     setEnriching(true);
     setEnrichProgress({ current: 0, total: normalizedGR.length });
 
-    const { generateFriendlyName, generateCorrespondenceName, classifyCompanySector } = await import("../components/ops/enrichmentHelpers");
+    const { generateFriendlyName, generateCorrespondenceName, classifyCompanySector } = await import("../utils/data-engine");
     const enrichedRows = [];
 
     for (let i = 0; i < normalizedGR.length; i++) {
@@ -828,7 +765,7 @@ Return JSON:
     setReclassifyingSectors(true);
     setSectorProgress({ current: 0, total: selectedList.length });
 
-    const { classifyCompanySector } = await import("../components/ops/enrichmentHelpers");
+    const { classifyCompanySector } = await import("../utils/data-engine");
     const enrichedRows = [];
 
     for (let i = 0; i < selectedList.length; i++) {
@@ -1414,53 +1351,7 @@ Return JSON:
         </TabsContent>
 
         <TabsContent value="settings" className="space-y-6">
-          <Card className="shadow-sm border-slate-200">
-            <CardHeader className="bg-gradient-to-r from-purple-50 to-transparent">
-              <CardTitle>Outreach.io Setup</CardTitle>
-            </CardHeader>
-            <CardContent className="pt-4 space-y-4">
-              <Alert className="bg-blue-50 border-blue-200">
-                <CircleAlert className="h-4 w-4 text-blue-600" />
-                <AlertDescription className="text-blue-800 text-sm">
-                  <strong>First-time setup:</strong> Create an OAuth application in your Outreach.io account (Settings → API → OAuth Applications). 
-                  The credentials are already configured. Click "Connect Outreach Account" on the Grata Data tab to start syncing.
-                </AlertDescription>
-              </Alert>
 
-              <div className="space-y-3">
-                <div className="p-4 bg-slate-50 rounded-lg border">
-                  <h4 className="font-semibold text-sm mb-2">Configured Secrets</h4>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex items-center justify-between">
-                      <code className="text-xs bg-white px-2 py-1 rounded">OUTREACH_CLIENT_ID</code>
-                      <Badge className="bg-green-100 text-green-700">Configured</Badge>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <code className="text-xs bg-white px-2 py-1 rounded">OUTREACH_CLIENT_SECRET</code>
-                      <Badge className="bg-green-100 text-green-700">Configured</Badge>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <code className="text-xs bg-white px-2 py-1 rounded">OUTREACH_REDIRECT_URI</code>
-                      <Badge className="bg-green-100 text-green-700">Configured</Badge>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="p-4 bg-green-50 rounded-lg border border-green-200">
-                  <h4 className="font-semibold text-sm text-green-900 mb-2">OAuth Scopes Required:</h4>
-                  <div className="space-y-1 text-sm text-green-800">
-                    <div>• <code>prospects.all</code> - Create and update prospects</div>
-                    <div>• <code>sequences.read</code> - View and select sequences</div>
-                  </div>
-                </div>
-
-                <div className="text-xs text-muted-foreground">
-                  Connect your account from the Grata Data tab to start syncing prospects directly to Outreach.
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        
           <Card className="shadow-sm border-slate-200">
             <CardHeader className="bg-gradient-to-r from-emerald-50 to-transparent">
               <CardTitle>AI Column Detection</CardTitle>
@@ -1483,22 +1374,6 @@ Return JSON:
             setTargetMaxRev={setTargetMaxRev}
             onRecalculate={recalculatingScores ? null : recalculateAllScores}
           />
-
-          {insights && (
-            <Card className="shadow-sm border-slate-200">
-              <CardHeader className="bg-gradient-to-r from-green-50 to-transparent">
-                <CardTitle>Generated Insights</CardTitle>
-              </CardHeader>
-              <CardContent className="pt-4 space-y-3">
-                <Textarea value={insights} readOnly className="h-32 bg-slate-50" />
-                <div className="flex gap-2">
-                  <Button variant="secondary" onClick={() => copy(insights)}>
-                    Copy Insights
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          )}
         </TabsContent>
       </Tabs>
     </div>
@@ -1506,44 +1381,6 @@ Return JSON:
 }
 
 // Helper functions
-const STATE_MAP = {
-  'alabama': 'AL', 'alaska': 'AK', 'arizona': 'AZ', 'arkansas': 'AR', 'california': 'CA',
-  'colorado': 'CO', 'connecticut': 'CT', 'delaware': 'DE', 'florida': 'FL', 'georgia': 'GA',
-  'hawaii': 'HI', 'idaho': 'ID', 'illinois': 'IL', 'indiana': 'IN', 'iowa': 'IA',
-  'kansas': 'KS', 'kentucky': 'KY', 'louisiana': 'LA', 'maine': 'ME', 'maryland': 'MD',
-  'massachusetts': 'MA', 'michigan': 'MI', 'minnesota': 'MN', 'mississippi': 'MS',
-  'missouri': 'MO', 'montana': 'MT', 'nebraska': 'NE', 'nevada': 'NV', 'new hampshire': 'NH',
-  'new jersey': 'NJ', 'new mexico': 'NM', 'new york': 'NY', 'north carolina': 'NC',
-  'north dakota': 'ND', 'ohio': 'OH', 'oklahoma': 'OK', 'oregon': 'OR', 'pennsylvania': 'PA',
-  'rhode island': 'RI', 'south carolina': 'SC', 'south dakota': 'SD', 'tennessee': 'TN',
-  'texas': 'TX', 'utah': 'UT', 'vermont': 'VT', 'virginia': 'VA', 'washington': 'WA',
-  'west virginia': 'WV', 'wisconsin': 'WI', 'wyoming': 'WY', 'district of columbia': 'DC',
-  'puerto rico': 'PR', 'guam': 'GU', 'virgin islands': 'VI'
-};
-
-function normalizeState(state) {
-  if (!state) return '';
-  const trimmed = state.trim();
-  
-  // Already a 2-letter code
-  if (trimmed.length === 2) return trimmed.toUpperCase();
-  
-  // Convert full name to code
-  const lower = trimmed.toLowerCase();
-  return STATE_MAP[lower] || trimmed;
-}
-
-function cleanCompanyNameRegex(name) {
-  if (!name) return name;
-  
-  let cleaned = name
-    .replace(/,?\s+(LLC|L\.L\.C\.|Inc\.?|Incorporated|Corporation|Corp\.?|Ltd\.?|Limited|P\.A\.|PA|Co\.?|Company|Group|Holdings|Partners|Services|MSO|PC|P\.C\.|PLLC|P\.L\.L\.C\.)/gi, '')
-    .replace(/^(The|A|An)\s+/i, '')
-    .trim();
-  
-  return cleaned || name;
-}
-
 function normalizeRow(row) {
   const rawRevenue = row["Revenue Estimate"];
   const rawEmployees = row["Employee Estimate"];
@@ -1604,65 +1441,3 @@ function normalizeRow(row) {
     }
   };
 }
-
-const toNumber = (v) => {
-  if (v === null || v === undefined) return NaN;
-  if (typeof v === "number") return v;
-  const s = String(v).replace(/[$,%\s,]/g, "").replace(/[–—]/g, "-");
-  const n = parseFloat(s);
-  return isNaN(n) ? NaN : n;
-};
-
-const midpointFromRange = (val) => {
-  if (!val || val === null || val === undefined) return undefined;
-  
-  // Convert to string and normalize
-  let s = String(val).trim().toLowerCase();
-  
-  // Remove currency symbols, commas, spaces, and normalize dashes
-  s = s.replace(/[$€£¥₹,\s]/g, "").replace(/[–—]/g, "-");
-  
-  // Detect unit multipliers (must come at the end)
-  let unit = 1;
-  if (s.endsWith("bn") || s.endsWith("billion")) {
-    unit = 1_000_000_000;
-    s = s.replace(/(bn|billion)$/i, "");
-  } else if (s.endsWith("m") || s.endsWith("mn") || s.endsWith("mil") || s.endsWith("million")) {
-    unit = 1_000_000;
-    s = s.replace(/(m|mn|mil|million)$/i, "");
-  } else if (s.endsWith("k") || s.endsWith("thousand")) {
-    unit = 1_000;
-    s = s.replace(/(k|thousand)$/i, "");
-  }
-  
-  // Handle range patterns: "10-20", "10 to 20", "10..20", "between 10 and 20"
-  const rangePatterns = [
-    /(\d+(?:\.\d+)?)\s*(?:-|to|\.\.)\s*(\d+(?:\.\d+)?)/,  // "10-20", "10 to 20", "10..20"
-    /between\s*(\d+(?:\.\d+)?)\s*and\s*(\d+(?:\.\d+)?)/,  // "between 10 and 20"
-    /(\d+(?:\.\d+)?)\s*[~≈]\s*(\d+(?:\.\d+)?)/            // "10~20", "10≈20"
-  ];
-  
-  for (const pattern of rangePatterns) {
-    const match = s.match(pattern);
-    if (match) {
-      const a = parseFloat(match[1]) * unit;
-      const b = parseFloat(match[2]) * unit;
-      return (a + b) / 2;
-    }
-  }
-  
-  // Single value - extract first number found
-  const numMatch = s.match(/(\d+(?:\.\d+)?)/);
-  if (numMatch) {
-    const single = parseFloat(numMatch[1]) * unit;
-    return isNaN(single) ? undefined : single;
-  }
-  
-  return undefined;
-};
-
-const yearFrom = (d) => {
-  if (!d) return undefined;
-  const m = d.match(/(20\d{2}|19\d{2})/);
-  return m ? parseInt(m[1], 10) : undefined;
-};
