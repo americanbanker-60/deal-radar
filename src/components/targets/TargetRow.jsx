@@ -88,21 +88,25 @@ const TargetRow = React.memo(({
           <span className="text-xs text-muted-foreground">—</span>
         )}
       </td>
-      <td className="py-3 px-4">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => onGenerateRationale(target)}
-          disabled={isGeneratingRationale}
-          className="text-xs whitespace-nowrap"
-        >
-          {isGeneratingRationale ? (
-            <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-          ) : (
-            <Sparkles className="w-3 h-3 mr-1" />
-          )}
-          Rationale
-        </Button>
+      <td className="py-3 px-4 max-w-[300px]">
+        {target.strategicRationale ? (
+          <p className="text-xs text-slate-600 line-clamp-2">{target.strategicRationale}</p>
+        ) : (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onGenerateRationale(target)}
+            disabled={isGeneratingRationale}
+            className="text-xs whitespace-nowrap"
+          >
+            {isGeneratingRationale ? (
+              <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+            ) : (
+              <Sparkles className="w-3 h-3 mr-1" />
+            )}
+            Generate
+          </Button>
+        )}
       </td>
     </tr>
   );

@@ -992,6 +992,7 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
                     <SortHeader field="score">Score</SortHeader>
                     <th className="py-3 px-4 font-semibold">Fit</th>
                     <th className="py-3 px-4 font-semibold">Priority</th>
+                    <th className="py-3 px-4 font-semibold">Rationale</th>
                   </tr>
                 </thead>
                 <tbody>

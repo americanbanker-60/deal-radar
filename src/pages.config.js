@@ -52,8 +52,8 @@ import Home from './pages/Home';
 import OAuthCallback from './pages/OAuthCallback';
 import OpsConsole from './pages/OpsConsole';
 import PrivacyPolicy from './pages/PrivacyPolicy';
-import TermsOfService from './pages/TermsOfService';
 import SavedTargets from './pages/SavedTargets';
+import TermsOfService from './pages/TermsOfService';
 import __Layout from './Layout.jsx';
 
 
@@ -63,8 +63,8 @@ export const PAGES = {
     "OAuthCallback": OAuthCallback,
     "OpsConsole": OpsConsole,
     "PrivacyPolicy": PrivacyPolicy,
-    "TermsOfService": TermsOfService,
     "SavedTargets": SavedTargets,
+    "TermsOfService": TermsOfService,
 }
 
 export const pagesConfig = {
