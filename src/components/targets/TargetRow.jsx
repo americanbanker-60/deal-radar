@@ -4,6 +4,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { MapPin, Loader2, Sparkles } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { createPageUrl } from "../../utils";
 
 const TargetRow = React.memo(({ 
   target, 
@@ -12,8 +14,20 @@ const TargetRow = React.memo(({
   onGenerateRationale,
   isGeneratingRationale 
 }) => {
+  const navigate = useNavigate();
+
+  const handleRowClick = (e) => {
+    if (e.target.closest('input[type="checkbox"]') || e.target.closest('button')) {
+      return;
+    }
+    navigate(createPageUrl('TargetDetails') + `?id=${target.id}`);
+  };
+
   return (
-    <tr className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
+    <tr 
+      className="border-b border-slate-100 hover:bg-slate-50 transition-colors cursor-pointer"
+      onClick={handleRowClick}
+    >
       <td className="py-3 px-4">
         <Checkbox
           checked={isSelected}
