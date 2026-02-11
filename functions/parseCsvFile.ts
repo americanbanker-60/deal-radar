@@ -1,4 +1,4 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
 
 Deno.serve(async (req) => {
     try {
@@ -9,59 +9,72 @@ Deno.serve(async (req) => {
             return Response.json({ error: 'No file URL provided' }, { status: 400 });
         }
 
-        // Define JSON schema for extraction
-        const jsonSchema = {
-            type: "object",
-            properties: {
-                "Name": { type: "string" },
-                "Domain": { type: "string" },
-                "Description": { type: "string" },
-                "LinkedIn": { type: "string" },
-                "Revenue Estimate": { type: "string" },
-                "Employee Estimate": { type: "string" },
-                "Employees on Professional Networks": { type: "string" },
-                "Total Review Count": { type: "string" },
-                "Aggregate Rating": { type: "string" },
-                "City": { type: "string" },
-                "State": { type: "string" },
-                "Country": { type: "string" },
-                "Zip Code": { type: "string" },
-                "Year Founded": { type: "string" },
-                "Primary Email": { type: "string" },
-                "Primary Phone": { type: "string" },
-                "Notes": { type: "string" },
-                "Executive First Name": { type: "string" },
-                "Executive Last Name": { type: "string" },
-                "Executive Title": { type: "string" },
-                "Executive Email": { type: "string" },
-                "Short Name": { type: "string" },
-                "Sector": { type: "string" },
-                "Clinic Location Count": { type: "string" }
-            }
-        };
-
-        // Extract data using AI
-        const extractResult = await base44.asServiceRole.integrations.Core.ExtractDataFromUploadedFile({
-            file_url: fileUrl,
-            json_schema: jsonSchema
-        });
-
-        if (extractResult.status === "error") {
-            return Response.json({ error: extractResult.details }, { status: 500 });
+        // Fetch the CSV file
+        const response = await fetch(fileUrl);
+        if (!response.ok) {
+            return Response.json({ error: 'Failed to fetch file' }, { status: 400 });
         }
 
-        const rows = Array.isArray(extractResult.output) ? extractResult.output : [extractResult.output];
-        const headers = Object.keys(rows[0] || {});
+        const csvText = await response.text();
+        
+        // Parse CSV manually
+        const lines = csvText.split('\n').filter(line => line.trim());
+        if (lines.length === 0) {
+            return Response.json({ error: 'Empty CSV file' }, { status: 400 });
+        }
+
+        // Parse headers
+        const headers = parseCSVLine(lines[0]);
+        
+        // Parse rows
+        const rows = [];
+        for (let i = 1; i < lines.length; i++) {
+            const values = parseCSVLine(lines[i]);
+            const row = {};
+            headers.forEach((header, index) => {
+                row[header] = values[index] || '';
+            });
+            rows.push(row);
+        }
 
         return Response.json({ 
             headers, 
             rows,
             diagnostics: {
                 totalRows: rows.length,
-                extractionMethod: "AI-powered fuzzy mapping"
+                extractionMethod: "Direct CSV parsing"
             }
         });
     } catch (error) {
+        console.error('Parse error:', error);
         return Response.json({ error: error.message }, { status: 500 });
     }
 });
+
+// Helper function to parse CSV line (handles quoted values)
+function parseCSVLine(line) {
+    const result = [];
+    let current = '';
+    let inQuotes = false;
+    
+    for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+        
+        if (char === '"') {
+            if (inQuotes && line[i + 1] === '"') {
+                current += '"';
+                i++;
+            } else {
+                inQuotes = !inQuotes;
+            }
+        } else if (char === ',' && !inQuotes) {
+            result.push(current.trim());
+            current = '';
+        } else {
+            current += char;
+        }
+    }
+    
+    result.push(current.trim());
+    return result;
+}
