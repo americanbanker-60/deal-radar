@@ -686,7 +686,10 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
                     (clinicFilter === "missing" && !t.clinicCount) ||
                     (clinicFilter === "has" && t.clinicCount);
       const qualityMatch = qualityFilter === "all" || t.qualityTier === qualityFilter;
-      const sectorMatch = sectorFilter === "all" || t.sectorFocus === sectorFilter;
+      const sectorMatch = sectorFilter === "all" || 
+                    (sectorFilter === "missing" && (!t.sectorFocus || t.sectorFocus.trim() === '')) ||
+                    (sectorFilter === "has" && t.sectorFocus && t.sectorFocus.trim() !== '') ||
+                    t.sectorFocus === sectorFilter;
       const nameMatch = nameFilter === "all" ||
                     (nameFilter === "missing" && (!t.name || t.name.trim() === '')) ||
                     (nameFilter === "has" && t.name && t.name.trim() !== '');
@@ -1086,6 +1089,8 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Sectors</SelectItem>
+                    <SelectItem value="missing">Missing Sector</SelectItem>
+                    <SelectItem value="has">Has Sector</SelectItem>
                     {uniqueSectors.map(s => (
                       <SelectItem key={s} value={s}>{s}</SelectItem>
                     ))}
