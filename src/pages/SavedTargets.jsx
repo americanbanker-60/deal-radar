@@ -810,6 +810,31 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
             )}
           </div>
         </div>
+        <div className="flex flex-wrap gap-2 items-center">
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={async () => {
+              if (!confirm(`Delete all targets uploaded today (${new Date().toLocaleDateString()})? This cannot be undone.`)) return;
+              try {
+                const today = new Date().toISOString().split('T')[0];
+                const todayTargets = targets.filter(t => t.created_date.startsWith(today));
+                
+                for (const target of todayTargets) {
+                  await base44.entities.BDTarget.delete(target.id);
+                }
+                
+                await queryClient.invalidateQueries({ queryKey: ['bdTargets'] });
+                alert(`Deleted ${todayTargets.length} targets uploaded today`);
+              } catch (error) {
+                alert("Delete failed: " + error.message);
+              }
+            }}
+          >
+            Delete Today's Upload ({targets.filter(t => t.created_date.startsWith(new Date().toISOString().split('T')[0])).length})
+          </Button>
+        </div>
+
         <ActionButtons
           rescoring={rescoring}
           cleaningNames={cleaningNames}
