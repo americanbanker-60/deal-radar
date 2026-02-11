@@ -53,6 +53,8 @@ export default function SavedTargets() {
   const [generatingSingleRationale, setGeneratingSingleRationale] = useState(null);
   const [cleaningNames, setCleaningNames] = useState(false);
   const [cleanProgress, setCleanProgress] = useState({ current: 0, total: 0 });
+  const [extractingNames, setExtractingNames] = useState(false);
+  const [extractProgress, setExtractProgress] = useState({ current: 0, total: 0 });
   const [insights, setInsights] = useState("");
   const [emailSubject, setEmailSubject] = useState("BD Targets & Market Snapshot");
   const [emailBody, setEmailBody] = useState("");
@@ -432,6 +434,34 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
     setCleanProgress({ current: 0, total: 0 });
   };
 
+  const extractCompanyNamesForSelected = async () => {
+    const selectedList = filteredTargets.filter(t => selectedTargets.has(t.id));
+    const withWebsites = selectedList.filter(t => t.website && (!t.name || t.name.trim() === ''));
+    
+    if (withWebsites.length === 0) {
+      alert("Please select targets with websites but missing names");
+      return;
+    }
+
+    setExtractingNames(true);
+    setExtractProgress({ current: 0, total: withWebsites.length });
+
+    for (let i = 0; i < withWebsites.length; i++) {
+      const target = withWebsites[i];
+      setExtractProgress({ current: i + 1, total: withWebsites.length });
+
+      try {
+        await base44.functions.invoke('extractCompanyName', { targetId: target.id });
+      } catch (error) {
+        console.error(`Error extracting name for target ${target.id}:`, error);
+      }
+    }
+
+    await queryClient.invalidateQueries({ queryKey: ['bdTargets'] });
+    setExtractingNames(false);
+    setExtractProgress({ current: 0, total: 0 });
+  };
+
   const generateInsightsAndEmail = () => {
     const top = filteredTargets.slice(0, 10);
     const names = top.map(t => t.name).slice(0, 5).join(", ");
@@ -780,6 +810,8 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
           rescoring={rescoring}
           cleaningNames={cleaningNames}
           cleanProgress={cleanProgress}
+          extractingNames={extractingNames}
+          extractProgress={extractProgress}
           generatingShortNames={generatingShortNames}
           shortNameProgress={shortNameProgress}
           reclassifyingSectors={reclassifyingSectors}
@@ -798,6 +830,7 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
           targetsCount={targets.length}
           onRescore={rescoreTargets}
           onCleanNames={cleanCompanyNamesForSelected}
+          onExtractNames={extractCompanyNamesForSelected}
           onExportAll={() => exportCSV(true)}
           onGenerateInsights={generateInsightsAndEmail}
           onGenerateShortNames={generateShortNamesForSelected}
@@ -1059,6 +1092,10 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
 
       {cleaningNames && (
         <LoadingOverlay message="Cleaning Company Names..." progress={cleanProgress} />
+      )}
+
+      {extractingNames && (
+        <LoadingOverlay message="Extracting Company Names from Websites..." progress={extractProgress} />
       )}
 
       {detectingGrowth && (
