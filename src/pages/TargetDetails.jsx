@@ -10,7 +10,7 @@ import { Separator } from "@/components/ui/separator";
 import { 
   ArrowLeft, Building2, MapPin, DollarSign, Users, Globe, 
   Calendar, Target, Award, TrendingUp, Mail, Phone, User,
-  ExternalLink, Sparkles, Clock, FileText, AlertCircle
+  ExternalLink, Sparkles, Clock, FileText, AlertCircle, Tag
 } from "lucide-react";
 
 export default function TargetDetails() {
