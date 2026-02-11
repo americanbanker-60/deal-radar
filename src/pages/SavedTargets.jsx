@@ -38,6 +38,12 @@ export default function SavedTargets() {
   const [qualityFilter, setQualityFilter] = useState("all");
   const [sectorFilter, setSectorFilter] = useState("all");
   const [nameFilter, setNameFilter] = useState("all");
+  const [shortNameFilter, setShortNameFilter] = useState("all");
+  const [correspondenceFilter, setCorrespondenceFilter] = useState("all");
+  const [contactEnrichFilter, setContactEnrichFilter] = useState("all");
+  const [growthSignalsFilter, setGrowthSignalsFilter] = useState("all");
+  const [rationaleFilter, setRationaleFilter] = useState("all");
+  const [personalizationFilter, setPersonalizationFilter] = useState("all");
   const [selectedTargets, setSelectedTargets] = useState(new Set());
   const [reclassifyingSectors, setReclassifyingSectors] = useState(false);
   const [sectorProgress, setSectorProgress] = useState({ current: 0, total: 0 });
@@ -590,12 +596,32 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
       const nameMatch = nameFilter === "all" ||
                     (nameFilter === "missing" && (!t.name || t.name.trim() === '')) ||
                     (nameFilter === "has" && t.name && t.name.trim() !== '');
+      const shortNameMatch = shortNameFilter === "all" ||
+                    (shortNameFilter === "missing" && (!t.companyShortName || t.companyShortName.trim() === '')) ||
+                    (shortNameFilter === "has" && t.companyShortName && t.companyShortName.trim() !== '');
+      const correspondenceMatch = correspondenceFilter === "all" ||
+                    (correspondenceFilter === "missing" && (!t.correspondenceName || t.correspondenceName.trim() === '')) ||
+                    (correspondenceFilter === "has" && t.correspondenceName && t.correspondenceName.trim() !== '');
+      const contactEnrichMatch = contactEnrichFilter === "all" ||
+                    (contactEnrichFilter === "missing" && !t.contactPreferredName) ||
+                    (contactEnrichFilter === "has" && t.contactPreferredName);
+      const growthMatch = growthSignalsFilter === "all" ||
+                    (growthSignalsFilter === "missing" && (!t.growthSignals || t.growthSignals.trim() === '')) ||
+                    (growthSignalsFilter === "has" && t.growthSignals && t.growthSignals.trim() !== '');
+      const rationaleMatch = rationaleFilter === "all" ||
+                    (rationaleFilter === "missing" && (!t.strategicRationale || t.strategicRationale.trim() === '')) ||
+                    (rationaleFilter === "has" && t.strategicRationale && t.strategicRationale.trim() !== '');
+      const personalizationMatch = personalizationFilter === "all" ||
+                    (personalizationFilter === "missing" && (!t.personalization_snippet || t.personalization_snippet.trim() === '')) ||
+                    (personalizationFilter === "has" && t.personalization_snippet && t.personalization_snippet.trim() !== '');
       const searchMatch = !searchQuery || 
                     (t.name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
                     (t.companyShortName || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
                     (t.city || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
                     (t.state || "").toLowerCase().includes(searchQuery.toLowerCase());
-      return campaignMatch && statusMatch && clinicMatch && qualityMatch && sectorMatch && nameMatch && searchMatch;
+      return campaignMatch && statusMatch && clinicMatch && qualityMatch && sectorMatch && nameMatch && 
+             shortNameMatch && correspondenceMatch && contactEnrichMatch && growthMatch && rationaleMatch && 
+             personalizationMatch && searchMatch;
     });
 
     if (sortField) {
@@ -619,7 +645,7 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
 
   React.useEffect(() => {
     setCurrentPage(1);
-  }, [selectedCampaign, statusFilter, clinicFilter, qualityFilter, sectorFilter, nameFilter, searchQuery]);
+  }, [selectedCampaign, statusFilter, clinicFilter, qualityFilter, sectorFilter, nameFilter, shortNameFilter, correspondenceFilter, contactEnrichFilter, growthSignalsFilter, rationaleFilter, personalizationFilter, searchQuery]);
 
   const toggleSort = (field) => {
     if (sortField === field) {
@@ -897,7 +923,7 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
             </CollapsibleTrigger>
           </CardHeader>
           <CollapsibleContent>
-            <CardContent className="grid md:grid-cols-7 gap-4 pt-0">
+            <CardContent className="grid md:grid-cols-4 lg:grid-cols-5 gap-4 pt-0">
               <div className="space-y-2">
                 <div className="text-sm font-medium">Campaign</div>
                 <Select value={selectedCampaign} onValueChange={setSelectedCampaign}>
@@ -989,6 +1015,90 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
               </div>
 
               <div className="space-y-2">
+                <div className="text-sm font-medium">Short Name</div>
+                <Select value={shortNameFilter} onValueChange={setShortNameFilter}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All</SelectItem>
+                    <SelectItem value="missing">Missing Short Name</SelectItem>
+                    <SelectItem value="has">Has Short Name</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <div className="text-sm font-medium">Correspondence</div>
+                <Select value={correspondenceFilter} onValueChange={setCorrespondenceFilter}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All</SelectItem>
+                    <SelectItem value="missing">Missing Correspondence</SelectItem>
+                    <SelectItem value="has">Has Correspondence</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <div className="text-sm font-medium">Contact Enrichment</div>
+                <Select value={contactEnrichFilter} onValueChange={setContactEnrichFilter}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All</SelectItem>
+                    <SelectItem value="missing">Not Enriched</SelectItem>
+                    <SelectItem value="has">Enriched</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <div className="text-sm font-medium">Growth Signals</div>
+                <Select value={growthSignalsFilter} onValueChange={setGrowthSignalsFilter}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All</SelectItem>
+                    <SelectItem value="missing">Missing Signals</SelectItem>
+                    <SelectItem value="has">Has Signals</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <div className="text-sm font-medium">Rationale</div>
+                <Select value={rationaleFilter} onValueChange={setRationaleFilter}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All</SelectItem>
+                    <SelectItem value="missing">Missing Rationale</SelectItem>
+                    <SelectItem value="has">Has Rationale</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <div className="text-sm font-medium">Personalization</div>
+                <Select value={personalizationFilter} onValueChange={setPersonalizationFilter}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All</SelectItem>
+                    <SelectItem value="missing">Missing Personalization</SelectItem>
+                    <SelectItem value="has">Has Personalization</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2 md:col-span-2 lg:col-span-1">
                 <div className="text-sm font-medium">Search</div>
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
