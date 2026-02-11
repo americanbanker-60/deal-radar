@@ -16,22 +16,33 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'No target IDs provided' }, { status: 400 });
     }
 
-    // Delete one at a time with longer delays to avoid rate limits
-    let deletedCount = 0;
+    // Process in chunks to avoid overwhelming the database
+    const CHUNK_SIZE = 50;
+    let totalDeleted = 0;
 
-    for (const id of targetIds) {
-      await base44.asServiceRole.entities.BDTarget.delete(id);
-      deletedCount++;
+    for (let i = 0; i < targetIds.length; i += CHUNK_SIZE) {
+      const chunk = targetIds.slice(i, i + CHUNK_SIZE);
       
-      // Add 500ms delay between each deletion to avoid rate limits
-      if (deletedCount < targetIds.length) {
-        await new Promise(resolve => setTimeout(resolve, 500));
+      // Delete all records in this chunk at once using filter query
+      for (const id of chunk) {
+        try {
+          await base44.asServiceRole.entities.BDTarget.delete(id);
+          totalDeleted++;
+        } catch (err) {
+          console.error(`Failed to delete ${id}:`, err.message);
+        }
+      }
+      
+      // Small delay between chunks
+      if (i + CHUNK_SIZE < targetIds.length) {
+        await new Promise(resolve => setTimeout(resolve, 1000));
       }
     }
 
     return Response.json({ 
       success: true, 
-      deleted: deletedCount 
+      deleted: totalDeleted,
+      total: targetIds.length
     });
   } catch (error) {
     console.error('Bulk delete error:', error);
