@@ -940,19 +940,6 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
               </div>
 
               <div className="space-y-2">
-                <div className="text-sm font-medium">Search</div>
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                  <Input
-                    placeholder="Search by name or location..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-9"
-                  />
-                </div>
-              </div>
-            </CardContent>
-              <div className="space-y-2">
                 <div className="text-sm font-medium">Company Name</div>
                 <Select value={nameFilter} onValueChange={setNameFilter}>
                   <SelectTrigger>
@@ -964,6 +951,19 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
                     <SelectItem value="has">Has Name</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+
+              <div className="space-y-2">
+                <div className="text-sm font-medium">Search</div>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <Input
+                    placeholder="Search by name or location..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-9"
+                  />
+                </div>
               </div>
             </CardContent>
           </CollapsibleContent>
