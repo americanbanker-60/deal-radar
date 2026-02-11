@@ -21,6 +21,8 @@ export default function ActionButtons({
   personalizingTargets,
   detectingGrowth,
   generatingRationales,
+  enrichingAll,
+  enrichAllProgress,
   selectedCount,
   filteredCount,
   targetsCount,
@@ -38,6 +40,7 @@ export default function ActionButtons({
   onBulkPersonalize,
   onDetectGrowth,
   onGenerateRationales,
+  onEnrichAll,
   onExportSelected
 }) {
   return (
@@ -290,6 +293,26 @@ export default function ActionButtons({
             <Sparkles className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
             <span className="hidden lg:inline">Rationales ({selectedCount})</span>
             <span className="lg:hidden">Rationale ({selectedCount})</span>
+          </>
+        )}
+      </Button>
+
+      <Button 
+        onClick={onEnrichAll} 
+        disabled={enrichingAll || selectedCount === 0}
+        className="bg-purple-600 hover:bg-purple-700 text-xs sm:text-sm"
+      >
+        {enrichingAll ? (
+          <>
+            <Loader2 className="w-3 h-3 sm:w-4 sm:h-4 mr-2 animate-spin" />
+            <span className="hidden sm:inline">{enrichAllProgress.step} ({enrichAllProgress.current}/{enrichAllProgress.total})</span>
+            <span className="sm:hidden">Enriching...</span>
+          </>
+        ) : (
+          <>
+            <Sparkles className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
+            <span className="hidden lg:inline">Enrich All ({selectedCount})</span>
+            <span className="lg:hidden">Enrich All</span>
           </>
         )}
       </Button>

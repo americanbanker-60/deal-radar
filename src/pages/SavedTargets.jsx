@@ -59,6 +59,8 @@ export default function SavedTargets() {
   const [generatingSingleRationale, setGeneratingSingleRationale] = useState(null);
   const [cleaningNames, setCleaningNames] = useState(false);
   const [cleanProgress, setCleanProgress] = useState({ current: 0, total: 0 });
+  const [enrichingAll, setEnrichingAll] = useState(false);
+  const [enrichAllProgress, setEnrichAllProgress] = useState({ step: "", current: 0, total: 0 });
   const [extractingNames, setExtractingNames] = useState(false);
   const [extractProgress, setExtractProgress] = useState({ current: 0, total: 0 });
   const [insights, setInsights] = useState("");
@@ -369,6 +371,132 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
     await queryClient.invalidateQueries({ queryKey: ['bdTargets'] });
     setGeneratingRationales(false);
     setRationaleProgress({ current: 0, total: 0 });
+  };
+
+  const enrichAllSelected = async () => {
+    const selectedList = filteredTargets.filter(t => selectedTargets.has(t.id));
+    
+    if (selectedList.length === 0) {
+      alert("Please select targets to enrich");
+      return;
+    }
+
+    setEnrichingAll(true);
+    
+    try {
+      // 1. Correspondence Names
+      const needsCorrespondence = selectedList.filter(t => !t.correspondenceName || t.correspondenceName.trim() === '');
+      if (needsCorrespondence.length > 0) {
+        setEnrichAllProgress({ step: "Generating Correspondence Names", current: 0, total: needsCorrespondence.length });
+        for (let i = 0; i < needsCorrespondence.length; i++) {
+          setEnrichAllProgress({ step: "Generating Correspondence Names", current: i + 1, total: needsCorrespondence.length });
+          try {
+            await base44.functions.invoke('generateShortNames', { targetId: needsCorrespondence[i].id });
+          } catch (error) {
+            console.error(`Error generating correspondence name for ${needsCorrespondence[i].name}:`, error);
+          }
+        }
+        await queryClient.invalidateQueries({ queryKey: ['bdTargets'] });
+      }
+
+      // 2. Quality Scoring
+      const needsQuality = selectedList.filter(t => !t.qualityTier);
+      if (needsQuality.length > 0) {
+        setEnrichAllProgress({ step: "Scoring Quality", current: 0, total: needsQuality.length });
+        for (let i = 0; i < needsQuality.length; i++) {
+          setEnrichAllProgress({ step: "Scoring Quality", current: i + 1, total: needsQuality.length });
+          try {
+            await base44.functions.invoke('scoreTargetQuality', { targetId: needsQuality[i].id });
+          } catch (error) {
+            console.error(`Error scoring ${needsQuality[i].name}:`, error);
+          }
+        }
+        await queryClient.invalidateQueries({ queryKey: ['bdTargets'] });
+      }
+
+      // 3. Contact Enrichment
+      const needsContactEnrich = selectedList.filter(t => t.contactFirstName && t.contactLastName && !t.contactPreferredName);
+      if (needsContactEnrich.length > 0) {
+        setEnrichAllProgress({ step: "Enriching Contacts", current: 0, total: needsContactEnrich.length });
+        for (let i = 0; i < needsContactEnrich.length; i++) {
+          setEnrichAllProgress({ step: "Enriching Contacts", current: i + 1, total: needsContactEnrich.length });
+          try {
+            await base44.functions.invoke('enrichContact', { targetId: needsContactEnrich[i].id });
+          } catch (error) {
+            console.error(`Error enriching ${needsContactEnrich[i].name}:`, error);
+          }
+        }
+        await queryClient.invalidateQueries({ queryKey: ['bdTargets'] });
+      }
+
+      // 4. Personalization
+      const needsPersonalization = selectedList.filter(t => !t.personalization_snippet || t.personalization_snippet.trim() === '');
+      if (needsPersonalization.length > 0) {
+        setEnrichAllProgress({ step: "Personalizing Targets", current: 0, total: needsPersonalization.length });
+        for (let i = 0; i < needsPersonalization.length; i++) {
+          const target = needsPersonalization[i];
+          setEnrichAllProgress({ step: "Personalizing Targets", current: i + 1, total: needsPersonalization.length });
+          try {
+            const city = target.city || "your area";
+            const sector = target.sectorFocus || target.subsector || "healthcare";
+            const prompt = `Write a single, natural personalized opening line for a business development email to ${target.name}. Location: ${city}, Sector: ${sector}. Write ONLY the opening line, no quotes.`;
+            const result = await base44.integrations.Core.InvokeLLM({ prompt, add_context_from_internet: false });
+            await base44.entities.BDTarget.update(target.id, { personalization_snippet: result.trim() });
+          } catch (error) {
+            console.error(`Error personalizing ${target.name}:`, error);
+          }
+        }
+        await queryClient.invalidateQueries({ queryKey: ['bdTargets'] });
+      }
+
+      // 5. Growth Signals
+      const needsGrowth = selectedList.filter(t => !t.growthSignals || t.growthSignals.trim() === '');
+      if (needsGrowth.length > 0) {
+        setEnrichAllProgress({ step: "Detecting Growth Signals", current: 0, total: needsGrowth.length });
+        for (let i = 0; i < needsGrowth.length; i++) {
+          const target = needsGrowth[i];
+          setEnrichAllProgress({ step: "Detecting Growth Signals", current: i + 1, total: needsGrowth.length });
+          try {
+            const prompt = `Search for recent news about "${target.name}" (${target.website || 'healthcare company'}) from the last 6 months. Look for: new offices, awards, hires, funding. Return JSON: {"signals": ["brief summaries"], "hasGrowthSignals": true/false}`;
+            const result = await base44.integrations.Core.InvokeLLM({
+              prompt,
+              add_context_from_internet: true,
+              response_json_schema: { type: "object", properties: { signals: { type: "array", items: { type: "string" } }, hasGrowthSignals: { type: "boolean" } } }
+            });
+            await base44.entities.BDTarget.update(target.id, { growthSignals: (result.signals || []).join(", "), growthSignalsDate: new Date().toISOString() });
+          } catch (error) {
+            console.error(`Error detecting growth for ${target.name}:`, error);
+          }
+        }
+        await queryClient.invalidateQueries({ queryKey: ['bdTargets'] });
+      }
+
+      // 6. Strategic Rationales
+      const needsRationale = selectedList.filter(t => !t.strategicRationale || t.strategicRationale.trim() === '');
+      if (needsRationale.length > 0) {
+        setEnrichAllProgress({ step: "Generating Rationales", current: 0, total: needsRationale.length });
+        for (let i = 0; i < needsRationale.length; i++) {
+          const target = needsRationale[i];
+          setEnrichAllProgress({ step: "Generating Rationales", current: i + 1, total: needsRationale.length });
+          try {
+            const prompt = `Research "${target.name}" (${target.website || 'healthcare company'} in ${target.city}, ${target.state}) and write a 2-sentence strategic investment thesis. Sector: ${target.sectorFocus || 'Healthcare Services'}, Revenue: ~$${target.revenue}M, Employees: ${target.employees}. Be specific and data-driven.`;
+            const rationale = await base44.integrations.Core.InvokeLLM({ prompt, add_context_from_internet: true });
+            await base44.entities.BDTarget.update(target.id, { strategicRationale: rationale.trim() });
+          } catch (error) {
+            console.error(`Error generating rationale for ${target.name}:`, error);
+          }
+        }
+        await queryClient.invalidateQueries({ queryKey: ['bdTargets'] });
+      }
+
+      alert("Enrichment complete!");
+    } catch (error) {
+      console.error("Enrichment error:", error);
+      alert("Enrichment failed: " + error.message);
+    } finally {
+      setEnrichingAll(false);
+      setEnrichAllProgress({ step: "", current: 0, total: 0 });
+    }
   };
 
   const generateSingleRationale = async (target) => {
@@ -885,6 +1013,8 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
           personalizingTargets={personalizingTargets}
           detectingGrowth={detectingGrowth}
           generatingRationales={generatingRationales}
+          enrichingAll={enrichingAll}
+          enrichAllProgress={enrichAllProgress}
           selectedCount={selectedTargets.size}
           filteredCount={filteredTargets.length}
           targetsCount={targets.length}
@@ -902,6 +1032,7 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
           onBulkPersonalize={bulkPersonalizeSelected}
           onDetectGrowth={detectGrowthSignalsForSelected}
           onGenerateRationales={generateRationalesForSelected}
+          onEnrichAll={enrichAllSelected}
           onExportSelected={() => exportCSV(false)}
         />
       </div>
