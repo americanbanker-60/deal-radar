@@ -92,7 +92,7 @@ export default function TargetDetails() {
         </Link>
         <div className="flex-1">
           <h1 className="text-3xl font-bold text-slate-900">{target.name}</h1>
-          <p className="text-slate-600 mt-1">{target.companyShortName || target.correspondenceName}</p>
+          <p className="text-slate-600 mt-1">{target.correspondenceName}</p>
         </div>
         <Badge className={
           target.qualityTier === "great" ? "bg-green-100 text-green-800 border-green-200" :

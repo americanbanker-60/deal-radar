@@ -55,14 +55,14 @@ Return JSON:
             }
         });
 
-        const cleanShortName = result.friendlyName?.trim() || target.name;
+        const correspondenceName = result.friendlyName?.trim() || target.name;
 
         await base44.entities.BDTarget.update(targetId, { 
-            companyShortName: cleanShortName 
+            correspondenceName: correspondenceName 
         });
 
         return Response.json({ 
-            shortName: cleanShortName,
+            correspondenceName: correspondenceName,
             targetId 
         });
     } catch (error) {

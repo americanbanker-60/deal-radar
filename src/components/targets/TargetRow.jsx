@@ -35,7 +35,6 @@ const TargetRow = React.memo(({
         />
       </td>
       <td className="py-3 px-4 max-w-[200px] truncate font-medium">{target.name}</td>
-      <td className="py-3 px-4 text-slate-600">{target.companyShortName || "—"}</td>
       <td className="py-3 px-4 text-slate-600">{target.correspondenceName || "—"}</td>
       <td className="py-3 px-4">
         {target.sectorFocus && (

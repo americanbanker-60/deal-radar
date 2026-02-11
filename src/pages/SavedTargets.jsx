@@ -38,7 +38,6 @@ export default function SavedTargets() {
   const [qualityFilter, setQualityFilter] = useState("all");
   const [sectorFilter, setSectorFilter] = useState("all");
   const [nameFilter, setNameFilter] = useState("all");
-  const [shortNameFilter, setShortNameFilter] = useState("all");
   const [correspondenceFilter, setCorrespondenceFilter] = useState("all");
   const [contactEnrichFilter, setContactEnrichFilter] = useState("all");
   const [growthSignalsFilter, setGrowthSignalsFilter] = useState("all");
@@ -195,11 +194,11 @@ export default function SavedTargets() {
     }
   };
 
-  const generateShortNamesForSelected = async () => {
+  const generateCorrespondenceNamesForSelected = async () => {
     const selectedList = filteredTargets.filter(t => selectedTargets.has(t.id));
     
     if (selectedList.length === 0) {
-      alert("Please select targets to generate short names");
+      alert("Please select targets to generate correspondence names");
       return;
     }
 
@@ -213,7 +212,7 @@ export default function SavedTargets() {
       try {
         await base44.functions.invoke('generateShortNames', { targetId: target.id });
       } catch (error) {
-        console.error(`Error generating short name for ${target.name}:`, error);
+        console.error(`Error generating correspondence name for ${target.name}:`, error);
       }
     }
 
@@ -596,9 +595,6 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
       const nameMatch = nameFilter === "all" ||
                     (nameFilter === "missing" && (!t.name || t.name.trim() === '')) ||
                     (nameFilter === "has" && t.name && t.name.trim() !== '');
-      const shortNameMatch = shortNameFilter === "all" ||
-                    (shortNameFilter === "missing" && (!t.companyShortName || t.companyShortName.trim() === '')) ||
-                    (shortNameFilter === "has" && t.companyShortName && t.companyShortName.trim() !== '');
       const correspondenceMatch = correspondenceFilter === "all" ||
                     (correspondenceFilter === "missing" && (!t.correspondenceName || t.correspondenceName.trim() === '')) ||
                     (correspondenceFilter === "has" && t.correspondenceName && t.correspondenceName.trim() !== '');
@@ -616,11 +612,11 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
                     (personalizationFilter === "has" && t.personalization_snippet && t.personalization_snippet.trim() !== '');
       const searchMatch = !searchQuery || 
                     (t.name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-                    (t.companyShortName || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+                    (t.correspondenceName || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
                     (t.city || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
                     (t.state || "").toLowerCase().includes(searchQuery.toLowerCase());
       return campaignMatch && statusMatch && clinicMatch && qualityMatch && sectorMatch && nameMatch && 
-             shortNameMatch && correspondenceMatch && contactEnrichMatch && growthMatch && rationaleMatch && 
+             correspondenceMatch && contactEnrichMatch && growthMatch && rationaleMatch && 
              personalizationMatch && searchMatch;
     });
 
@@ -645,7 +641,7 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
 
   React.useEffect(() => {
     setCurrentPage(1);
-  }, [selectedCampaign, statusFilter, clinicFilter, qualityFilter, sectorFilter, nameFilter, shortNameFilter, correspondenceFilter, contactEnrichFilter, growthSignalsFilter, rationaleFilter, personalizationFilter, searchQuery]);
+  }, [selectedCampaign, statusFilter, clinicFilter, qualityFilter, sectorFilter, nameFilter, correspondenceFilter, contactEnrichFilter, growthSignalsFilter, rationaleFilter, personalizationFilter, searchQuery]);
 
   const toggleSort = (field) => {
     if (sortField === field) {
@@ -699,7 +695,6 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
     const data = toExport.map(t => ({
       Campaign: t.campaign,
       "Company Name": t.name,
-      "Short Name": t.companyShortName,
       "Correspondence Name": t.correspondenceName,
       "Sector Focus": t.sectorFocus,
       City: t.city,
@@ -898,7 +893,7 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
           onExtractNames={extractCompanyNamesForSelected}
           onExportAll={() => exportCSV(true)}
           onGenerateInsights={generateInsightsAndEmail}
-          onGenerateShortNames={generateShortNamesForSelected}
+          onGenerateShortNames={generateCorrespondenceNamesForSelected}
           onReclassify={reclassifySelectedSectors}
           onAssignSector={() => setShowBulkSectorDialog(true)}
           onScoreQuality={scoreSelectedQuality}
@@ -1015,21 +1010,7 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
               </div>
 
               <div className="space-y-2">
-                <div className="text-sm font-medium">Short Name</div>
-                <Select value={shortNameFilter} onValueChange={setShortNameFilter}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All</SelectItem>
-                    <SelectItem value="missing">Missing Short Name</SelectItem>
-                    <SelectItem value="has">Has Short Name</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <div className="text-sm font-medium">Correspondence</div>
+                <div className="text-sm font-medium">Correspondence Name</div>
                 <Select value={correspondenceFilter} onValueChange={setCorrespondenceFilter}>
                   <SelectTrigger>
                     <SelectValue />
@@ -1175,8 +1156,7 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
                       />
                     </th>
                     <th className="py-3 px-4 font-semibold whitespace-nowrap">Name</th>
-                    <th className="py-3 px-4 font-semibold whitespace-nowrap">Short Name</th>
-                    <th className="py-3 px-4 font-semibold whitespace-nowrap">Correspondence</th>
+                    <th className="py-3 px-4 font-semibold whitespace-nowrap">Correspondence Name</th>
                     <th className="py-3 px-4 font-semibold whitespace-nowrap">Sector</th>
                     <th className="py-3 px-4 font-semibold whitespace-nowrap">City</th>
                     <th className="py-3 px-4 font-semibold whitespace-nowrap">State</th>
