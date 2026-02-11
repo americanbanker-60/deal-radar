@@ -1,11 +1,13 @@
 import React from "react";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, Sparkles, Download, CheckSquare, Globe2, UserCheck, Award, Tag, Building2, Loader2 } from "lucide-react";
+import { RefreshCw, Sparkles, Download, CheckSquare, Globe2, UserCheck, Award, Tag, Building2, Loader2, FileText } from "lucide-react";
 
 export default function ActionButtons({
   rescoring,
   cleaningNames,
   cleanProgress,
+  extractingNames,
+  extractProgress,
   generatingShortNames,
   shortNameProgress,
   reclassifyingSectors,
@@ -24,6 +26,7 @@ export default function ActionButtons({
   targetsCount,
   onRescore,
   onCleanNames,
+  onExtractNames,
   onExportAll,
   onGenerateInsights,
   onGenerateShortNames,
@@ -71,6 +74,27 @@ export default function ActionButtons({
             <Sparkles className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
             <span className="hidden lg:inline">Clean Names ({selectedCount})</span>
             <span className="lg:hidden">Clean ({selectedCount})</span>
+          </>
+        )}
+      </Button>
+
+      <Button 
+        variant="outline" 
+        onClick={onExtractNames} 
+        disabled={extractingNames || selectedCount === 0}
+        className="text-xs sm:text-sm"
+      >
+        {extractingNames ? (
+          <>
+            <Loader2 className="w-3 h-3 sm:w-4 sm:h-4 mr-2 animate-spin" />
+            <span className="hidden sm:inline">Extracting {extractProgress.current}/{extractProgress.total}</span>
+            <span className="sm:hidden">Extract...</span>
+          </>
+        ) : (
+          <>
+            <FileText className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
+            <span className="hidden lg:inline">Extract Names ({selectedCount})</span>
+            <span className="lg:hidden">Extract ({selectedCount})</span>
           </>
         )}
       </Button>
