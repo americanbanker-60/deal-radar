@@ -828,26 +828,12 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
               
               setRescoring(true);
               try {
-                // Delete in small batches with delays to avoid rate limits
-                const BATCH_SIZE = 10;
-                let deletedCount = 0;
-                
-                for (let i = 0; i < todayTargets.length; i += BATCH_SIZE) {
-                  const batch = todayTargets.slice(i, i + BATCH_SIZE);
-                  
-                  for (const target of batch) {
-                    await base44.entities.BDTarget.delete(target.id);
-                    deletedCount++;
-                  }
-                  
-                  // Add delay between batches to avoid rate limits
-                  if (i + BATCH_SIZE < todayTargets.length) {
-                    await new Promise(resolve => setTimeout(resolve, 500));
-                  }
-                }
+                const result = await base44.functions.invoke('bulkDeleteTargets', {
+                  targetIds: todayTargets.map(t => t.id)
+                });
                 
                 await queryClient.invalidateQueries({ queryKey: ['bdTargets'] });
-                alert(`Successfully deleted ${deletedCount} targets`);
+                alert(`Successfully deleted ${result.data.deleted} targets`);
               } catch (error) {
                 console.error("Delete error:", error);
                 alert("Delete failed: " + error.message);
