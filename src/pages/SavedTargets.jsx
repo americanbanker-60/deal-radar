@@ -37,6 +37,7 @@ export default function SavedTargets() {
   const [clinicFilter, setClinicFilter] = useState("all");
   const [qualityFilter, setQualityFilter] = useState("all");
   const [sectorFilter, setSectorFilter] = useState("all");
+  const [nameFilter, setNameFilter] = useState("all");
   const [selectedTargets, setSelectedTargets] = useState(new Set());
   const [reclassifyingSectors, setReclassifyingSectors] = useState(false);
   const [sectorProgress, setSectorProgress] = useState({ current: 0, total: 0 });
@@ -586,12 +587,15 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
                     (clinicFilter === "has" && t.clinicCount);
       const qualityMatch = qualityFilter === "all" || t.qualityTier === qualityFilter;
       const sectorMatch = sectorFilter === "all" || t.sectorFocus === sectorFilter;
+      const nameMatch = nameFilter === "all" ||
+                    (nameFilter === "missing" && (!t.name || t.name.trim() === '')) ||
+                    (nameFilter === "has" && t.name && t.name.trim() !== '');
       const searchMatch = !searchQuery || 
                     (t.name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
                     (t.companyShortName || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
                     (t.city || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
                     (t.state || "").toLowerCase().includes(searchQuery.toLowerCase());
-      return campaignMatch && statusMatch && clinicMatch && qualityMatch && sectorMatch && searchMatch;
+      return campaignMatch && statusMatch && clinicMatch && qualityMatch && sectorMatch && nameMatch && searchMatch;
     });
 
     if (sortField) {
@@ -603,7 +607,7 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
     }
 
     return filtered;
-  }, [targets, selectedCampaign, statusFilter, clinicFilter, qualityFilter, sectorFilter, searchQuery, sortField, sortDirection]);
+  }, [targets, selectedCampaign, statusFilter, clinicFilter, qualityFilter, sectorFilter, nameFilter, searchQuery, sortField, sortDirection]);
 
   const paginatedTargets = useMemo(() => {
     const startIndex = (currentPage - 1) * itemsPerPage;
@@ -615,7 +619,7 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
 
   React.useEffect(() => {
     setCurrentPage(1);
-  }, [selectedCampaign, statusFilter, clinicFilter, qualityFilter, sectorFilter, searchQuery]);
+  }, [selectedCampaign, statusFilter, clinicFilter, qualityFilter, sectorFilter, nameFilter, searchQuery]);
 
   const toggleSort = (field) => {
     if (sortField === field) {
@@ -946,6 +950,20 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
                     className="pl-9"
                   />
                 </div>
+              </div>
+            </CardContent>
+              <div className="space-y-2">
+                <div className="text-sm font-medium">Company Name</div>
+                <Select value={nameFilter} onValueChange={setNameFilter}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All</SelectItem>
+                    <SelectItem value="missing">Missing Name</SelectItem>
+                    <SelectItem value="has">Has Name</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </CardContent>
           </CollapsibleContent>
