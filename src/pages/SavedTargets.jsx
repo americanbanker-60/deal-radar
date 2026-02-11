@@ -384,58 +384,39 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
     setEnrichingAll(true);
     
     try {
-      // 1. Correspondence Names
-      const needsCorrespondence = selectedList.filter(t => !t.correspondenceName || t.correspondenceName.trim() === '');
-      if (needsCorrespondence.length > 0) {
-        setEnrichAllProgress({ step: "Generating Correspondence Names", current: 0, total: needsCorrespondence.length });
-        for (let i = 0; i < needsCorrespondence.length; i++) {
-          setEnrichAllProgress({ step: "Generating Correspondence Names", current: i + 1, total: needsCorrespondence.length });
+      for (let i = 0; i < selectedList.length; i++) {
+        const target = selectedList[i];
+        setEnrichAllProgress({ step: `Enriching ${target.name}`, current: i + 1, total: selectedList.length });
+
+        // 1. Correspondence Name
+        if (!target.correspondenceName || target.correspondenceName.trim() === '') {
           try {
-            await base44.functions.invoke('generateShortNames', { targetId: needsCorrespondence[i].id });
+            await base44.functions.invoke('generateShortNames', { targetId: target.id });
           } catch (error) {
-            console.error(`Error generating correspondence name for ${needsCorrespondence[i].name}:`, error);
+            console.error(`Error generating correspondence name for ${target.name}:`, error);
           }
         }
-        await queryClient.invalidateQueries({ queryKey: ['bdTargets'] });
-      }
 
-      // 2. Quality Scoring
-      const needsQuality = selectedList.filter(t => !t.qualityTier);
-      if (needsQuality.length > 0) {
-        setEnrichAllProgress({ step: "Scoring Quality", current: 0, total: needsQuality.length });
-        for (let i = 0; i < needsQuality.length; i++) {
-          setEnrichAllProgress({ step: "Scoring Quality", current: i + 1, total: needsQuality.length });
+        // 2. Quality Score
+        if (!target.qualityTier) {
           try {
-            await base44.functions.invoke('scoreTargetQuality', { targetId: needsQuality[i].id });
+            await base44.functions.invoke('scoreTargetQuality', { targetId: target.id });
           } catch (error) {
-            console.error(`Error scoring ${needsQuality[i].name}:`, error);
+            console.error(`Error scoring ${target.name}:`, error);
           }
         }
-        await queryClient.invalidateQueries({ queryKey: ['bdTargets'] });
-      }
 
-      // 3. Contact Enrichment
-      const needsContactEnrich = selectedList.filter(t => t.contactFirstName && t.contactLastName && !t.contactPreferredName);
-      if (needsContactEnrich.length > 0) {
-        setEnrichAllProgress({ step: "Enriching Contacts", current: 0, total: needsContactEnrich.length });
-        for (let i = 0; i < needsContactEnrich.length; i++) {
-          setEnrichAllProgress({ step: "Enriching Contacts", current: i + 1, total: needsContactEnrich.length });
+        // 3. Contact Enrichment
+        if (target.contactFirstName && target.contactLastName && !target.contactPreferredName) {
           try {
-            await base44.functions.invoke('enrichContact', { targetId: needsContactEnrich[i].id });
+            await base44.functions.invoke('enrichContact', { targetId: target.id });
           } catch (error) {
-            console.error(`Error enriching ${needsContactEnrich[i].name}:`, error);
+            console.error(`Error enriching contact for ${target.name}:`, error);
           }
         }
-        await queryClient.invalidateQueries({ queryKey: ['bdTargets'] });
-      }
 
-      // 4. Personalization
-      const needsPersonalization = selectedList.filter(t => !t.personalization_snippet || t.personalization_snippet.trim() === '');
-      if (needsPersonalization.length > 0) {
-        setEnrichAllProgress({ step: "Personalizing Targets", current: 0, total: needsPersonalization.length });
-        for (let i = 0; i < needsPersonalization.length; i++) {
-          const target = needsPersonalization[i];
-          setEnrichAllProgress({ step: "Personalizing Targets", current: i + 1, total: needsPersonalization.length });
+        // 4. Personalization
+        if (!target.personalization_snippet || target.personalization_snippet.trim() === '') {
           try {
             const city = target.city || "your area";
             const sector = target.sectorFocus || target.subsector || "healthcare";
@@ -446,16 +427,9 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
             console.error(`Error personalizing ${target.name}:`, error);
           }
         }
-        await queryClient.invalidateQueries({ queryKey: ['bdTargets'] });
-      }
 
-      // 5. Growth Signals
-      const needsGrowth = selectedList.filter(t => !t.growthSignals || t.growthSignals.trim() === '');
-      if (needsGrowth.length > 0) {
-        setEnrichAllProgress({ step: "Detecting Growth Signals", current: 0, total: needsGrowth.length });
-        for (let i = 0; i < needsGrowth.length; i++) {
-          const target = needsGrowth[i];
-          setEnrichAllProgress({ step: "Detecting Growth Signals", current: i + 1, total: needsGrowth.length });
+        // 5. Growth Signals
+        if (!target.growthSignals || target.growthSignals.trim() === '') {
           try {
             const prompt = `Search for recent news about "${target.name}" (${target.website || 'healthcare company'}) from the last 6 months. Look for: new offices, awards, hires, funding. Return JSON: {"signals": ["brief summaries"], "hasGrowthSignals": true/false}`;
             const result = await base44.integrations.Core.InvokeLLM({
@@ -468,16 +442,9 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
             console.error(`Error detecting growth for ${target.name}:`, error);
           }
         }
-        await queryClient.invalidateQueries({ queryKey: ['bdTargets'] });
-      }
 
-      // 6. Strategic Rationales
-      const needsRationale = selectedList.filter(t => !t.strategicRationale || t.strategicRationale.trim() === '');
-      if (needsRationale.length > 0) {
-        setEnrichAllProgress({ step: "Generating Rationales", current: 0, total: needsRationale.length });
-        for (let i = 0; i < needsRationale.length; i++) {
-          const target = needsRationale[i];
-          setEnrichAllProgress({ step: "Generating Rationales", current: i + 1, total: needsRationale.length });
+        // 6. Strategic Rationale
+        if (!target.strategicRationale || target.strategicRationale.trim() === '') {
           try {
             const prompt = `Research "${target.name}" (${target.website || 'healthcare company'} in ${target.city}, ${target.state}) and write a 2-sentence strategic investment thesis. Sector: ${target.sectorFocus || 'Healthcare Services'}, Revenue: ~$${target.revenue}M, Employees: ${target.employees}. Be specific and data-driven.`;
             const rationale = await base44.integrations.Core.InvokeLLM({ prompt, add_context_from_internet: true });
@@ -486,9 +453,9 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
             console.error(`Error generating rationale for ${target.name}:`, error);
           }
         }
-        await queryClient.invalidateQueries({ queryKey: ['bdTargets'] });
       }
 
+      await queryClient.invalidateQueries({ queryKey: ['bdTargets'] });
       alert("Enrichment complete!");
     } catch (error) {
       console.error("Enrichment error:", error);
