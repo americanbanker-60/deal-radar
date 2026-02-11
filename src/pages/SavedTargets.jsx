@@ -814,6 +814,7 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
           <Button
             variant="destructive"
             size="sm"
+            disabled={rescoring}
             onClick={async () => {
               const today = new Date().toISOString().split('T')[0];
               const todayTargets = targets.filter(t => t.created_date && t.created_date.startsWith(today));
@@ -825,22 +826,36 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
               
               if (!confirm(`Delete ${todayTargets.length} targets uploaded today (${new Date().toLocaleDateString()})? This cannot be undone.`)) return;
               
+              setRescoring(true);
               try {
-                // Delete in batches of 100
-                for (let i = 0; i < todayTargets.length; i += 100) {
-                  const batch = todayTargets.slice(i, i + 100);
-                  await Promise.all(batch.map(t => base44.entities.BDTarget.delete(t.id)));
+                // Delete in small batches with delays to avoid rate limits
+                const BATCH_SIZE = 10;
+                let deletedCount = 0;
+                
+                for (let i = 0; i < todayTargets.length; i += BATCH_SIZE) {
+                  const batch = todayTargets.slice(i, i + BATCH_SIZE);
+                  
+                  for (const target of batch) {
+                    await base44.entities.BDTarget.delete(target.id);
+                    deletedCount++;
+                  }
+                  
+                  // Add delay between batches to avoid rate limits
+                  if (i + BATCH_SIZE < todayTargets.length) {
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                  }
                 }
                 
                 await queryClient.invalidateQueries({ queryKey: ['bdTargets'] });
-                alert(`Successfully deleted ${todayTargets.length} targets`);
+                alert(`Successfully deleted ${deletedCount} targets`);
               } catch (error) {
                 console.error("Delete error:", error);
                 alert("Delete failed: " + error.message);
               }
+              setRescoring(false);
             }}
           >
-            Delete Today's Upload ({targets.filter(t => t.created_date && t.created_date.startsWith(new Date().toISOString().split('T')[0])).length})
+            {rescoring ? "Deleting..." : `Delete Today's Upload (${targets.filter(t => t.created_date && t.created_date.startsWith(new Date().toISOString().split('T')[0])).length})`}
           </Button>
         </div>
 
