@@ -3,7 +3,7 @@ import { Link, useLocation } from "react-router-dom";
 import { createPageUrl } from "./utils";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
-import { Menu, X, Database, BookOpen, FileText, Shield, LogOut } from "lucide-react";
+import { Menu, X, Database, BookOpen, FileText, Shield, LogOut, RefreshCw } from "lucide-react";
 
 export default function Layout({ children }) {
   const location = useLocation();
@@ -40,6 +40,7 @@ export default function Layout({ children }) {
 
   // Add admin-only items
   if (user?.role === "admin") {
+    navItems.push({ name: "Data Refresh", path: "DataRefresh", icon: RefreshCw });
     navItems.push({ name: "Documentation", path: "Documentation", icon: BookOpen });
   }
 

@@ -54,6 +54,7 @@ import OpsConsole from './pages/OpsConsole';
 import PrivacyPolicy from './pages/PrivacyPolicy';
 import SavedTargets from './pages/SavedTargets';
 import TermsOfService from './pages/TermsOfService';
+import DataRefresh from './pages/DataRefresh';
 import __Layout from './Layout.jsx';
 
 
@@ -65,6 +66,7 @@ export const PAGES = {
     "PrivacyPolicy": PrivacyPolicy,
     "SavedTargets": SavedTargets,
     "TermsOfService": TermsOfService,
+    "DataRefresh": DataRefresh,
 }
 
 export const pagesConfig = {
