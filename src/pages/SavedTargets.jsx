@@ -810,28 +810,37 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
             )}
           </div>
         </div>
-        <div className="flex flex-wrap gap-2 items-center">
+        <div className="flex flex-wrap gap-2 items-center mb-4">
           <Button
             variant="destructive"
             size="sm"
             onClick={async () => {
-              if (!confirm(`Delete all targets uploaded today (${new Date().toLocaleDateString()})? This cannot be undone.`)) return;
+              const today = new Date().toISOString().split('T')[0];
+              const todayTargets = targets.filter(t => t.created_date && t.created_date.startsWith(today));
+              
+              if (todayTargets.length === 0) {
+                alert("No targets uploaded today");
+                return;
+              }
+              
+              if (!confirm(`Delete ${todayTargets.length} targets uploaded today (${new Date().toLocaleDateString()})? This cannot be undone.`)) return;
+              
               try {
-                const today = new Date().toISOString().split('T')[0];
-                const todayTargets = targets.filter(t => t.created_date.startsWith(today));
-                
-                for (const target of todayTargets) {
-                  await base44.entities.BDTarget.delete(target.id);
+                // Delete in batches of 100
+                for (let i = 0; i < todayTargets.length; i += 100) {
+                  const batch = todayTargets.slice(i, i + 100);
+                  await Promise.all(batch.map(t => base44.entities.BDTarget.delete(t.id)));
                 }
                 
                 await queryClient.invalidateQueries({ queryKey: ['bdTargets'] });
-                alert(`Deleted ${todayTargets.length} targets uploaded today`);
+                alert(`Successfully deleted ${todayTargets.length} targets`);
               } catch (error) {
+                console.error("Delete error:", error);
                 alert("Delete failed: " + error.message);
               }
             }}
           >
-            Delete Today's Upload ({targets.filter(t => t.created_date.startsWith(new Date().toISOString().split('T')[0])).length})
+            Delete Today's Upload ({targets.filter(t => t.created_date && t.created_date.startsWith(new Date().toISOString().split('T')[0])).length})
           </Button>
         </div>
 
