@@ -16,16 +16,16 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'No target IDs provided' }, { status: 400 });
     }
 
-    // Delete in batches using service role to avoid rate limits
-    const BATCH_SIZE = 100;
+    // Delete one at a time with delays to avoid rate limits
     let deletedCount = 0;
 
-    for (let i = 0; i < targetIds.length; i += BATCH_SIZE) {
-      const batch = targetIds.slice(i, i + BATCH_SIZE);
+    for (const id of targetIds) {
+      await base44.asServiceRole.entities.BDTarget.delete(id);
+      deletedCount++;
       
-      for (const id of batch) {
-        await base44.asServiceRole.entities.BDTarget.delete(id);
-        deletedCount++;
+      // Add 100ms delay between each deletion to avoid rate limits
+      if (deletedCount < targetIds.length) {
+        await new Promise(resolve => setTimeout(resolve, 100));
       }
     }
 
