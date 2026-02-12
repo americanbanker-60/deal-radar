@@ -21,108 +21,117 @@ Deno.serve(async (req) => {
             errors: []
         };
 
-        // Process all targets in parallel (20 at a time to avoid overwhelming the system)
-        const BATCH_SIZE = 20;
+        // Process 5 targets at a time with delays between batches
+        const BATCH_SIZE = 5;
         
         for (let i = 0; i < targetIds.length; i += BATCH_SIZE) {
             const batch = targetIds.slice(i, i + BATCH_SIZE);
             
-            await Promise.allSettled(batch.map(async (targetId) => {
+            const batchResults = await Promise.allSettled(batch.map(async (targetId) => {
                 try {
                     const target = await base44.asServiceRole.entities.BDTarget.get(targetId);
                     
-                    // Run all enrichments in parallel for this target
-                    const enrichments = [];
-
+                    // Process enrichments sequentially to avoid overwhelming the system
                     // 1. Correspondence Name
                     if (!target.correspondenceName || target.correspondenceName.trim() === '') {
-                        enrichments.push(
-                            base44.functions.invoke('generateShortNames', { targetId })
-                        );
+                        try {
+                            await base44.functions.invoke('generateShortNames', { targetId });
+                        } catch (err) {
+                            console.error(`Correspondence name error: ${err.message}`);
+                        }
                     }
 
                     // 2. Quality Score
                     if (!target.qualityTier) {
-                        enrichments.push(
-                            base44.functions.invoke('scoreTargetQuality', { targetId })
-                        );
+                        try {
+                            await base44.functions.invoke('scoreTargetQuality', { targetId });
+                        } catch (err) {
+                            console.error(`Quality score error: ${err.message}`);
+                        }
                     }
 
                     // 3. Contact Enrichment
                     if (target.contactFirstName && target.contactLastName && !target.contactPreferredName) {
-                        enrichments.push(
-                            base44.functions.invoke('enrichContact', { targetId })
-                        );
+                        try {
+                            await base44.functions.invoke('enrichContact', { targetId });
+                        } catch (err) {
+                            console.error(`Contact enrichment error: ${err.message}`);
+                        }
                     }
 
                     // 4. Personalization
                     if (!target.personalization_snippet || target.personalization_snippet.trim() === '') {
-                        enrichments.push(
-                            (async () => {
-                                const city = target.city || "your area";
-                                const sector = target.sectorFocus || target.subsector || "healthcare";
-                                const prompt = `Write a single, natural personalized opening line for a business development email to ${target.name}. Location: ${city}, Sector: ${sector}. Write ONLY the opening line, no quotes.`;
-                                const result = await base44.integrations.Core.InvokeLLM({ 
-                                    prompt, 
-                                    add_context_from_internet: false 
-                                });
-                                await base44.asServiceRole.entities.BDTarget.update(targetId, { 
-                                    personalization_snippet: result.trim() 
-                                });
-                            })()
-                        );
+                        try {
+                            const city = target.city || "your area";
+                            const sector = target.sectorFocus || target.subsector || "healthcare";
+                            const prompt = `Write a single, natural personalized opening line for a business development email to ${target.name}. Location: ${city}, Sector: ${sector}. Write ONLY the opening line, no quotes.`;
+                            const result = await base44.integrations.Core.InvokeLLM({ 
+                                prompt, 
+                                add_context_from_internet: false 
+                            });
+                            await base44.asServiceRole.entities.BDTarget.update(targetId, { 
+                                personalization_snippet: result.trim() 
+                            });
+                        } catch (err) {
+                            console.error(`Personalization error: ${err.message}`);
+                        }
                     }
 
                     // 5. Growth Signals
                     if (!target.growthSignals || target.growthSignals.trim() === '') {
-                        enrichments.push(
-                            (async () => {
-                                const prompt = `Search for recent news about "${target.name}" (${target.website || 'healthcare company'}) from the last 6 months. Look for: new offices, awards, hires, funding. Return JSON: {"signals": ["brief summaries"], "hasGrowthSignals": true/false}`;
-                                const result = await base44.integrations.Core.InvokeLLM({
-                                    prompt,
-                                    add_context_from_internet: true,
-                                    response_json_schema: { 
-                                        type: "object", 
-                                        properties: { 
-                                            signals: { type: "array", items: { type: "string" } }, 
-                                            hasGrowthSignals: { type: "boolean" } 
-                                        } 
-                                    }
-                                });
-                                await base44.asServiceRole.entities.BDTarget.update(targetId, { 
-                                    growthSignals: (result.signals || []).join(", "), 
-                                    growthSignalsDate: new Date().toISOString() 
-                                });
-                            })()
-                        );
+                        try {
+                            const prompt = `Search for recent news about "${target.name}" (${target.website || 'healthcare company'}) from the last 6 months. Look for: new offices, awards, hires, funding. Return JSON: {"signals": ["brief summaries"], "hasGrowthSignals": true/false}`;
+                            const result = await base44.integrations.Core.InvokeLLM({
+                                prompt,
+                                add_context_from_internet: true,
+                                response_json_schema: { 
+                                    type: "object", 
+                                    properties: { 
+                                        signals: { type: "array", items: { type: "string" } }, 
+                                        hasGrowthSignals: { type: "boolean" } 
+                                    } 
+                                }
+                            });
+                            await base44.asServiceRole.entities.BDTarget.update(targetId, { 
+                                growthSignals: (result.signals || []).join(", "), 
+                                growthSignalsDate: new Date().toISOString() 
+                            });
+                        } catch (err) {
+                            console.error(`Growth signals error: ${err.message}`);
+                        }
                     }
 
                     // 6. Strategic Rationale
                     if (!target.strategicRationale || target.strategicRationale.trim() === '') {
-                        enrichments.push(
-                            (async () => {
-                                const prompt = `Research "${target.name}" (${target.website || 'healthcare company'} in ${target.city}, ${target.state}) and write a 2-sentence strategic investment thesis. Sector: ${target.sectorFocus || 'Healthcare Services'}, Revenue: ~$${target.revenue}M, Employees: ${target.employees}. Be specific and data-driven.`;
-                                const rationale = await base44.integrations.Core.InvokeLLM({ 
-                                    prompt, 
-                                    add_context_from_internet: true 
-                                });
-                                await base44.asServiceRole.entities.BDTarget.update(targetId, { 
-                                    strategicRationale: rationale.trim() 
-                                });
-                            })()
-                        );
+                        try {
+                            const prompt = `Research "${target.name}" (${target.website || 'healthcare company'} in ${target.city}, ${target.state}) and write a 2-sentence strategic investment thesis. Sector: ${target.sectorFocus || 'Healthcare Services'}, Revenue: ~$${target.revenue}M, Employees: ${target.employees}. Be specific and data-driven.`;
+                            const rationale = await base44.integrations.Core.InvokeLLM({ 
+                                prompt, 
+                                add_context_from_internet: true 
+                            });
+                            await base44.asServiceRole.entities.BDTarget.update(targetId, { 
+                                strategicRationale: rationale.trim() 
+                            });
+                        } catch (err) {
+                            console.error(`Rationale error: ${err.message}`);
+                        }
                     }
 
-                    // Execute all enrichments in parallel for this target
-                    await Promise.allSettled(enrichments);
                     results.processed++;
+                    return { success: true };
                 } catch (error) {
                     results.errors.push({
                         targetId,
                         error: error.message
                     });
+                    return { success: false, error: error.message };
                 }
             }));
+
+            // Small delay between batches to avoid rate limiting
+            if (i + BATCH_SIZE < targetIds.length) {
+                await new Promise(resolve => setTimeout(resolve, 500));
+            }
         }
 
         return Response.json(results);
