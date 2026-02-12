@@ -424,88 +424,20 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
     }
 
     setEnrichingAll(true);
+    setEnrichAllProgress({ step: "Processing server-side...", current: 0, total: selectedList.length });
     
     try {
-      const BATCH_SIZE = 10; // Process 10 companies at a time
-      let completed = 0;
-
-      for (let i = 0; i < selectedList.length; i += BATCH_SIZE) {
-        const batch = selectedList.slice(i, i + BATCH_SIZE);
-        setEnrichAllProgress({ step: `Processing batch ${Math.floor(i / BATCH_SIZE) + 1}`, current: completed, total: selectedList.length });
-
-        await Promise.allSettled(batch.map(async (target) => {
-          // 1. Correspondence Name
-          if (!target.correspondenceName || target.correspondenceName.trim() === '') {
-            try {
-              await base44.functions.invoke('generateShortNames', { targetId: target.id });
-            } catch (error) {
-              console.error(`Error generating correspondence name for ${target.name}:`, error);
-            }
-          }
-
-          // 2. Quality Score
-          if (!target.qualityTier) {
-            try {
-              await base44.functions.invoke('scoreTargetQuality', { targetId: target.id });
-            } catch (error) {
-              console.error(`Error scoring ${target.name}:`, error);
-            }
-          }
-
-          // 3. Contact Enrichment
-          if (target.contactFirstName && target.contactLastName && !target.contactPreferredName) {
-            try {
-              await base44.functions.invoke('enrichContact', { targetId: target.id });
-            } catch (error) {
-              console.error(`Error enriching contact for ${target.name}:`, error);
-            }
-          }
-
-          // 4. Personalization
-          if (!target.personalization_snippet || target.personalization_snippet.trim() === '') {
-            try {
-              const city = target.city || "your area";
-              const sector = target.sectorFocus || target.subsector || "healthcare";
-              const prompt = `Write a single, natural personalized opening line for a business development email to ${target.name}. Location: ${city}, Sector: ${sector}. Write ONLY the opening line, no quotes.`;
-              const result = await base44.integrations.Core.InvokeLLM({ prompt, add_context_from_internet: false });
-              await base44.entities.BDTarget.update(target.id, { personalization_snippet: result.trim() });
-            } catch (error) {
-              console.error(`Error personalizing ${target.name}:`, error);
-            }
-          }
-
-          // 5. Growth Signals
-          if (!target.growthSignals || target.growthSignals.trim() === '') {
-            try {
-              const prompt = `Search for recent news about "${target.name}" (${target.website || 'healthcare company'}) from the last 6 months. Look for: new offices, awards, hires, funding. Return JSON: {"signals": ["brief summaries"], "hasGrowthSignals": true/false}`;
-              const result = await base44.integrations.Core.InvokeLLM({
-                prompt,
-                add_context_from_internet: true,
-                response_json_schema: { type: "object", properties: { signals: { type: "array", items: { type: "string" } }, hasGrowthSignals: { type: "boolean" } } }
-              });
-              await base44.entities.BDTarget.update(target.id, { growthSignals: (result.signals || []).join(", "), growthSignalsDate: new Date().toISOString() });
-            } catch (error) {
-              console.error(`Error detecting growth for ${target.name}:`, error);
-            }
-          }
-
-          // 6. Strategic Rationale
-          if (!target.strategicRationale || target.strategicRationale.trim() === '') {
-            try {
-              const prompt = `Research "${target.name}" (${target.website || 'healthcare company'} in ${target.city}, ${target.state}) and write a 2-sentence strategic investment thesis. Sector: ${target.sectorFocus || 'Healthcare Services'}, Revenue: ~$${target.revenue}M, Employees: ${target.employees}. Be specific and data-driven.`;
-              const rationale = await base44.integrations.Core.InvokeLLM({ prompt, add_context_from_internet: true });
-              await base44.entities.BDTarget.update(target.id, { strategicRationale: rationale.trim() });
-            } catch (error) {
-              console.error(`Error generating rationale for ${target.name}:`, error);
-            }
-          }
-        }));
-
-        completed += batch.length;
-      }
+      const result = await base44.functions.invoke('bulkEnrichTargets', {
+        targetIds: selectedList.map(t => t.id)
+      });
 
       await queryClient.invalidateQueries({ queryKey: ['bdTargets'] });
-      alert("Enrichment complete!");
+      
+      if (result.data.errors.length > 0) {
+        alert(`Enrichment complete!\n✓ ${result.data.processed} successful\n✗ ${result.data.errors.length} failed`);
+      } else {
+        alert(`Enrichment complete! Successfully processed ${result.data.processed} targets.`);
+      }
     } catch (error) {
       console.error("Enrichment error:", error);
       alert("Enrichment failed: " + error.message);
