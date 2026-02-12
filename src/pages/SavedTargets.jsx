@@ -111,15 +111,22 @@ export default function SavedTargets() {
     setScoringQuality(true);
     setQualityProgress({ current: 0, total: selectedList.length });
 
-    for (let i = 0; i < selectedList.length; i++) {
-      const target = selectedList[i];
-      setQualityProgress({ current: i + 1, total: selectedList.length });
+    const BATCH_SIZE = 10;
+    let completed = 0;
 
-      try {
-        await base44.functions.invoke('scoreTargetQuality', { targetId: target.id });
-      } catch (error) {
-        console.error(`Error scoring ${target.name}:`, error);
-      }
+    for (let i = 0; i < selectedList.length; i += BATCH_SIZE) {
+      const batch = selectedList.slice(i, i + BATCH_SIZE);
+
+      await Promise.allSettled(batch.map(async (target) => {
+        try {
+          await base44.functions.invoke('scoreTargetQuality', { targetId: target.id });
+        } catch (error) {
+          console.error(`Error scoring ${target.name}:`, error);
+        }
+      }));
+
+      completed += batch.length;
+      setQualityProgress({ current: completed, total: selectedList.length });
     }
 
     await queryClient.invalidateQueries({ queryKey: ['bdTargets'] });
@@ -139,15 +146,22 @@ export default function SavedTargets() {
     setEnrichingContacts(true);
     setEnrichProgress({ current: 0, total: withContacts.length });
 
-    for (let i = 0; i < withContacts.length; i++) {
-      const target = withContacts[i];
-      setEnrichProgress({ current: i + 1, total: withContacts.length });
+    const BATCH_SIZE = 15;
+    let completed = 0;
 
-      try {
-        await base44.functions.invoke('enrichContact', { targetId: target.id });
-      } catch (error) {
-        console.error(`Error enriching ${target.name}:`, error);
-      }
+    for (let i = 0; i < withContacts.length; i += BATCH_SIZE) {
+      const batch = withContacts.slice(i, i + BATCH_SIZE);
+
+      await Promise.allSettled(batch.map(async (target) => {
+        try {
+          await base44.functions.invoke('enrichContact', { targetId: target.id });
+        } catch (error) {
+          console.error(`Error enriching ${target.name}:`, error);
+        }
+      }));
+
+      completed += batch.length;
+      setEnrichProgress({ current: completed, total: withContacts.length });
     }
 
     await queryClient.invalidateQueries({ queryKey: ['bdTargets'] });
@@ -207,15 +221,22 @@ export default function SavedTargets() {
     setGeneratingShortNames(true);
     setShortNameProgress({ current: 0, total: selectedList.length });
 
-    for (let i = 0; i < selectedList.length; i++) {
-      const target = selectedList[i];
-      setShortNameProgress({ current: i + 1, total: selectedList.length });
+    const BATCH_SIZE = 15;
+    let completed = 0;
 
-      try {
-        await base44.functions.invoke('generateShortNames', { targetId: target.id });
-      } catch (error) {
-        console.error(`Error generating correspondence name for ${target.name}:`, error);
-      }
+    for (let i = 0; i < selectedList.length; i += BATCH_SIZE) {
+      const batch = selectedList.slice(i, i + BATCH_SIZE);
+
+      await Promise.allSettled(batch.map(async (target) => {
+        try {
+          await base44.functions.invoke('generateShortNames', { targetId: target.id });
+        } catch (error) {
+          console.error(`Error generating correspondence name for ${target.name}:`, error);
+        }
+      }));
+
+      completed += batch.length;
+      setShortNameProgress({ current: completed, total: selectedList.length });
     }
 
     await queryClient.invalidateQueries({ queryKey: ['bdTargets'] });
@@ -234,15 +255,18 @@ export default function SavedTargets() {
     setPersonalizingTargets(true);
     setPersonalizeProgress({ current: 0, total: selectedList.length });
 
-    for (let i = 0; i < selectedList.length; i++) {
-      const target = selectedList[i];
-      setPersonalizeProgress({ current: i + 1, total: selectedList.length });
+    const BATCH_SIZE = 15;
+    let completed = 0;
 
-      try {
-        const city = target.city || "your area";
-        const sector = target.sectorFocus || target.subsector || "healthcare";
-        
-        const prompt = `Write a single, natural personalized opening line for a business development email to ${target.name}. 
+    for (let i = 0; i < selectedList.length; i += BATCH_SIZE) {
+      const batch = selectedList.slice(i, i + BATCH_SIZE);
+
+      await Promise.allSettled(batch.map(async (target) => {
+        try {
+          const city = target.city || "your area";
+          const sector = target.sectorFocus || target.subsector || "healthcare";
+          
+          const prompt = `Write a single, natural personalized opening line for a business development email to ${target.name}. 
 
 Location: ${city}
 Sector: ${sector}
@@ -254,17 +278,21 @@ The opening should be conversational and reference their location and sector nat
 
 Write ONLY the opening line, no quotes, no explanation. Make it sound natural and genuine.`;
 
-        const result = await base44.integrations.Core.InvokeLLM({
-          prompt,
-          add_context_from_internet: false
-        });
+          const result = await base44.integrations.Core.InvokeLLM({
+            prompt,
+            add_context_from_internet: false
+          });
 
-        await base44.entities.BDTarget.update(target.id, {
-          personalization_snippet: result.trim()
-        });
-      } catch (error) {
-        console.error(`Error personalizing ${target.name}:`, error);
-      }
+          await base44.entities.BDTarget.update(target.id, {
+            personalization_snippet: result.trim()
+          });
+        } catch (error) {
+          console.error(`Error personalizing ${target.name}:`, error);
+        }
+      }));
+
+      completed += batch.length;
+      setPersonalizeProgress({ current: completed, total: selectedList.length });
     }
 
     await queryClient.invalidateQueries({ queryKey: ['bdTargets'] });
@@ -283,12 +311,15 @@ Write ONLY the opening line, no quotes, no explanation. Make it sound natural an
     setDetectingGrowth(true);
     setGrowthProgress({ current: 0, total: selectedList.length });
 
-    for (let i = 0; i < selectedList.length; i++) {
-      const target = selectedList[i];
-      setGrowthProgress({ current: i + 1, total: selectedList.length });
+    const BATCH_SIZE = 10;
+    let completed = 0;
 
-      try {
-        const prompt = `Search for recent news about "${target.name}" (${target.website || 'healthcare company'}) from the last 6 months.
+    for (let i = 0; i < selectedList.length; i += BATCH_SIZE) {
+      const batch = selectedList.slice(i, i + BATCH_SIZE);
+
+      await Promise.allSettled(batch.map(async (target) => {
+        try {
+          const prompt = `Search for recent news about "${target.name}" (${target.website || 'healthcare company'}) from the last 6 months.
 
 Look for:
 1. New office/clinic openings
@@ -303,25 +334,29 @@ Return JSON with brief summaries (1 sentence each):
   "hasGrowthSignals": true
 }`;
 
-        const result = await base44.integrations.Core.InvokeLLM({
-          prompt,
-          add_context_from_internet: true,
-          response_json_schema: {
-            type: "object",
-            properties: {
-              signals: { type: "array", items: { type: "string" } },
-              hasGrowthSignals: { type: "boolean" }
+          const result = await base44.integrations.Core.InvokeLLM({
+            prompt,
+            add_context_from_internet: true,
+            response_json_schema: {
+              type: "object",
+              properties: {
+                signals: { type: "array", items: { type: "string" } },
+                hasGrowthSignals: { type: "boolean" }
+              }
             }
-          }
-        });
+          });
 
-        await base44.entities.BDTarget.update(target.id, {
-          growthSignals: (result.signals || []).join(", "),
-          growthSignalsDate: new Date().toISOString()
-        });
-      } catch (error) {
-        console.error(`Error detecting growth for ${target.name}:`, error);
-      }
+          await base44.entities.BDTarget.update(target.id, {
+            growthSignals: (result.signals || []).join(", "),
+            growthSignalsDate: new Date().toISOString()
+          });
+        } catch (error) {
+          console.error(`Error detecting growth for ${target.name}:`, error);
+        }
+      }));
+
+      completed += batch.length;
+      setGrowthProgress({ current: completed, total: selectedList.length });
     }
 
     await queryClient.invalidateQueries({ queryKey: ['bdTargets'] });
@@ -340,12 +375,15 @@ Return JSON with brief summaries (1 sentence each):
     setGeneratingRationales(true);
     setRationaleProgress({ current: 0, total: selectedList.length });
 
-    for (let i = 0; i < selectedList.length; i++) {
-      const target = selectedList[i];
-      setRationaleProgress({ current: i + 1, total: selectedList.length });
+    const BATCH_SIZE = 10;
+    let completed = 0;
 
-      try {
-        const prompt = `Research "${target.name}" (${target.website || 'healthcare company'} in ${target.city}, ${target.state}) and write a 2-sentence strategic investment thesis explaining why this would be a good acquisition target.
+    for (let i = 0; i < selectedList.length; i += BATCH_SIZE) {
+      const batch = selectedList.slice(i, i + BATCH_SIZE);
+
+      await Promise.allSettled(batch.map(async (target) => {
+        try {
+          const prompt = `Research "${target.name}" (${target.website || 'healthcare company'} in ${target.city}, ${target.state}) and write a 2-sentence strategic investment thesis explaining why this would be a good acquisition target.
 
 Company Details:
 - Sector: ${target.sectorFocus || 'Healthcare Services'}
@@ -355,17 +393,21 @@ Company Details:
 
 Focus on: market position, growth potential, strategic fit, and competitive advantages. Be specific and data-driven.`;
 
-        const rationale = await base44.integrations.Core.InvokeLLM({
-          prompt,
-          add_context_from_internet: true
-        });
-        
-        await base44.entities.BDTarget.update(target.id, {
-          strategicRationale: rationale.trim()
-        });
-      } catch (error) {
-        console.error(`Error generating rationale for ${target.name}:`, error);
-      }
+          const rationale = await base44.integrations.Core.InvokeLLM({
+            prompt,
+            add_context_from_internet: true
+          });
+          
+          await base44.entities.BDTarget.update(target.id, {
+            strategicRationale: rationale.trim()
+          });
+        } catch (error) {
+          console.error(`Error generating rationale for ${target.name}:`, error);
+        }
+      }));
+
+      completed += batch.length;
+      setRationaleProgress({ current: completed, total: selectedList.length });
     }
 
     await queryClient.invalidateQueries({ queryKey: ['bdTargets'] });
@@ -384,75 +426,82 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
     setEnrichingAll(true);
     
     try {
-      for (let i = 0; i < selectedList.length; i++) {
-        const target = selectedList[i];
-        setEnrichAllProgress({ step: `Enriching ${target.name}`, current: i + 1, total: selectedList.length });
+      const BATCH_SIZE = 10; // Process 10 companies at a time
+      let completed = 0;
 
-        // 1. Correspondence Name
-        if (!target.correspondenceName || target.correspondenceName.trim() === '') {
-          try {
-            await base44.functions.invoke('generateShortNames', { targetId: target.id });
-          } catch (error) {
-            console.error(`Error generating correspondence name for ${target.name}:`, error);
-          }
-        }
+      for (let i = 0; i < selectedList.length; i += BATCH_SIZE) {
+        const batch = selectedList.slice(i, i + BATCH_SIZE);
+        setEnrichAllProgress({ step: `Processing batch ${Math.floor(i / BATCH_SIZE) + 1}`, current: completed, total: selectedList.length });
 
-        // 2. Quality Score
-        if (!target.qualityTier) {
-          try {
-            await base44.functions.invoke('scoreTargetQuality', { targetId: target.id });
-          } catch (error) {
-            console.error(`Error scoring ${target.name}:`, error);
+        await Promise.allSettled(batch.map(async (target) => {
+          // 1. Correspondence Name
+          if (!target.correspondenceName || target.correspondenceName.trim() === '') {
+            try {
+              await base44.functions.invoke('generateShortNames', { targetId: target.id });
+            } catch (error) {
+              console.error(`Error generating correspondence name for ${target.name}:`, error);
+            }
           }
-        }
 
-        // 3. Contact Enrichment
-        if (target.contactFirstName && target.contactLastName && !target.contactPreferredName) {
-          try {
-            await base44.functions.invoke('enrichContact', { targetId: target.id });
-          } catch (error) {
-            console.error(`Error enriching contact for ${target.name}:`, error);
+          // 2. Quality Score
+          if (!target.qualityTier) {
+            try {
+              await base44.functions.invoke('scoreTargetQuality', { targetId: target.id });
+            } catch (error) {
+              console.error(`Error scoring ${target.name}:`, error);
+            }
           }
-        }
 
-        // 4. Personalization
-        if (!target.personalization_snippet || target.personalization_snippet.trim() === '') {
-          try {
-            const city = target.city || "your area";
-            const sector = target.sectorFocus || target.subsector || "healthcare";
-            const prompt = `Write a single, natural personalized opening line for a business development email to ${target.name}. Location: ${city}, Sector: ${sector}. Write ONLY the opening line, no quotes.`;
-            const result = await base44.integrations.Core.InvokeLLM({ prompt, add_context_from_internet: false });
-            await base44.entities.BDTarget.update(target.id, { personalization_snippet: result.trim() });
-          } catch (error) {
-            console.error(`Error personalizing ${target.name}:`, error);
+          // 3. Contact Enrichment
+          if (target.contactFirstName && target.contactLastName && !target.contactPreferredName) {
+            try {
+              await base44.functions.invoke('enrichContact', { targetId: target.id });
+            } catch (error) {
+              console.error(`Error enriching contact for ${target.name}:`, error);
+            }
           }
-        }
 
-        // 5. Growth Signals
-        if (!target.growthSignals || target.growthSignals.trim() === '') {
-          try {
-            const prompt = `Search for recent news about "${target.name}" (${target.website || 'healthcare company'}) from the last 6 months. Look for: new offices, awards, hires, funding. Return JSON: {"signals": ["brief summaries"], "hasGrowthSignals": true/false}`;
-            const result = await base44.integrations.Core.InvokeLLM({
-              prompt,
-              add_context_from_internet: true,
-              response_json_schema: { type: "object", properties: { signals: { type: "array", items: { type: "string" } }, hasGrowthSignals: { type: "boolean" } } }
-            });
-            await base44.entities.BDTarget.update(target.id, { growthSignals: (result.signals || []).join(", "), growthSignalsDate: new Date().toISOString() });
-          } catch (error) {
-            console.error(`Error detecting growth for ${target.name}:`, error);
+          // 4. Personalization
+          if (!target.personalization_snippet || target.personalization_snippet.trim() === '') {
+            try {
+              const city = target.city || "your area";
+              const sector = target.sectorFocus || target.subsector || "healthcare";
+              const prompt = `Write a single, natural personalized opening line for a business development email to ${target.name}. Location: ${city}, Sector: ${sector}. Write ONLY the opening line, no quotes.`;
+              const result = await base44.integrations.Core.InvokeLLM({ prompt, add_context_from_internet: false });
+              await base44.entities.BDTarget.update(target.id, { personalization_snippet: result.trim() });
+            } catch (error) {
+              console.error(`Error personalizing ${target.name}:`, error);
+            }
           }
-        }
 
-        // 6. Strategic Rationale
-        if (!target.strategicRationale || target.strategicRationale.trim() === '') {
-          try {
-            const prompt = `Research "${target.name}" (${target.website || 'healthcare company'} in ${target.city}, ${target.state}) and write a 2-sentence strategic investment thesis. Sector: ${target.sectorFocus || 'Healthcare Services'}, Revenue: ~$${target.revenue}M, Employees: ${target.employees}. Be specific and data-driven.`;
-            const rationale = await base44.integrations.Core.InvokeLLM({ prompt, add_context_from_internet: true });
-            await base44.entities.BDTarget.update(target.id, { strategicRationale: rationale.trim() });
-          } catch (error) {
-            console.error(`Error generating rationale for ${target.name}:`, error);
+          // 5. Growth Signals
+          if (!target.growthSignals || target.growthSignals.trim() === '') {
+            try {
+              const prompt = `Search for recent news about "${target.name}" (${target.website || 'healthcare company'}) from the last 6 months. Look for: new offices, awards, hires, funding. Return JSON: {"signals": ["brief summaries"], "hasGrowthSignals": true/false}`;
+              const result = await base44.integrations.Core.InvokeLLM({
+                prompt,
+                add_context_from_internet: true,
+                response_json_schema: { type: "object", properties: { signals: { type: "array", items: { type: "string" } }, hasGrowthSignals: { type: "boolean" } } }
+              });
+              await base44.entities.BDTarget.update(target.id, { growthSignals: (result.signals || []).join(", "), growthSignalsDate: new Date().toISOString() });
+            } catch (error) {
+              console.error(`Error detecting growth for ${target.name}:`, error);
+            }
           }
-        }
+
+          // 6. Strategic Rationale
+          if (!target.strategicRationale || target.strategicRationale.trim() === '') {
+            try {
+              const prompt = `Research "${target.name}" (${target.website || 'healthcare company'} in ${target.city}, ${target.state}) and write a 2-sentence strategic investment thesis. Sector: ${target.sectorFocus || 'Healthcare Services'}, Revenue: ~$${target.revenue}M, Employees: ${target.employees}. Be specific and data-driven.`;
+              const rationale = await base44.integrations.Core.InvokeLLM({ prompt, add_context_from_internet: true });
+              await base44.entities.BDTarget.update(target.id, { strategicRationale: rationale.trim() });
+            } catch (error) {
+              console.error(`Error generating rationale for ${target.name}:`, error);
+            }
+          }
+        }));
+
+        completed += batch.length;
       }
 
       await queryClient.invalidateQueries({ queryKey: ['bdTargets'] });
