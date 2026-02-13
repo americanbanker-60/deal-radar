@@ -742,7 +742,7 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
     }
 
     return filtered;
-  }, [targets, selectedCampaign, statusFilter, clinicFilter, qualityFilter, sectorFilter, nameFilter, searchQuery, sortField, sortDirection]);
+  }, [targets, selectedCampaign, statusFilter, clinicFilter, qualityFilter, sectorFilter, nameFilter, correspondenceFilter, contactEnrichFilter, growthSignalsFilter, rationaleFilter, personalizationFilter, searchQuery, sortField, sortDirection]);
 
   const paginatedTargets = useMemo(() => {
     const startIndex = (currentPage - 1) * itemsPerPage;
