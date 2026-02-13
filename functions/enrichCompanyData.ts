@@ -21,8 +21,8 @@ Deno.serve(async (req) => {
             errors: []
         };
 
-        // Process 5 targets at a time
-        const BATCH_SIZE = 5;
+        // Process 2 targets at a time to avoid rate limits
+        const BATCH_SIZE = 2;
         
         for (let i = 0; i < targetIds.length; i += BATCH_SIZE) {
             const batch = targetIds.slice(i, i + BATCH_SIZE);
@@ -87,9 +87,9 @@ If you cannot find a field, omit it from the response.`;
                 }
             }));
 
-            // Delay between batches
+            // Longer delay between batches to avoid rate limits
             if (i + BATCH_SIZE < targetIds.length) {
-                await new Promise(resolve => setTimeout(resolve, 500));
+                await new Promise(resolve => setTimeout(resolve, 2000));
             }
         }
 
