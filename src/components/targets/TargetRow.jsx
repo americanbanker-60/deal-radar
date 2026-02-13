@@ -144,12 +144,42 @@ const TargetRow = React.memo(({
         )}
       </td>
       <td className="py-3 px-4">
-        {target.growthSignals && target.growthSignals.trim() ? (
-          <Badge className="bg-green-100 text-green-800 border-green-300 text-xs whitespace-nowrap">
-            🚀 Signals
+        {target.qualityTier ? (
+          <Badge className={
+            target.qualityTier === 'great' ? 'bg-green-100 text-green-800 border-green-300' :
+            target.qualityTier === 'good' ? 'bg-blue-100 text-blue-800 border-blue-300' :
+            'bg-red-100 text-red-800 border-red-300'
+          }>
+            {target.qualityTier.toUpperCase()}
           </Badge>
         ) : (
           <span className="text-xs text-muted-foreground">—</span>
+        )}
+      </td>
+      <td className="py-3 px-4 max-w-[200px]">
+        {target.contactEmail ? (
+          <div className="text-xs">
+            <div className="font-medium">
+              {target.contactPreferredName || target.contactFirstName} {target.contactLastName}
+            </div>
+            <div className="text-slate-500 truncate">{target.contactEmail}</div>
+          </div>
+        ) : (
+          <span className="text-xs text-muted-foreground">—</span>
+        )}
+      </td>
+      <td className="py-3 px-4 max-w-[250px]">
+        {hasGrowthSignals ? (
+          <p className="text-xs text-slate-600 line-clamp-2">{target.growthSignals}</p>
+        ) : (
+          <span className="text-orange-500 italic text-xs">Pending</span>
+        )}
+      </td>
+      <td className="py-3 px-4 max-w-[250px]">
+        {hasPersonalization ? (
+          <p className="text-xs text-slate-600 line-clamp-2">{target.personalization_snippet}</p>
+        ) : (
+          <span className="text-orange-500 italic text-xs">Pending</span>
         )}
       </td>
       <td className="py-3 px-4">

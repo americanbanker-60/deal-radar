@@ -1376,7 +1376,7 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
           </CardHeader>
           <CardContent className="p-0">
             <div className="overflow-x-auto">
-              <table className="w-full text-sm min-w-[1200px]">
+              <table className="w-full text-sm min-w-[2000px]">
                 <thead>
                   <tr className="text-left border-b-2 border-slate-200 bg-slate-50">
                     <th className="py-3 px-4 font-semibold w-12">
@@ -1394,11 +1394,14 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
                     <SortHeader field="employees">Employees</SortHeader>
                     <SortHeader field="clinicCount">Clinics</SortHeader>
                     <th className="py-3 px-4 font-semibold">Website</th>
-                    <th className="py-3 px-4 font-semibold">Growth</th>
+                    <th className="py-3 px-4 font-semibold">Quality Tier</th>
+                    <th className="py-3 px-4 font-semibold">Contact</th>
+                    <th className="py-3 px-4 font-semibold">Growth Signals</th>
+                    <th className="py-3 px-4 font-semibold">Personalization</th>
                     <SortHeader field="score">Score</SortHeader>
                     <th className="py-3 px-4 font-semibold">Fit</th>
                     <th className="py-3 px-4 font-semibold">Priority</th>
-                    <th className="py-3 px-4 font-semibold">Rationale</th>
+                    <th className="py-3 px-4 font-semibold">Strategic Rationale</th>
                   </tr>
                 </thead>
                 <tbody>
