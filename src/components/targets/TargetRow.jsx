@@ -12,7 +12,9 @@ const TargetRow = React.memo(({
   isSelected, 
   onToggle, 
   onGenerateRationale,
-  isGeneratingRationale 
+  isGeneratingRationale,
+  onRefreshData,
+  isRefreshingData
 }) => {
   const navigate = useNavigate();
 
@@ -94,7 +96,23 @@ const TargetRow = React.memo(({
       </td>
       <td className="py-3 px-4 text-slate-600 whitespace-nowrap">{target.city || "—"}</td>
       <td className="py-3 px-4 text-slate-600 whitespace-nowrap">
-        {hasState ? target.state : <span className="text-orange-500 italic">Pending</span>}
+        <div className="flex items-center gap-2">
+          {hasState ? target.state : <span className="text-orange-500 italic">Pending</span>}
+          {(!hasState || !hasRevenue || !hasEmployees) && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+              onClick={(e) => {
+                e.stopPropagation();
+                onRefreshData(target.id);
+              }}
+              disabled={isRefreshingData}
+            >
+              <RefreshCw className={`w-3 h-3 ${isRefreshingData ? 'animate-spin' : ''}`} />
+            </Button>
+          )}
+        </div>
       </td>
       <td className="py-3 px-4 text-slate-600 whitespace-nowrap">
         {hasRevenue ? `$${target.revenue}M` : <span className="text-orange-500 italic">Pending</span>}
