@@ -139,20 +139,22 @@ export default function SavedTargets() {
   const enrichSelectedContacts = async () => {
     const selectedList = filteredTargets.filter(t => selectedTargets.has(t.id));
     const withContacts = selectedList.filter(t => t.contactFirstName && t.contactLastName);
+    const pendingContacts = withContacts.filter(t => !t.contactPreferredName || !t.contactPreferredName.trim());
     
-    if (withContacts.length === 0) {
-      alert("Please select targets with contact names (First Name and Last Name required)");
+    if (pendingContacts.length === 0) {
+      alert("All selected targets with contacts are already enriched");
       return;
     }
 
     setEnrichingContacts(true);
-    setEnrichProgress({ current: 0, total: withContacts.length });
+    setEnrichProgress({ current: 0, total: pendingContacts.length });
 
     const BATCH_SIZE = 15;
     let completed = 0;
+    let skippedCount = withContacts.length - pendingContacts.length;
 
-    for (let i = 0; i < withContacts.length; i += BATCH_SIZE) {
-      const batch = withContacts.slice(i, i + BATCH_SIZE);
+    for (let i = 0; i < pendingContacts.length; i += BATCH_SIZE) {
+      const batch = pendingContacts.slice(i, i + BATCH_SIZE);
 
       await Promise.allSettled(batch.map(async (target) => {
         try {
@@ -163,12 +165,13 @@ export default function SavedTargets() {
       }));
 
       completed += batch.length;
-      setEnrichProgress({ current: completed, total: withContacts.length });
+      setEnrichProgress({ current: completed, total: pendingContacts.length });
     }
 
     await queryClient.invalidateQueries({ queryKey: ['bdTargets'] });
     setEnrichingContacts(false);
     setEnrichProgress({ current: 0, total: 0 });
+    alert(`Contact enrichment complete!\n✓ ${pendingContacts.length} enriched\n⊝ ${skippedCount} skipped (already enriched)`);
   };
 
   const reclassifySelectedSectors = async () => {
@@ -214,22 +217,24 @@ export default function SavedTargets() {
 
   const generateCorrespondenceNamesForSelected = async () => {
     const selectedList = filteredTargets.filter(t => selectedTargets.has(t.id));
+    const pendingList = selectedList.filter(t => !t.correspondenceName || !t.correspondenceName.trim());
     
-    if (selectedList.length === 0) {
-      alert("Please select targets to generate correspondence names");
+    if (pendingList.length === 0) {
+      alert("All selected targets already have correspondence names");
       return;
     }
 
     setGeneratingShortNames(true);
-    setShortNameProgress({ current: 0, total: selectedList.length });
+    setShortNameProgress({ current: 0, total: pendingList.length });
 
     const BATCH_SIZE = 3;
     let completed = 0;
     let successCount = 0;
     let errorCount = 0;
+    let skippedCount = selectedList.length - pendingList.length;
 
-    for (let i = 0; i < selectedList.length; i += BATCH_SIZE) {
-      const batch = selectedList.slice(i, i + BATCH_SIZE);
+    for (let i = 0; i < pendingList.length; i += BATCH_SIZE) {
+      const batch = pendingList.slice(i, i + BATCH_SIZE);
 
       const results = await Promise.allSettled(batch.map(async (target) => {
         try {
@@ -254,10 +259,10 @@ export default function SavedTargets() {
       });
 
       completed += batch.length;
-      setShortNameProgress({ current: completed, total: selectedList.length });
+      setShortNameProgress({ current: completed, total: pendingList.length });
       
       // Delay between batches to avoid rate limits
-      if (i + BATCH_SIZE < selectedList.length) {
+      if (i + BATCH_SIZE < pendingList.length) {
         await new Promise(resolve => setTimeout(resolve, 1000));
       }
     }
@@ -266,25 +271,27 @@ export default function SavedTargets() {
     setGeneratingShortNames(false);
     setShortNameProgress({ current: 0, total: 0 });
     
-    alert(`Correspondence names generated!\n✓ ${successCount} successful\n✗ ${errorCount} failed`);
+    alert(`Correspondence names generated!\n✓ ${successCount} successful\n✗ ${errorCount} failed\n⊝ ${skippedCount} skipped (already enriched)`);
   };
 
   const bulkPersonalizeSelected = async () => {
     const selectedList = filteredTargets.filter(t => selectedTargets.has(t.id));
+    const pendingList = selectedList.filter(t => !t.personalization_snippet || !t.personalization_snippet.trim());
     
-    if (selectedList.length === 0) {
-      alert("Please select targets to personalize");
+    if (pendingList.length === 0) {
+      alert("All selected targets already have personalization snippets");
       return;
     }
 
     setPersonalizingTargets(true);
-    setPersonalizeProgress({ current: 0, total: selectedList.length });
+    setPersonalizeProgress({ current: 0, total: pendingList.length });
 
     const BATCH_SIZE = 15;
     let completed = 0;
+    let skippedCount = selectedList.length - pendingList.length;
 
-    for (let i = 0; i < selectedList.length; i += BATCH_SIZE) {
-      const batch = selectedList.slice(i, i + BATCH_SIZE);
+    for (let i = 0; i < pendingList.length; i += BATCH_SIZE) {
+      const batch = pendingList.slice(i, i + BATCH_SIZE);
 
       await Promise.allSettled(batch.map(async (target) => {
         try {
@@ -317,30 +324,33 @@ Write ONLY the opening line, no quotes, no explanation. Make it sound natural an
       }));
 
       completed += batch.length;
-      setPersonalizeProgress({ current: completed, total: selectedList.length });
+      setPersonalizeProgress({ current: completed, total: pendingList.length });
     }
 
     await queryClient.invalidateQueries({ queryKey: ['bdTargets'] });
     setPersonalizingTargets(false);
     setPersonalizeProgress({ current: 0, total: 0 });
+    alert(`Personalization complete!\n✓ ${pendingList.length} personalized\n⊝ ${skippedCount} skipped (already enriched)`);
   };
 
   const detectGrowthSignalsForSelected = async () => {
     const selectedList = filteredTargets.filter(t => selectedTargets.has(t.id));
+    const pendingList = selectedList.filter(t => !t.growthSignals || !t.growthSignals.trim());
     
-    if (selectedList.length === 0) {
-      alert("Please select targets to analyze");
+    if (pendingList.length === 0) {
+      alert("All selected targets already have growth signals");
       return;
     }
 
     setDetectingGrowth(true);
-    setGrowthProgress({ current: 0, total: selectedList.length });
+    setGrowthProgress({ current: 0, total: pendingList.length });
 
     const BATCH_SIZE = 10;
     let completed = 0;
+    let skippedCount = selectedList.length - pendingList.length;
 
-    for (let i = 0; i < selectedList.length; i += BATCH_SIZE) {
-      const batch = selectedList.slice(i, i + BATCH_SIZE);
+    for (let i = 0; i < pendingList.length; i += BATCH_SIZE) {
+      const batch = pendingList.slice(i, i + BATCH_SIZE);
 
       await Promise.allSettled(batch.map(async (target) => {
         try {
@@ -381,30 +391,33 @@ Return JSON with brief summaries (1 sentence each):
       }));
 
       completed += batch.length;
-      setGrowthProgress({ current: completed, total: selectedList.length });
+      setGrowthProgress({ current: completed, total: pendingList.length });
     }
 
     await queryClient.invalidateQueries({ queryKey: ['bdTargets'] });
     setDetectingGrowth(false);
     setGrowthProgress({ current: 0, total: 0 });
+    alert(`Growth signals detected!\n✓ ${pendingList.length} analyzed\n⊝ ${skippedCount} skipped (already enriched)`);
   };
 
   const generateRationalesForSelected = async () => {
     const selectedList = filteredTargets.filter(t => selectedTargets.has(t.id));
+    const pendingList = selectedList.filter(t => !t.strategicRationale || !t.strategicRationale.trim());
     
-    if (selectedList.length === 0) {
-      alert("Please select targets to generate rationales");
+    if (pendingList.length === 0) {
+      alert("All selected targets already have strategic rationales");
       return;
     }
 
     setGeneratingRationales(true);
-    setRationaleProgress({ current: 0, total: selectedList.length });
+    setRationaleProgress({ current: 0, total: pendingList.length });
 
     const BATCH_SIZE = 10;
     let completed = 0;
+    let skippedCount = selectedList.length - pendingList.length;
 
-    for (let i = 0; i < selectedList.length; i += BATCH_SIZE) {
-      const batch = selectedList.slice(i, i + BATCH_SIZE);
+    for (let i = 0; i < pendingList.length; i += BATCH_SIZE) {
+      const batch = pendingList.slice(i, i + BATCH_SIZE);
 
       await Promise.allSettled(batch.map(async (target) => {
         try {
@@ -432,12 +445,13 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
       }));
 
       completed += batch.length;
-      setRationaleProgress({ current: completed, total: selectedList.length });
+      setRationaleProgress({ current: completed, total: pendingList.length });
     }
 
     await queryClient.invalidateQueries({ queryKey: ['bdTargets'] });
     setGeneratingRationales(false);
     setRationaleProgress({ current: 0, total: 0 });
+    alert(`Strategic rationales generated!\n✓ ${pendingList.length} generated\n⊝ ${skippedCount} skipped (already enriched)`);
   };
 
   const enrichAllSelected = async () => {
@@ -474,26 +488,32 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
 
   const enrichCompanyDataSelected = async () => {
     const selectedList = filteredTargets.filter(t => selectedTargets.has(t.id));
+    const pendingList = selectedList.filter(t => 
+      (!t.state || !t.state.trim()) || 
+      (!t.revenue || t.revenue === 0) || 
+      (!t.employees || t.employees === 0)
+    );
     
-    if (selectedList.length === 0) {
-      alert("Please select targets to enrich");
+    if (pendingList.length === 0) {
+      alert("All selected targets already have complete company data (state, revenue, employees)");
       return;
     }
 
     setEnrichingCompanyData(true);
-    setCompanyDataProgress({ current: 0, total: selectedList.length });
+    setCompanyDataProgress({ current: 0, total: pendingList.length });
     
     try {
+      const skippedCount = selectedList.length - pendingList.length;
       const result = await base44.functions.invoke('enrichCompanyData', {
-        targetIds: selectedList.map(t => t.id)
+        targetIds: pendingList.map(t => t.id)
       });
 
       await queryClient.invalidateQueries({ queryKey: ['bdTargets'] });
       
       if (result.data.errors.length > 0) {
-        alert(`Company data enrichment complete!\n✓ ${result.data.processed} successful\n✗ ${result.data.errors.length} failed`);
+        alert(`Company data enrichment complete!\n✓ ${result.data.processed} successful\n✗ ${result.data.errors.length} failed\n⊝ ${skippedCount} skipped (already enriched)`);
       } else {
-        alert(`Company data enrichment complete! Successfully processed ${result.data.processed} targets.`);
+        alert(`Company data enrichment complete!\n✓ ${result.data.processed} enriched\n⊝ ${skippedCount} skipped (already enriched)`);
       }
     } catch (error) {
       console.error("Company data enrichment error:", error);
