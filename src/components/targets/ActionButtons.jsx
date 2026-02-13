@@ -23,6 +23,8 @@ export default function ActionButtons({
   generatingRationales,
   enrichingAll,
   enrichAllProgress,
+  enrichingCompanyData,
+  companyDataProgress,
   selectedCount,
   filteredCount,
   targetsCount,
@@ -41,6 +43,7 @@ export default function ActionButtons({
   onDetectGrowth,
   onGenerateRationales,
   onEnrichAll,
+  onEnrichCompanyData,
   onExportSelected
 }) {
   return (

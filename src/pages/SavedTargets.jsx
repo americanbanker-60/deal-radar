@@ -61,6 +61,8 @@ export default function SavedTargets() {
   const [cleanProgress, setCleanProgress] = useState({ current: 0, total: 0 });
   const [enrichingAll, setEnrichingAll] = useState(false);
   const [enrichAllProgress, setEnrichAllProgress] = useState({ step: "", current: 0, total: 0 });
+  const [enrichingCompanyData, setEnrichingCompanyData] = useState(false);
+  const [companyDataProgress, setCompanyDataProgress] = useState({ current: 0, total: 0 });
   const [extractingNames, setExtractingNames] = useState(false);
   const [extractProgress, setExtractProgress] = useState({ current: 0, total: 0 });
   const [insights, setInsights] = useState("");
@@ -444,6 +446,38 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
     } finally {
       setEnrichingAll(false);
       setEnrichAllProgress({ step: "", current: 0, total: 0 });
+    }
+  };
+
+  const enrichCompanyDataSelected = async () => {
+    const selectedList = filteredTargets.filter(t => selectedTargets.has(t.id));
+    
+    if (selectedList.length === 0) {
+      alert("Please select targets to enrich");
+      return;
+    }
+
+    setEnrichingCompanyData(true);
+    setCompanyDataProgress({ current: 0, total: selectedList.length });
+    
+    try {
+      const result = await base44.functions.invoke('enrichCompanyData', {
+        targetIds: selectedList.map(t => t.id)
+      });
+
+      await queryClient.invalidateQueries({ queryKey: ['bdTargets'] });
+      
+      if (result.data.errors.length > 0) {
+        alert(`Company data enrichment complete!\n✓ ${result.data.processed} successful\n✗ ${result.data.errors.length} failed`);
+      } else {
+        alert(`Company data enrichment complete! Successfully processed ${result.data.processed} targets.`);
+      }
+    } catch (error) {
+      console.error("Company data enrichment error:", error);
+      alert("Company data enrichment failed: " + error.message);
+    } finally {
+      setEnrichingCompanyData(false);
+      setCompanyDataProgress({ current: 0, total: 0 });
     }
   };
 
@@ -966,6 +1000,8 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
           generatingRationales={generatingRationales}
           enrichingAll={enrichingAll}
           enrichAllProgress={enrichAllProgress}
+          enrichingCompanyData={enrichingCompanyData}
+          companyDataProgress={companyDataProgress}
           selectedCount={selectedTargets.size}
           filteredCount={filteredTargets.length}
           targetsCount={targets.length}
@@ -984,6 +1020,7 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
           onDetectGrowth={detectGrowthSignalsForSelected}
           onGenerateRationales={generateRationalesForSelected}
           onEnrichAll={enrichAllSelected}
+          onEnrichCompanyData={enrichCompanyDataSelected}
           onExportSelected={() => exportCSV(false)}
         />
       </div>
