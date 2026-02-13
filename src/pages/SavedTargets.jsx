@@ -223,7 +223,7 @@ export default function SavedTargets() {
     setGeneratingShortNames(true);
     setShortNameProgress({ current: 0, total: selectedList.length });
 
-    const BATCH_SIZE = 15;
+    const BATCH_SIZE = 3;
     let completed = 0;
     let successCount = 0;
     let errorCount = 0;
@@ -255,6 +255,11 @@ export default function SavedTargets() {
 
       completed += batch.length;
       setShortNameProgress({ current: completed, total: selectedList.length });
+      
+      // Delay between batches to avoid rate limits
+      if (i + BATCH_SIZE < selectedList.length) {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
     }
 
     await queryClient.invalidateQueries({ queryKey: ['bdTargets'] });
