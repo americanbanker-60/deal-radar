@@ -320,6 +320,27 @@ export default function ActionButtons({
         )}
       </Button>
 
+      <Button 
+        variant="outline"
+        onClick={onEnrichCompanyData} 
+        disabled={enrichingCompanyData || selectedCount === 0}
+        className="text-xs sm:text-sm"
+      >
+        {enrichingCompanyData ? (
+          <>
+            <Loader2 className="w-3 h-3 sm:w-4 sm:h-4 mr-2 animate-spin" />
+            <span className="hidden sm:inline">Enriching {companyDataProgress.current}/{companyDataProgress.total}</span>
+            <span className="sm:hidden">Data...</span>
+          </>
+        ) : (
+          <>
+            <Building2 className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
+            <span className="hidden lg:inline">State/Revenue/Employees ({selectedCount})</span>
+            <span className="lg:hidden">Data ({selectedCount})</span>
+          </>
+        )}
+      </Button>
+
       <Button onClick={onExportSelected} disabled={selectedCount === 0} className="text-xs sm:text-sm">
         <CheckSquare className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
         <span className="hidden sm:inline">Export Selected ({selectedCount})</span>
