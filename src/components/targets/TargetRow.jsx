@@ -53,14 +53,20 @@ const TargetRow = React.memo(({
           </div>
         ) : "—"}
       </td>
-      <td className="py-3 px-4">
-        {target.websiteStatus === "working" && (
-          <Badge className="bg-green-100 text-green-700 text-xs">✓</Badge>
+      <td className="py-3 px-4 max-w-[200px]">
+        {target.website ? (
+          <a 
+            href={target.website.startsWith('http') ? target.website : `https://${target.website}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-600 hover:text-blue-800 text-xs truncate block underline"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {target.website.replace(/^https?:\/\/(www\.)?/, '')}
+          </a>
+        ) : (
+          <span className="text-xs text-muted-foreground">—</span>
         )}
-        {target.websiteStatus === "broken" && (
-          <Badge className="bg-red-100 text-red-700 text-xs">✗</Badge>
-        )}
-        {!target.websiteStatus && <span className="text-xs text-muted-foreground">—</span>}
       </td>
       <td className="py-3 px-4">
         {target.growthSignals && target.growthSignals.trim() ? (
