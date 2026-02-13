@@ -101,7 +101,56 @@ Deno.serve(async (req) => {
                         }
                     }
 
-                    // 6. Strategic Rationale
+                    // 6. Company Data (State, Revenue, Employees)
+                    const needsState = !target.state || target.state.trim() === '';
+                    const needsRevenue = !target.revenue;
+                    const needsEmployees = !target.employees;
+
+                    if (needsState || needsRevenue || needsEmployees) {
+                        try {
+                            const prompt = `Search for information about "${target.name}" (${target.website || 'healthcare company'}).
+
+Find and return ONLY the following information:
+${needsState ? '- State: US state where headquarters is located (2-letter code)' : ''}
+${needsRevenue ? '- Annual Revenue: in millions (number only)' : ''}
+${needsEmployees ? '- Employee Count: total number of employees (number only)' : ''}
+
+Return JSON with ONLY the fields that need updating:
+{
+  ${needsState ? '"state": "TX",' : ''}
+  ${needsRevenue ? '"revenue": 15.5,' : ''}
+  ${needsEmployees ? '"employees": 120' : ''}
+}
+
+If you cannot find a field, omit it from the response.`;
+
+                            const companyData = await base44.integrations.Core.InvokeLLM({
+                                prompt,
+                                add_context_from_internet: true,
+                                response_json_schema: {
+                                    type: "object",
+                                    properties: {
+                                        state: { type: "string" },
+                                        revenue: { type: "number" },
+                                        employees: { type: "number" }
+                                    }
+                                }
+                            });
+
+                            const updates = {};
+                            if (needsState && companyData.state) updates.state = companyData.state;
+                            if (needsRevenue && companyData.revenue) updates.revenue = companyData.revenue;
+                            if (needsEmployees && companyData.employees) updates.employees = companyData.employees;
+
+                            if (Object.keys(updates).length > 0) {
+                                await base44.asServiceRole.entities.BDTarget.update(targetId, updates);
+                            }
+                        } catch (err) {
+                            console.error(`Company data error: ${err.message}`);
+                        }
+                    }
+
+                    // 7. Strategic Rationale
                     if (!target.strategicRationale || target.strategicRationale.trim() === '') {
                         try {
                             const prompt = `Research "${target.name}" (${target.website || 'healthcare company'} in ${target.city}, ${target.state}) and write a 2-sentence strategic investment thesis. Sector: ${target.sectorFocus || 'Healthcare Services'}, Revenue: ~$${target.revenue}M, Employees: ${target.employees}. Be specific and data-driven.`;
