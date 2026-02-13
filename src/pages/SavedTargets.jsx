@@ -225,17 +225,33 @@ export default function SavedTargets() {
 
     const BATCH_SIZE = 15;
     let completed = 0;
+    let successCount = 0;
+    let errorCount = 0;
 
     for (let i = 0; i < selectedList.length; i += BATCH_SIZE) {
       const batch = selectedList.slice(i, i + BATCH_SIZE);
 
-      await Promise.allSettled(batch.map(async (target) => {
+      const results = await Promise.allSettled(batch.map(async (target) => {
         try {
-          await base44.functions.invoke('generateShortNames', { targetId: target.id });
+          const result = await base44.functions.invoke('generateShortNames', { targetId: target.id });
+          if (result.data && result.data.correspondenceName) {
+            return { success: true, name: target.name };
+          } else {
+            throw new Error('No correspondence name returned');
+          }
         } catch (error) {
           console.error(`Error generating correspondence name for ${target.name}:`, error);
+          return { success: false, name: target.name, error: error.message };
         }
       }));
+
+      results.forEach(result => {
+        if (result.status === 'fulfilled' && result.value.success) {
+          successCount++;
+        } else {
+          errorCount++;
+        }
+      });
 
       completed += batch.length;
       setShortNameProgress({ current: completed, total: selectedList.length });
@@ -244,6 +260,8 @@ export default function SavedTargets() {
     await queryClient.invalidateQueries({ queryKey: ['bdTargets'] });
     setGeneratingShortNames(false);
     setShortNameProgress({ current: 0, total: 0 });
+    
+    alert(`Correspondence names generated!\n✓ ${successCount} successful\n✗ ${errorCount} failed`);
   };
 
   const bulkPersonalizeSelected = async () => {
