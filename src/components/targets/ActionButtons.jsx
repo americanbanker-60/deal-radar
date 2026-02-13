@@ -303,13 +303,13 @@ export default function ActionButtons({
       <Button 
         onClick={onEnrichAll} 
         disabled={enrichingAll || selectedCount === 0}
-        className="bg-purple-600 hover:bg-purple-700 text-xs sm:text-sm"
+        className="bg-purple-600 hover:bg-purple-700 text-xs sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {enrichingAll ? (
           <>
             <Loader2 className="w-3 h-3 sm:w-4 sm:h-4 mr-2 animate-spin" />
-            <span className="hidden sm:inline">{enrichAllProgress.step} ({enrichAllProgress.current}/{enrichAllProgress.total})</span>
-            <span className="sm:hidden">Enriching...</span>
+            <span className="hidden sm:inline">Processing {enrichAllProgress.current}/{enrichAllProgress.total}</span>
+            <span className="sm:hidden">Processing...</span>
           </>
         ) : (
           <>
