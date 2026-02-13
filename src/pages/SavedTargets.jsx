@@ -57,6 +57,7 @@ export default function SavedTargets() {
   const [generatingRationales, setGeneratingRationales] = useState(false);
   const [rationaleProgress, setRationaleProgress] = useState({ current: 0, total: 0 });
   const [generatingSingleRationale, setGeneratingSingleRationale] = useState(null);
+  const [refreshingData, setRefreshingData] = useState(null);
   const [cleaningNames, setCleaningNames] = useState(false);
   const [cleanProgress, setCleanProgress] = useState({ current: 0, total: 0 });
   const [enrichingAll, setEnrichingAll] = useState(false);
@@ -488,33 +489,24 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
 
   const enrichCompanyDataSelected = async () => {
     const selectedList = filteredTargets.filter(t => selectedTargets.has(t.id));
-    const pendingList = selectedList.filter(t => 
-      (!t.state || !t.state.trim()) || 
-      (!t.revenue || t.revenue === 0) || 
-      (!t.employees || t.employees === 0)
-    );
     
-    if (pendingList.length === 0) {
-      alert("All selected targets already have complete company data (state, revenue, employees)");
-      return;
-    }
-
     setEnrichingCompanyData(true);
-    setCompanyDataProgress({ current: 0, total: pendingList.length });
+    setCompanyDataProgress({ current: 0, total: selectedList.length });
     
     try {
-      const skippedCount = selectedList.length - pendingList.length;
       const result = await base44.functions.invoke('enrichCompanyData', {
-        targetIds: pendingList.map(t => t.id)
+        targetIds: selectedList.map(t => t.id)
       });
 
       await queryClient.invalidateQueries({ queryKey: ['bdTargets'] });
       
-      if (result.data.errors.length > 0) {
-        alert(`Company data enrichment complete!\n✓ ${result.data.processed} successful\n✗ ${result.data.errors.length} failed\n⊝ ${skippedCount} skipped (already enriched)`);
-      } else {
-        alert(`Company data enrichment complete!\n✓ ${result.data.processed} enriched\n⊝ ${skippedCount} skipped (already enriched)`);
-      }
+      const message = [
+        `✓ ${result.data.processed} enriched`,
+        result.data.skipped > 0 && `⊝ ${result.data.skipped} skipped (complete)`,
+        result.data.errors.length > 0 && `✗ ${result.data.errors.length} failed`
+      ].filter(Boolean).join('\n');
+      
+      alert(`Company data enrichment complete!\n${message}`);
     } catch (error) {
       console.error("Company data enrichment error:", error);
       alert("Company data enrichment failed: " + error.message);
@@ -554,6 +546,27 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
     }
     
     setGeneratingSingleRationale(null);
+  };
+
+  const refreshSingleTargetData = async (targetId) => {
+    setRefreshingData(targetId);
+    
+    try {
+      const result = await base44.functions.invoke('enrichCompanyData', {
+        targetIds: [targetId]
+      });
+
+      await queryClient.invalidateQueries({ queryKey: ['bdTargets'] });
+      
+      if (result.data.errors.length > 0) {
+        alert("Failed to refresh data: " + result.data.errors[0].error);
+      }
+    } catch (error) {
+      console.error("Error refreshing data:", error);
+      alert("Failed to refresh data: " + error.message);
+    }
+    
+    setRefreshingData(null);
   };
 
   const cleanCompanyNamesForSelected = async () => {
@@ -1344,6 +1357,8 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
                       onToggle={toggleTarget}
                       onGenerateRationale={generateSingleRationale}
                       isGeneratingRationale={generatingSingleRationale === t.id}
+                      onRefreshData={refreshSingleTargetData}
+                      isRefreshingData={refreshingData === t.id}
                     />
                   ))}
                 </tbody>

@@ -50,7 +50,7 @@ const TargetRow = React.memo(({
 
   return (
     <tr 
-      className="border-b border-slate-100 hover:bg-slate-50 transition-colors cursor-pointer"
+      className="border-b border-slate-100 hover:bg-slate-50 transition-colors cursor-pointer group"
       onClick={handleRowClick}
     >
       <td className="py-3 px-4">

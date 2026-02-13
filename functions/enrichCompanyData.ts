@@ -18,78 +18,107 @@ Deno.serve(async (req) => {
         const results = {
             total: targetIds.length,
             processed: 0,
+            skipped: 0,
             errors: []
         };
 
-        // Process 2 targets at a time to avoid rate limits
-        const BATCH_SIZE = 2;
+        // Fetch all targets and pre-filter for missing data
+        const allTargets = await Promise.all(
+            targetIds.map(id => base44.asServiceRole.entities.BDTarget.get(id))
+        );
+
+        const pendingTargets = allTargets.filter(t => {
+            const needsState = !t.state || t.state.trim() === '';
+            const needsRevenue = !t.revenue;
+            const needsEmployees = !t.employees;
+            return needsState || needsRevenue || needsEmployees;
+        });
+
+        results.skipped = allTargets.length - pendingTargets.length;
+
+        if (pendingTargets.length === 0) {
+            return Response.json(results);
+        }
+
+        // Process 5 targets per LLM call for maximum efficiency
+        const BATCH_SIZE = 5;
         
-        for (let i = 0; i < targetIds.length; i += BATCH_SIZE) {
-            const batch = targetIds.slice(i, i + BATCH_SIZE);
+        for (let i = 0; i < pendingTargets.length; i += BATCH_SIZE) {
+            const batch = pendingTargets.slice(i, i + BATCH_SIZE);
             
-            await Promise.allSettled(batch.map(async (targetId) => {
-                try {
-                    const target = await base44.asServiceRole.entities.BDTarget.get(targetId);
-                    
-                    const needsState = !target.state || target.state.trim() === '';
-                    const needsRevenue = !target.revenue;
-                    const needsEmployees = !target.employees;
+            try {
+                // Build batch data with only essential fields
+                const batchData = batch.map(t => ({
+                    id: t.id,
+                    name: t.name,
+                    website: t.website || '',
+                    needsState: !t.state || t.state.trim() === '',
+                    needsRevenue: !t.revenue,
+                    needsEmployees: !t.employees
+                }));
 
-                    if (!needsState && !needsRevenue && !needsEmployees) {
-                        results.processed++;
-                        return;
-                    }
+                // Optimized prompt with static instructions first for caching
+                const systemPrompt = `You are a data enrichment assistant. For each company, research and return ONLY missing fields. Use 2-letter state codes. Return minified JSON array with format: [{"id":"x","state":"TX","revenue":15.5,"employees":120}]. Omit fields if not found.`;
 
-                    const prompt = `Search for information about "${target.name}" (${target.website || 'healthcare company'}).
+                const userPrompt = batchData.map(t => 
+                    `${t.id}: "${t.name}" (${t.website}) - Need: ${[
+                        t.needsState && 'state',
+                        t.needsRevenue && 'revenue',
+                        t.needsEmployees && 'employees'
+                    ].filter(Boolean).join(',')}`
+                ).join('\n');
 
-Find and return ONLY the following information:
-${needsState ? '- State: US state where headquarters is located (2-letter code)' : ''}
-${needsRevenue ? '- Annual Revenue: in millions (number only)' : ''}
-${needsEmployees ? '- Employee Count: total number of employees (number only)' : ''}
-
-Return JSON with ONLY the fields that need updating:
-{
-  ${needsState ? '"state": "TX",' : ''}
-  ${needsRevenue ? '"revenue": 15.5,' : ''}
-  ${needsEmployees ? '"employees": 120' : ''}
-}
-
-If you cannot find a field, omit it from the response.`;
-
-                    const result = await base44.integrations.Core.InvokeLLM({
-                        prompt,
-                        add_context_from_internet: true,
-                        response_json_schema: {
-                            type: "object",
-                            properties: {
-                                state: { type: "string" },
-                                revenue: { type: "number" },
-                                employees: { type: "number" }
+                const result = await base44.integrations.Core.InvokeLLM({
+                    prompt: `${systemPrompt}\n\n${userPrompt}`,
+                    add_context_from_internet: true,
+                    response_json_schema: {
+                        type: "object",
+                        properties: {
+                            results: {
+                                type: "array",
+                                items: {
+                                    type: "object",
+                                    properties: {
+                                        id: { type: "string" },
+                                        state: { type: "string" },
+                                        revenue: { type: "number" },
+                                        employees: { type: "number" }
+                                    }
+                                }
                             }
                         }
-                    });
+                    }
+                });
 
+                // Update all records from batch
+                const updatePromises = (result.results || []).map(async (data) => {
                     const updates = {};
-                    if (needsState && result.state) updates.state = result.state;
-                    if (needsRevenue && result.revenue) updates.revenue = result.revenue;
-                    if (needsEmployees && result.employees) updates.employees = result.employees;
+                    const targetData = batchData.find(t => t.id === data.id);
+                    
+                    if (targetData?.needsState && data.state) updates.state = data.state;
+                    if (targetData?.needsRevenue && data.revenue) updates.revenue = data.revenue;
+                    if (targetData?.needsEmployees && data.employees) updates.employees = data.employees;
 
                     if (Object.keys(updates).length > 0) {
-                        await base44.asServiceRole.entities.BDTarget.update(targetId, updates);
+                        await base44.asServiceRole.entities.BDTarget.update(data.id, updates);
+                        results.processed++;
                     }
+                });
 
-                    results.processed++;
-                } catch (error) {
+                await Promise.all(updatePromises);
+
+            } catch (error) {
+                batch.forEach(t => {
                     results.errors.push({
-                        targetId,
+                        targetId: t.id,
                         error: error.message
                     });
-                }
-            }));
+                });
+            }
 
-            // Longer delay between batches to avoid rate limits
-            if (i + BATCH_SIZE < targetIds.length) {
-                await new Promise(resolve => setTimeout(resolve, 2000));
+            // Minimal delay between batches
+            if (i + BATCH_SIZE < pendingTargets.length) {
+                await new Promise(resolve => setTimeout(resolve, 1000));
             }
         }
 
