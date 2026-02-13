@@ -3,7 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { MapPin, Loader2, Sparkles } from "lucide-react";
+import { MapPin, Loader2, Sparkles, Check, RefreshCw } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "../../utils";
 
@@ -15,6 +15,31 @@ const TargetRow = React.memo(({
   isGeneratingRationale 
 }) => {
   const navigate = useNavigate();
+
+  // Calculate enrichment status
+  const hasCorrespondence = target.correspondenceName && target.correspondenceName.trim();
+  const hasState = target.state && target.state.trim();
+  const hasRevenue = target.revenue && target.revenue > 0;
+  const hasEmployees = target.employees && target.employees > 0;
+  const hasContactEnrichment = target.contactPreferredName && target.contactPreferredName.trim();
+  const hasGrowthSignals = target.growthSignals && target.growthSignals.trim();
+  const hasRationale = target.strategicRationale && target.strategicRationale.trim();
+  const hasPersonalization = target.personalization_snippet && target.personalization_snippet.trim();
+  
+  const enrichmentFields = [
+    hasCorrespondence,
+    hasState,
+    hasRevenue,
+    hasEmployees,
+    hasContactEnrichment,
+    hasGrowthSignals,
+    hasRationale,
+    hasPersonalization
+  ];
+  
+  const enrichedCount = enrichmentFields.filter(Boolean).length;
+  const totalFields = enrichmentFields.length;
+  const enrichmentPercentage = (enrichedCount / totalFields) * 100;
 
   const handleRowClick = (e) => {
     if (e.target.closest('input[type="checkbox"]') || e.target.closest('button')) {
@@ -29,22 +54,54 @@ const TargetRow = React.memo(({
       onClick={handleRowClick}
     >
       <td className="py-3 px-4">
-        <Checkbox
-          checked={isSelected}
-          onCheckedChange={() => onToggle(target.id)}
-        />
+        <div className="flex items-center gap-2">
+          <Checkbox
+            checked={isSelected}
+            onCheckedChange={() => onToggle(target.id)}
+          />
+          {enrichmentPercentage === 100 ? (
+            <Check className="w-4 h-4 text-green-600" />
+          ) : (
+            <RefreshCw className="w-4 h-4 text-orange-500" />
+          )}
+        </div>
       </td>
-      <td className="py-3 px-4 max-w-[200px] truncate font-medium">{target.name}</td>
-      <td className="py-3 px-4 text-slate-600">{target.correspondenceName || "—"}</td>
+      <td className="py-3 px-4 max-w-[200px] truncate font-medium">
+        <div className="flex items-center gap-2">
+          {target.name}
+          {enrichmentPercentage === 100 ? (
+            <Badge className="bg-green-100 text-green-700 border-green-300 text-xs">
+              Enriched
+            </Badge>
+          ) : (
+            <Badge className="bg-orange-100 text-orange-700 border-orange-300 text-xs">
+              Pending ({enrichedCount}/{totalFields})
+            </Badge>
+          )}
+        </div>
+      </td>
+      <td className="py-3 px-4 text-slate-600">
+        {hasCorrespondence ? (
+          <span>{target.correspondenceName}</span>
+        ) : (
+          <span className="text-orange-500 italic">Pending</span>
+        )}
+      </td>
       <td className="py-3 px-4">
         {target.sectorFocus && (
           <Badge variant="outline" className="text-xs whitespace-nowrap">{target.sectorFocus}</Badge>
         )}
       </td>
       <td className="py-3 px-4 text-slate-600 whitespace-nowrap">{target.city || "—"}</td>
-      <td className="py-3 px-4 text-slate-600 whitespace-nowrap">{target.state || "—"}</td>
-      <td className="py-3 px-4 text-slate-600 whitespace-nowrap">{target.revenue ? `$${target.revenue}M` : "—"}</td>
-      <td className="py-3 px-4 text-slate-600">{target.employees || "—"}</td>
+      <td className="py-3 px-4 text-slate-600 whitespace-nowrap">
+        {hasState ? target.state : <span className="text-orange-500 italic">Pending</span>}
+      </td>
+      <td className="py-3 px-4 text-slate-600 whitespace-nowrap">
+        {hasRevenue ? `$${target.revenue}M` : <span className="text-orange-500 italic">Pending</span>}
+      </td>
+      <td className="py-3 px-4 text-slate-600">
+        {hasEmployees ? target.employees : <span className="text-orange-500 italic">Pending</span>}
+      </td>
       <td className="py-3 px-4 text-slate-600">
         {target.clinicCount ? (
           <div className="flex items-center gap-1">
