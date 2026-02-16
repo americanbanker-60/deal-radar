@@ -235,54 +235,39 @@ export default function OpsConsole(){
     setEnriching(true);
     setEnrichProgress({ current: 0, total: normalizedGR.length });
 
-    const { generateFriendlyName, generateCorrespondenceName, classifyCompanySector } = await import("../components/utils/data-engine");
-    const enrichedRows = [];
+    try {
+      const result = await base44.functions.invoke('bulkEnrichNamesAndSectors', {
+        targets: normalizedGR
+      });
 
-    for (let i = 0; i < normalizedGR.length; i++) {
-      const company = normalizedGR[i];
-      setEnrichProgress({ current: i + 1, total: normalizedGR.length });
+      const enrichedRows = result.data.enrichedTargets;
 
-      try {
-        const [friendlyName, correspondenceName, sector] = await Promise.all([
-          generateFriendlyName(company.name),
-          generateCorrespondenceName(company.name),
-          classifyCompanySector(company)
-        ]);
+      // Update the raw data with enriched information
+      const enrichedMap = new Map(enrichedRows.map(r => [r.name, r]));
+      const updatedRaw = grCompaniesRaw.map(raw => {
+        const normalized = normalizeRow(raw);
+        const enriched = enrichedMap.get(normalized.name);
+        if (enriched) {
+          raw._companyShortName = enriched.companyShortName;
+          raw._correspondenceName = enriched.correspondenceName;
+          raw._sectorFocus = enriched.sectorFocus;
+        }
+        return raw;
+      });
 
-        enrichedRows.push({
-          ...company,
-          companyShortName: friendlyName,
-          correspondenceName: correspondenceName,
-          sectorFocus: sector
-        });
-      } catch (error) {
-        console.error(`Error enriching ${company.name}:`, error);
-        enrichedRows.push({
-          ...company,
-          companyShortName: company.name,
-          correspondenceName: company.name,
-          sectorFocus: "HS: General"
-        });
-      }
+      setGrCompaniesRaw(updatedRaw);
+      
+      const errorMsg = result.data.errors.length > 0 
+        ? ` (${result.data.errors.length} had errors)`
+        : '';
+      showSuccess(`Enriched ${result.data.summary.processed} company names and sectors!${errorMsg}`);
+    } catch (error) {
+      console.error("Bulk enrichment error:", error);
+      setUploadError("Failed to enrich: " + (error.message || String(error)));
     }
 
-    // Update the raw data with enriched information
-    const enrichedMap = new Map(enrichedRows.map(r => [r.name, r]));
-    const updatedRaw = grCompaniesRaw.map(raw => {
-      const normalized = normalizeRow(raw);
-      const enriched = enrichedMap.get(normalized.name);
-      if (enriched) {
-        raw._companyShortName = enriched.companyShortName;
-        raw._correspondenceName = enriched.correspondenceName;
-        raw._sectorFocus = enriched.sectorFocus;
-      }
-      return raw;
-    });
-
-    setGrCompaniesRaw(updatedRaw);
     setEnriching(false);
     setEnrichProgress({ current: 0, total: 0 });
-    showSuccess(`Enriched ${enrichedRows.length} company names and sectors!`);
   };
   
   const saveToDatabase = async () => {
