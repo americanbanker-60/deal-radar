@@ -190,40 +190,45 @@ export default function OpsConsole(){
     }
 
     setCrawling(true);
-    setCrawlProgress({ current: 0, total: normalizedGR.length });
 
-    const { crawlCompanyWebsite } = await import("../components/utils/data-engine");
-    const enrichedRows = [];
+    try {
+      const companies = normalizedGR.map(company => ({
+        name: company.name,
+        website: company.website
+      }));
 
-    for (let i = 0; i < normalizedGR.length; i++) {
-      const company = normalizedGR[i];
-      setCrawlProgress({ current: i + 1, total: normalizedGR.length });
-
-      const crawlResult = await crawlCompanyWebsite(company);
-      enrichedRows.push({
-        ...company,
-        ...crawlResult
+      const result = await base44.functions.invoke('bulkCrawlWebsites', {
+        companies
       });
+
+      const crawledCompanies = result.data.crawledCompanies;
+
+      // Update the raw data with crawled information
+      const crawledMap = new Map(crawledCompanies.map(c => [c.name, c]));
+      const updatedRaw = grCompaniesRaw.map(raw => {
+        const normalized = normalizeRow(raw);
+        const crawled = crawledMap.get(normalized.name);
+        if (crawled) {
+          raw._websiteStatus = crawled.websiteStatus;
+          raw._clinicCount = crawled.clinicCount;
+          raw._lastActive = crawled.lastActive;
+          raw._dormancyFlag = crawled.dormancyFlag;
+        }
+        return raw;
+      });
+
+      setGrCompaniesRaw(updatedRaw);
+      
+      const errorMsg = result.data.errors?.length > 0 
+        ? ` (${result.data.errors.length} errors)` 
+        : '';
+      showSuccess(`Crawled ${crawledCompanies.length} company websites!${errorMsg}`);
+    } catch (error) {
+      console.error("Bulk crawl error:", error);
+      setUploadError("Failed to crawl websites: " + (error.message || String(error)));
     }
-
-    // Update the raw data with enriched information
-    const enrichedMap = new Map(enrichedRows.map(r => [r.name, r]));
-    const updatedRaw = grCompaniesRaw.map(raw => {
-      const normalized = normalizeRow(raw);
-      const enriched = enrichedMap.get(normalized.name);
-      if (enriched) {
-        raw._websiteStatus = enriched.websiteStatus;
-        raw._clinicCount = enriched.clinicCount;
-        raw._lastActive = enriched.lastActive;
-        raw._dormancyFlag = enriched.dormancyFlag;
-      }
-      return raw;
-    });
-
-    setGrCompaniesRaw(updatedRaw);
+    
     setCrawling(false);
-    setCrawlProgress({ current: 0, total: 0 });
-    showSuccess(`Crawled ${enrichedRows.length} company websites!`);
   };
 
   const enrichNamesAndSectors = async () => {
@@ -1088,13 +1093,12 @@ Return JSON:
       {crawling && (
         <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-50 flex items-center justify-center">
           <div className="bg-white p-6 rounded-xl shadow-xl">
-            <div className="flex items-center gap-3 mb-4">
+            <div className="flex items-center gap-3">
               <Loader2 className="w-6 h-6 animate-spin text-emerald-600" />
               <span className="font-medium">Crawling Websites...</span>
             </div>
-            <Progress value={(crawlProgress.current / crawlProgress.total) * 100} className="w-64" />
-            <div className="text-sm text-slate-600 mt-2 text-center">
-              {crawlProgress.current} / {crawlProgress.total} companies
+            <div className="text-sm text-slate-600 mt-2">
+              Processing {normalizedGR.length} companies in backend
             </div>
           </div>
         </div>
