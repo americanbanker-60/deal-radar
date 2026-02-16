@@ -1659,6 +1659,7 @@ Return JSON:
             targetMaxRev={targetMaxRev}
             setTargetMaxRev={setTargetMaxRev}
             onRecalculate={recalculatingScores ? null : recalculateAllScores}
+            previewTargets={grScored}
           />
         </TabsContent>
       </Tabs>

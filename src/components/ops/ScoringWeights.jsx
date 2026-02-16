@@ -17,13 +17,17 @@ export default function ScoringWeights({
   setTargetMinRev,
   targetMaxRev,
   setTargetMaxRev,
-  onRecalculate
+  onRecalculate,
+  previewTargets = []
 }) {
   const totalWeight = Object.values(weights).reduce((a, b) => a + b, 0);
 
   const updateWeight = (key, value) => {
     setWeights(prev => ({ ...prev, [key]: value }));
   };
+
+  // Show top 5 targets as preview
+  const topPreviewTargets = previewTargets.slice(0, 5);
 
   return (
     <Card className="shadow-sm border-purple-200 bg-gradient-to-r from-purple-50 to-pink-50">
@@ -191,6 +195,49 @@ export default function ScoringWeights({
             💡 Leave ranges empty to use peer-median scoring (compares against uploaded dataset)
           </div>
         </div>
+
+        {previewTargets.length > 0 && (
+          <div className="mt-6 pt-6 border-t border-slate-200">
+            <div className="text-sm font-medium mb-3 flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-purple-600" />
+              Live Preview - Top 5 Targets
+            </div>
+            <div className="space-y-2">
+              {topPreviewTargets.map((target, idx) => (
+                <div 
+                  key={idx} 
+                  className="bg-white p-3 rounded border border-slate-200 hover:border-purple-300 transition-colors"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium text-sm truncate">{target.name}</div>
+                      <div className="text-xs text-slate-500 flex items-center gap-3 mt-1">
+                        {target.revenue && <span>💰 ${target.revenue}M</span>}
+                        {target.employees && <span>👥 {target.employees}</span>}
+                        {target.clinicCount && <span>📍 {target.clinicCount} clinics</span>}
+                      </div>
+                    </div>
+                    <div className="flex flex-col items-end gap-1">
+                      <Badge 
+                        className={
+                          (target.score || 0) >= 80 ? "bg-green-100 text-green-800" :
+                          (target.score || 0) >= 60 ? "bg-yellow-100 text-yellow-800" :
+                          "bg-slate-100 text-slate-800"
+                        }
+                      >
+                        {target.score || 0}
+                      </Badge>
+                      <span className="text-xs text-slate-400">#{idx + 1}</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="text-xs text-slate-500 mt-3 text-center">
+              Rankings update instantly as you adjust weights
+            </div>
+          </div>
+        )}
 
         {onRecalculate && (
           <div className="mt-6 pt-6 border-t border-slate-200">
