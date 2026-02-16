@@ -72,7 +72,7 @@ function calculateScore(target, { weights, targetRange, fitKeywords }) {
     const keyScore = fitKeywords && target.sectorFocus?.toLowerCase().includes(fitKeywords.toLowerCase()) ? 100 : 0;
 
     // Weighted total
-    const total = (
+    let total = (
         (empScore * w.employees) +
         (clinicScore * w.clinics) +
         (revScore * w.revenue) +
@@ -80,5 +80,24 @@ function calculateScore(target, { weights, targetRange, fitKeywords }) {
         (keyScore * w.keywords)
     ) / 100;
 
-    return Math.round(total);
+    let score = Math.round(total);
+
+    // Apply recency penalty based on lastActive date
+    if (target.lastActive) {
+        try {
+            const lastActiveDate = new Date(target.lastActive);
+            const now = new Date();
+            const monthsInactive = (now - lastActiveDate) / (1000 * 60 * 60 * 24 * 30);
+            
+            if (monthsInactive > 12) {
+                score = Math.max(0, score - 25);
+            } else if (monthsInactive > 6) {
+                score = Math.max(0, score - 10);
+            }
+        } catch (error) {
+            // Invalid date, no penalty
+        }
+    }
+
+    return score;
 }
