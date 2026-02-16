@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
-import { Database, Filter, Download, MapPin, Building2, Search, ArrowLeft, ArrowUpDown, ArrowUp, ArrowDown, RefreshCw, Loader2, CheckSquare, Globe2, UserCheck, Sparkles, Award, Tag, Mail, ExternalLink, ChevronLeft, ChevronRight } from "lucide-react";
+import { Database, Filter, Download, MapPin, Building2, Search, ArrowLeft, ArrowUpDown, ArrowUp, ArrowDown, RefreshCw, Loader2, CheckSquare, Globe2, UserCheck, Sparkles, Award, Tag, Mail, ExternalLink, ChevronLeft, ChevronRight, Send } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -73,6 +73,8 @@ export default function SavedTargets() {
   const [fitKeywords, setFitKeywords] = useState("Healthcare Services");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(50);
+  const [pushingToOutreach, setPushingToOutreach] = useState(false);
+  const [alertMessage, setAlertMessage] = useState("");
   const queryClient = useQueryClient();
 
   const [user, setUser] = useState(null);
@@ -197,8 +199,13 @@ export default function SavedTargets() {
         setSectorProgress({ current: i + 1, total: selectedList.length });
 
         try {
-          const sector = await classifyCompanySector({ name: target.name, website: target.website });
-          await base44.entities.BDTarget.update(target.id, { sectorFocus: sector });
+          const result = await classifyCompanySector({ name: target.name, website: target.website });
+          const sector = typeof result === 'object' ? result.sector : result;
+          const rationale = typeof result === 'object' ? result.rationale : null;
+          await base44.entities.BDTarget.update(target.id, { 
+            sectorFocus: sector,
+            sectorRationale: rationale
+          });
           successCount++;
         } catch (error) {
           console.error(`✗ Error reclassifying ${target.name}:`, error);
@@ -748,7 +755,10 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
       try {
         await base44.entities.BDTarget.update(target.id, {
           websiteStatus: crawlResult.websiteStatus,
-          clinicCount: crawlResult.clinicCount
+          clinicCount: crawlResult.clinicCount,
+          lastActive: crawlResult.lastActive,
+          dormancyFlag: crawlResult.dormancyFlag,
+          crawlRationale: crawlResult.crawlRationale
         });
       } catch (error) {
         console.error(`Error updating ${target.name}:`, error);
@@ -758,6 +768,35 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
     await queryClient.invalidateQueries({ queryKey: ['bdTargets'] });
     setCrawling(false);
     setCrawlProgress({ current: 0, total: 0 });
+  };
+
+  const handlePushToOutreach = async () => {
+    if (selectedTargets.size === 0) {
+      alert("Please select at least one target to push to Outreach.");
+      return;
+    }
+
+    setPushingToOutreach(true);
+    setAlertMessage("");
+    
+    try {
+      const { data } = await base44.functions.invoke('pushToOutreach', {
+        targetIds: Array.from(selectedTargets)
+      });
+
+      if (data.errors && data.errors.length > 0) {
+        const errorList = data.errors.slice(0, 5).map(e => `• ${e.target}: ${e.error}`).join('\n');
+        const moreErrors = data.errors.length > 5 ? `\n...and ${data.errors.length - 5} more` : '';
+        alert(`${data.message}\n\nErrors:\n${errorList}${moreErrors}`);
+      } else {
+        alert(data.message);
+      }
+    } catch (error) {
+      console.error('Push to Outreach failed:', error);
+      alert(error.response?.data?.error || 'Failed to push to Outreach. Please check your connection.');
+    }
+    
+    setPushingToOutreach(false);
   };
 
   const rescoreTargets = async () => {
@@ -1458,13 +1497,34 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
               Outreach Integration ({selectedTargets.size} selected)
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <OutreachIntegration 
-              prospects={filteredTargets.filter(t => selectedTargets.has(t.id) && t.contactEmail)} 
-              onSyncComplete={(result) => {
-                console.log("Sync complete:", result);
-              }}
-            />
+          <CardContent className="space-y-4">
+            <div className="flex gap-2">
+              <Button
+                onClick={handlePushToOutreach}
+                disabled={pushingToOutreach}
+                className="flex-1 bg-indigo-600 hover:bg-indigo-700"
+              >
+                {pushingToOutreach ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Pushing to Outreach...
+                  </>
+                ) : (
+                  <>
+                    <Send className="w-4 h-4 mr-2" />
+                    Push to Outreach
+                  </>
+                )}
+              </Button>
+            </div>
+            <div className="border-t pt-4">
+              <OutreachIntegration 
+                prospects={filteredTargets.filter(t => selectedTargets.has(t.id) && t.contactEmail)} 
+                onSyncComplete={(result) => {
+                  console.log("Sync complete:", result);
+                }}
+              />
+            </div>
           </CardContent>
         </Card>
       )}
