@@ -71,6 +71,16 @@ export default function OpsConsole(){
   // New states for saving targets
   const [selectedTargets, setSelectedTargets] = useState(new Set());
   const [campaignName, setCampaignName] = useState("");
+  const [selectedCampaignId, setSelectedCampaignId] = useState("");
+  const [campaigns, setCampaigns] = useState([]);
+  const [loadingCampaigns, setLoadingCampaigns] = useState(false);
+  const [showNewCampaignDialog, setShowNewCampaignDialog] = useState(false);
+  const [newCampaignData, setNewCampaignData] = useState({
+    name: "",
+    description: "",
+    vertical: "Healthcare Services",
+    status: "active"
+  });
   const [saving, setSaving] = useState(false);
   const [scoreThreshold] = useState(70);
   const [reclassifyingSectors, setReclassifyingSectors] = useState(false);
@@ -82,21 +92,32 @@ export default function OpsConsole(){
   const [findingLookalikes, setFindingLookalikes] = useState(false);
   const [addingLookalike, setAddingLookalike] = useState(null);
 
-  // Load saved settings from localStorage on mount
+  // Load saved settings and campaigns on mount
   useEffect(() => {
-    try {
-      const savedVertical = localStorage.getItem('ops_console_vertical');
-      const savedTag = localStorage.getItem('ops_console_tag');
-      
-      if (savedVertical) {
-        setVertical(savedVertical);
+    const loadInitialData = async () => {
+      try {
+        const savedVertical = localStorage.getItem('ops_console_vertical');
+        const savedTag = localStorage.getItem('ops_console_tag');
+        
+        if (savedVertical) {
+          setVertical(savedVertical);
+        }
+        if (savedTag) {
+          setTag(savedTag);
+        }
+
+        // Load existing campaigns
+        setLoadingCampaigns(true);
+        const existingCampaigns = await base44.entities.Campaign.list('-created_date');
+        setCampaigns(existingCampaigns);
+        setLoadingCampaigns(false);
+      } catch (error) {
+        console.error("Error loading initial data:", error);
+        setLoadingCampaigns(false);
       }
-      if (savedTag) {
-        setTag(savedTag);
-      }
-    } catch (error) {
-      console.error("Error loading saved settings:", error);
-    }
+    };
+
+    loadInitialData();
   }, []);
 
   // Save settings
@@ -273,14 +294,39 @@ export default function OpsConsole(){
     setEnriching(false);
   };
   
+  const createNewCampaign = async () => {
+    if (!newCampaignData.name.trim()) {
+      setUploadError("Please enter a campaign name");
+      return;
+    }
+
+    try {
+      const campaign = await base44.entities.Campaign.create(newCampaignData);
+      setCampaigns(prev => [campaign, ...prev]);
+      setSelectedCampaignId(campaign.id);
+      setCampaignName(campaign.name);
+      setShowNewCampaignDialog(false);
+      setNewCampaignData({
+        name: "",
+        description: "",
+        vertical: "Healthcare Services",
+        status: "active"
+      });
+      showSuccess(`Campaign "${campaign.name}" created!`);
+    } catch (error) {
+      console.error("Error creating campaign:", error);
+      setUploadError("Failed to create campaign: " + error.message);
+    }
+  };
+
   const saveToDatabase = async () => {
     if (selectedTargets.size === 0) {
       setUploadError("Please select companies to save");
       return;
     }
 
-    if (!campaignName.trim()) {
-      setUploadError("Please enter a campaign name");
+    if (!selectedCampaignId && !campaignName.trim()) {
+      setUploadError("Please select or create a campaign");
       return;
     }
 
@@ -289,13 +335,20 @@ export default function OpsConsole(){
     try {
       const selectedList = grScored.filter((_, index) => selectedTargets.has(index));
       
+      // Determine campaign name and ID
+      const finalCampaignId = selectedCampaignId || null;
+      const finalCampaignName = selectedCampaignId 
+        ? campaigns.find(c => c.id === selectedCampaignId)?.name 
+        : campaignName.trim();
+      
       // Get existing targets for AI comparison
       const existingTargets = await base44.entities.BDTarget.list('-created_date', 5000);
       
       if (existingTargets.length === 0) {
         // No existing records, save all in batches
         const targetsToSave = selectedList.map(t => ({
-          campaign: campaignName.trim(),
+          campaign: finalCampaignName,
+          campaign_id: finalCampaignId,
           name: t.name,
           companyShortName: t.companyShortName,
           correspondenceName: t.correspondenceName,
@@ -335,8 +388,9 @@ export default function OpsConsole(){
           console.log(`Saved batch ${Math.floor(i / BATCH_SIZE) + 1}: ${savedCount}/${targetsToSave.length}`);
         }
         
-        showSuccess(`Saved ${targetsToSave.length} companies to "${campaignName}"!`);
+        showSuccess(`Saved ${targetsToSave.length} companies to "${finalCampaignName}"!`);
         setSelectedTargets(new Set());
+        setSelectedCampaignId("");
         setCampaignName("");
         setSaving(false);
         return;
@@ -387,7 +441,8 @@ Instructions:
           }
           
           targetsToSave.push({
-            campaign: campaignName.trim(),
+            campaign: finalCampaignName,
+            campaign_id: finalCampaignId,
             name: t.name,
             companyShortName: t.companyShortName,
             correspondenceName: t.correspondenceName,
@@ -443,7 +498,8 @@ Instructions:
           }
 
           targetsToSave.push({
-            campaign: campaignName.trim(),
+            campaign: finalCampaignName,
+            campaign_id: finalCampaignId,
             name: t.name,
             companyShortName: t.companyShortName,
             correspondenceName: t.correspondenceName,
@@ -494,11 +550,12 @@ Instructions:
       }
       
       const message = duplicateCount > 0 
-        ? `Saved ${targetsToSave.length} companies to "${campaignName}"! (${duplicateCount} AI-detected duplicates skipped)`
-        : `Saved ${targetsToSave.length} companies to "${campaignName}"!`;
+        ? `Saved ${targetsToSave.length} companies to "${finalCampaignName}"! (${duplicateCount} AI-detected duplicates skipped)`
+        : `Saved ${targetsToSave.length} companies to "${finalCampaignName}"!`;
       
       showSuccess(message);
       setSelectedTargets(new Set());
+      setSelectedCampaignId("");
       setCampaignName("");
       
       // Redirect to Saved Targets page after 1 second
@@ -1135,6 +1192,86 @@ Return JSON:
 
 
 
+      <Dialog open={showNewCampaignDialog} onOpenChange={setShowNewCampaignDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create New Campaign</DialogTitle>
+            <DialogDescription>
+              Define a new campaign to organize your targets
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Campaign Name *</label>
+              <Input
+                placeholder="e.g., California Urgent Care Q1 2025"
+                value={newCampaignData.name}
+                onChange={(e) => setNewCampaignData({...newCampaignData, name: e.target.value})}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Description</label>
+              <Input
+                placeholder="Brief description of this campaign"
+                value={newCampaignData.description}
+                onChange={(e) => setNewCampaignData({...newCampaignData, description: e.target.value})}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Vertical</label>
+              <Input
+                placeholder="e.g., Healthcare Services"
+                value={newCampaignData.vertical}
+                onChange={(e) => setNewCampaignData({...newCampaignData, vertical: e.target.value})}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Status</label>
+              <Select
+                value={newCampaignData.status}
+                onValueChange={(value) => setNewCampaignData({...newCampaignData, status: value})}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="paused">Paused</SelectItem>
+                  <SelectItem value="completed">Completed</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-4">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowNewCampaignDialog(false);
+                  setNewCampaignData({
+                    name: "",
+                    description: "",
+                    vertical: "Healthcare Services",
+                    status: "active"
+                  });
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={createNewCampaign}
+                className="bg-purple-600 hover:bg-purple-700"
+              >
+                Create Campaign
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={showLookalikeDialog} onOpenChange={setShowLookalikeDialog}>
         <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
@@ -1342,12 +1479,47 @@ Return JSON:
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="space-y-2">
-                  <div className="text-sm font-medium">Campaign Name</div>
-                  <Input
-                    placeholder="e.g., California Urgent Care Q1 2025"
-                    value={campaignName}
-                    onChange={(e) => setCampaignName(e.target.value)}
-                  />
+                  <div className="text-sm font-medium">Select Campaign</div>
+                  <div className="flex gap-2">
+                    <Select
+                      value={selectedCampaignId}
+                      onValueChange={(value) => {
+                        if (value === "new") {
+                          setShowNewCampaignDialog(true);
+                        } else {
+                          setSelectedCampaignId(value);
+                          setCampaignName("");
+                        }
+                      }}
+                    >
+                      <SelectTrigger className="flex-1">
+                        <SelectValue placeholder={loadingCampaigns ? "Loading campaigns..." : "Select existing campaign..."} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="new">
+                          <div className="flex items-center gap-2">
+                            <Plus className="w-4 h-4" />
+                            Create New Campaign
+                          </div>
+                        </SelectItem>
+                        {campaigns.map((campaign) => (
+                          <SelectItem key={campaign.id} value={campaign.id}>
+                            {campaign.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {!selectedCampaignId && (
+                    <div className="mt-2">
+                      <div className="text-xs text-slate-500 mb-1">Or enter a new campaign name:</div>
+                      <Input
+                        placeholder="e.g., California Urgent Care Q1 2025"
+                        value={campaignName}
+                        onChange={(e) => setCampaignName(e.target.value)}
+                      />
+                    </div>
+                  )}
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge variant="outline">{selectedTargets.size} selected</Badge>
@@ -1372,7 +1544,7 @@ Return JSON:
 
                   <Button
                     onClick={saveToDatabase}
-                    disabled={saving || selectedTargets.size === 0 || !campaignName.trim()}
+                    disabled={saving || selectedTargets.size === 0 || (!selectedCampaignId && !campaignName.trim())}
                     className="bg-purple-600 hover:bg-purple-700"
                   >
                     {saving ? (
