@@ -233,56 +233,39 @@ export default function OpsConsole(){
     }
 
     setEnriching(true);
-    setEnrichProgress({ current: 0, total: normalizedGR.length });
 
-    const { generateFriendlyName, generateCorrespondenceName, classifyCompanySector } = await import("../components/utils/data-engine");
-    const enrichedRows = [];
+    try {
+      const result = await base44.functions.invoke('bulkEnrichTargets', {
+        targets: normalizedGR
+      });
 
-    for (let i = 0; i < normalizedGR.length; i++) {
-      const company = normalizedGR[i];
-      setEnrichProgress({ current: i + 1, total: normalizedGR.length });
+      const enrichedRows = result.data.enrichedTargets;
 
-      try {
-        const [friendlyName, correspondenceName, sector] = await Promise.all([
-          generateFriendlyName(company.name),
-          generateCorrespondenceName(company.name),
-          classifyCompanySector(company)
-        ]);
+      // Update the raw data with enriched information
+      const enrichedMap = new Map(enrichedRows.map(r => [r.name, r]));
+      const updatedRaw = grCompaniesRaw.map(raw => {
+        const normalized = normalizeRow(raw);
+        const enriched = enrichedMap.get(normalized.name);
+        if (enriched) {
+          raw._companyShortName = enriched.companyShortName;
+          raw._correspondenceName = enriched.correspondenceName;
+          raw._sectorFocus = enriched.sectorFocus;
+        }
+        return raw;
+      });
 
-        enrichedRows.push({
-          ...company,
-          companyShortName: friendlyName,
-          correspondenceName: correspondenceName,
-          sectorFocus: sector
-        });
-      } catch (error) {
-        console.error(`Error enriching ${company.name}:`, error);
-        enrichedRows.push({
-          ...company,
-          companyShortName: company.name,
-          correspondenceName: company.name,
-          sectorFocus: "HS: General"
-        });
-      }
+      setGrCompaniesRaw(updatedRaw);
+      
+      const errorMsg = result.data.errors?.length > 0 
+        ? ` (${result.data.errors.length} errors)` 
+        : '';
+      showSuccess(`Enriched ${enrichedRows.length} company names and sectors!${errorMsg}`);
+    } catch (error) {
+      console.error("Bulk enrichment error:", error);
+      setUploadError("Failed to enrich: " + (error.message || String(error)));
     }
-
-    // Update the raw data with enriched information
-    const enrichedMap = new Map(enrichedRows.map(r => [r.name, r]));
-    const updatedRaw = grCompaniesRaw.map(raw => {
-      const normalized = normalizeRow(raw);
-      const enriched = enrichedMap.get(normalized.name);
-      if (enriched) {
-        raw._companyShortName = enriched.companyShortName;
-        raw._correspondenceName = enriched.correspondenceName;
-        raw._sectorFocus = enriched.sectorFocus;
-      }
-      return raw;
-    });
-
-    setGrCompaniesRaw(updatedRaw);
+    
     setEnriching(false);
-    setEnrichProgress({ current: 0, total: 0 });
-    showSuccess(`Enriched ${enrichedRows.length} company names and sectors!`);
   };
   
   const saveToDatabase = async () => {
@@ -1120,13 +1103,12 @@ Return JSON:
       {enriching && (
         <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-50 flex items-center justify-center">
           <div className="bg-white p-6 rounded-xl shadow-xl">
-            <div className="flex items-center gap-3 mb-4">
+            <div className="flex items-center gap-3">
               <Loader2 className="w-6 h-6 animate-spin text-purple-600" />
               <span className="font-medium">Enriching Names & Sectors...</span>
             </div>
-            <Progress value={(enrichProgress.current / enrichProgress.total) * 100} className="w-64" />
-            <div className="text-sm text-slate-600 mt-2 text-center">
-              {enrichProgress.current} / {enrichProgress.total} companies
+            <div className="text-sm text-slate-600 mt-2">
+              Processing {normalizedGR.length} companies in backend
             </div>
           </div>
         </div>

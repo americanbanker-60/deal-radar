@@ -1,190 +1,134 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
 
 Deno.serve(async (req) => {
-    try {
-        const base44 = createClientFromRequest(req);
-        const user = await base44.auth.me();
+  try {
+    const base44 = createClientFromRequest(req);
+    const user = await base44.auth.me();
 
-        if (!user) {
-            return Response.json({ error: 'Unauthorized' }, { status: 401 });
-        }
-
-        const { targetIds } = await req.json();
-
-        if (!Array.isArray(targetIds) || targetIds.length === 0) {
-            return Response.json({ error: 'targetIds array required' }, { status: 400 });
-        }
-
-        const results = {
-            total: targetIds.length,
-            processed: 0,
-            errors: []
-        };
-
-        // Process 5 targets at a time with delays between batches
-        const BATCH_SIZE = 5;
-        
-        for (let i = 0; i < targetIds.length; i += BATCH_SIZE) {
-            const batch = targetIds.slice(i, i + BATCH_SIZE);
-            
-            const batchResults = await Promise.allSettled(batch.map(async (targetId) => {
-                try {
-                    const target = await base44.asServiceRole.entities.BDTarget.get(targetId);
-                    
-                    // Process enrichments sequentially to avoid overwhelming the system
-                    // 1. Correspondence Name
-                    if (!target.correspondenceName || target.correspondenceName.trim() === '') {
-                        try {
-                            await base44.functions.invoke('generateShortNames', { targetId });
-                        } catch (err) {
-                            console.error(`Correspondence name error: ${err.message}`);
-                        }
-                    }
-
-                    // 2. Quality Score
-                    if (!target.qualityTier) {
-                        try {
-                            await base44.functions.invoke('scoreTargetQuality', { targetId });
-                        } catch (err) {
-                            console.error(`Quality score error: ${err.message}`);
-                        }
-                    }
-
-                    // 3. Contact Enrichment
-                    if (target.contactFirstName && target.contactLastName && !target.contactPreferredName) {
-                        try {
-                            await base44.functions.invoke('enrichContact', { targetId });
-                        } catch (err) {
-                            console.error(`Contact enrichment error: ${err.message}`);
-                        }
-                    }
-
-                    // 4. Personalization
-                    if (!target.personalization_snippet || target.personalization_snippet.trim() === '') {
-                        try {
-                            const city = target.city || "your area";
-                            const sector = target.sectorFocus || target.subsector || "healthcare";
-                            const prompt = `Write a single, natural personalized opening line for a business development email to ${target.name}. Location: ${city}, Sector: ${sector}. Write ONLY the opening line, no quotes.`;
-                            const result = await base44.integrations.Core.InvokeLLM({ 
-                                prompt, 
-                                add_context_from_internet: false 
-                            });
-                            await base44.asServiceRole.entities.BDTarget.update(targetId, { 
-                                personalization_snippet: result.trim() 
-                            });
-                        } catch (err) {
-                            console.error(`Personalization error: ${err.message}`);
-                        }
-                    }
-
-                    // 5. Growth Signals
-                    if (!target.growthSignals || target.growthSignals.trim() === '') {
-                        try {
-                            const prompt = `Search for recent news about "${target.name}" (${target.website || 'healthcare company'}) from the last 6 months. Look for: new offices, awards, hires, funding. Return JSON: {"signals": ["brief summaries"], "hasGrowthSignals": true/false}`;
-                            const result = await base44.integrations.Core.InvokeLLM({
-                                prompt,
-                                add_context_from_internet: true,
-                                response_json_schema: { 
-                                    type: "object", 
-                                    properties: { 
-                                        signals: { type: "array", items: { type: "string" } }, 
-                                        hasGrowthSignals: { type: "boolean" } 
-                                    } 
-                                }
-                            });
-                            await base44.asServiceRole.entities.BDTarget.update(targetId, { 
-                                growthSignals: (result.signals || []).join(", "), 
-                                growthSignalsDate: new Date().toISOString() 
-                            });
-                        } catch (err) {
-                            console.error(`Growth signals error: ${err.message}`);
-                        }
-                    }
-
-                    // 6. Company Data (State, Revenue, Employees)
-                    const needsState = !target.state || target.state.trim() === '';
-                    const needsRevenue = !target.revenue;
-                    const needsEmployees = !target.employees;
-
-                    if (needsState || needsRevenue || needsEmployees) {
-                        try {
-                            const prompt = `Search for information about "${target.name}" (${target.website || 'healthcare company'}).
-
-Find and return ONLY the following information:
-${needsState ? '- State: US state where headquarters is located (2-letter code)' : ''}
-${needsRevenue ? '- Annual Revenue: in millions (number only)' : ''}
-${needsEmployees ? '- Employee Count: total number of employees (number only)' : ''}
-
-Return JSON with ONLY the fields that need updating:
-{
-  ${needsState ? '"state": "TX",' : ''}
-  ${needsRevenue ? '"revenue": 15.5,' : ''}
-  ${needsEmployees ? '"employees": 120' : ''}
-}
-
-If you cannot find a field, omit it from the response.`;
-
-                            const companyData = await base44.integrations.Core.InvokeLLM({
-                                prompt,
-                                add_context_from_internet: true,
-                                response_json_schema: {
-                                    type: "object",
-                                    properties: {
-                                        state: { type: "string" },
-                                        revenue: { type: "number" },
-                                        employees: { type: "number" }
-                                    }
-                                }
-                            });
-
-                            const updates = {};
-                            if (needsState && companyData.state) updates.state = companyData.state;
-                            if (needsRevenue && companyData.revenue) updates.revenue = companyData.revenue;
-                            if (needsEmployees && companyData.employees) updates.employees = companyData.employees;
-
-                            if (Object.keys(updates).length > 0) {
-                                await base44.asServiceRole.entities.BDTarget.update(targetId, updates);
-                            }
-                        } catch (err) {
-                            console.error(`Company data error: ${err.message}`);
-                        }
-                    }
-
-                    // 7. Strategic Rationale
-                    if (!target.strategicRationale || target.strategicRationale.trim() === '') {
-                        try {
-                            const prompt = `Research "${target.name}" (${target.website || 'healthcare company'} in ${target.city}, ${target.state}) and write a 2-sentence strategic investment thesis. Sector: ${target.sectorFocus || 'Healthcare Services'}, Revenue: ~$${target.revenue}M, Employees: ${target.employees}. Be specific and data-driven.`;
-                            const rationale = await base44.integrations.Core.InvokeLLM({ 
-                                prompt, 
-                                add_context_from_internet: true 
-                            });
-                            await base44.asServiceRole.entities.BDTarget.update(targetId, { 
-                                strategicRationale: rationale.trim() 
-                            });
-                        } catch (err) {
-                            console.error(`Rationale error: ${err.message}`);
-                        }
-                    }
-
-                    results.processed++;
-                    return { success: true };
-                } catch (error) {
-                    results.errors.push({
-                        targetId,
-                        error: error.message
-                    });
-                    return { success: false, error: error.message };
-                }
-            }));
-
-            // Small delay between batches to avoid rate limiting
-            if (i + BATCH_SIZE < targetIds.length) {
-                await new Promise(resolve => setTimeout(resolve, 500));
-            }
-        }
-
-        return Response.json(results);
-    } catch (error) {
-        return Response.json({ error: error.message }, { status: 500 });
+    if (!user) {
+      return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
+
+    const { targets } = await req.json();
+
+    if (!targets || !Array.isArray(targets)) {
+      return Response.json({ error: 'Invalid input: targets must be an array' }, { status: 400 });
+    }
+
+    const enrichedTargets = [];
+    const errors = [];
+
+    for (let i = 0; i < targets.length; i++) {
+      const target = targets[i];
+      
+      try {
+        // Generate short names
+        const shortNamePrompt = `Transform this company name into a clean, conversational short name:
+
+Company Name: "${target.name}"
+
+Rules:
+- Remove legal suffixes (LLC, Inc, etc.)
+- Keep essential identity words
+- Make it natural and conversational
+- Examples:
+  • "The Pediatric Dental Group of North Atlanta, LLC" → "Pediatric Dental Group"
+  • "Advanced Urgent Care Centers Inc." → "Advanced Urgent Care"
+
+Return ONLY the short name, nothing else.`;
+
+        const shortNameResult = await base44.integrations.Core.InvokeLLM({
+          prompt: shortNamePrompt,
+          add_context_from_internet: false
+        });
+
+        // Generate correspondence name
+        const corrNamePrompt = `Transform this company name into a natural, email-friendly correspondence name:
+
+Company Name: "${target.name}"
+
+Rules:
+- Very conversational and natural
+- Remove all formalities
+- How you'd refer to them in casual conversation
+- Examples:
+  • "The Pediatric Dental Group of North Atlanta, LLC" → "Pediatric Dental Group of North Atlanta"
+  • "Smith Family Urgent Care, Inc." → "Smith Family Urgent Care"
+
+Return ONLY the correspondence name, nothing else.`;
+
+        const corrNameResult = await base44.integrations.Core.InvokeLLM({
+          prompt: corrNamePrompt,
+          add_context_from_internet: false
+        });
+
+        // Classify sector
+        const sectorPrompt = `Classify this healthcare company into ONE of these specific subsectors:
+
+Company: ${target.name}
+Website: ${target.website || 'Not provided'}
+
+Healthcare Subsectors (choose ONE):
+- HS: Behavioral Health
+- HS: Dental / Orthodontics
+- HS: Dermatology
+- HS: Home Health
+- HS: Imaging
+- HS: Physical Therapy
+- HS: Primary Care
+- HS: Urgent Care
+- HS: Vision / Ophthalmology
+- HS: Multi-Specialty
+- HS: Pharmacy
+- HS: Laboratory
+- HS: Medical Devices
+- HS: General
+
+Instructions:
+- Choose the MOST specific subsector that fits
+- If company spans multiple areas, choose "HS: Multi-Specialty"
+- If unclear or doesn't fit any specific category, use "HS: General"
+- Return ONLY the subsector code (e.g., "HS: Dental / Orthodontics"), nothing else`;
+
+        const sectorResult = await base44.integrations.Core.InvokeLLM({
+          prompt: sectorPrompt,
+          add_context_from_internet: false
+        });
+
+        enrichedTargets.push({
+          ...target,
+          companyShortName: shortNameResult.trim(),
+          correspondenceName: corrNameResult.trim(),
+          sectorFocus: sectorResult.trim()
+        });
+
+      } catch (error) {
+        console.error(`Error enriching target ${target.name}:`, error);
+        errors.push({
+          targetName: target.name,
+          error: error.message
+        });
+        
+        // Add target with original values if enrichment fails
+        enrichedTargets.push({
+          ...target,
+          companyShortName: target.name,
+          correspondenceName: target.name,
+          sectorFocus: "HS: General"
+        });
+      }
+    }
+
+    return Response.json({
+      success: true,
+      enrichedTargets,
+      errors: errors.length > 0 ? errors : null
+    });
+
+  } catch (error) {
+    console.error("Bulk enrich error:", error);
+    return Response.json({
+      error: error.message || String(error)
+    }, { status: 500 });
+  }
 });
