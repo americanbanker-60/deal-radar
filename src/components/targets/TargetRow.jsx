@@ -3,7 +3,8 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { MapPin, Loader2, Sparkles, Check, RefreshCw } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { MapPin, Loader2, Sparkles, Check, RefreshCw, Info } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "../../utils";
 
@@ -91,7 +92,21 @@ const TargetRow = React.memo(({
       </td>
       <td className="py-3 px-4">
         {target.sectorFocus && (
-          <Badge variant="outline" className="text-xs whitespace-nowrap">{target.sectorFocus}</Badge>
+          <div className="flex items-center gap-1">
+            <Badge variant="outline" className="text-xs whitespace-nowrap">{target.sectorFocus}</Badge>
+            {target.sectorRationale && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Info className="w-3 h-3 text-slate-400 cursor-help" />
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-xs">
+                    <p className="text-xs">{target.sectorRationale}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+          </div>
         )}
       </td>
       <td className="py-3 px-4 text-slate-600 whitespace-nowrap">{target.city || "—"}</td>
@@ -125,6 +140,18 @@ const TargetRow = React.memo(({
           <div className="flex items-center gap-1">
             <MapPin className="w-3 h-3 text-blue-600" />
             {target.clinicCount}
+            {target.crawlRationale && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Info className="w-3 h-3 text-slate-400 cursor-help" />
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-xs">
+                    <p className="text-xs">{target.crawlRationale}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
           </div>
         ) : "—"}
       </td>
