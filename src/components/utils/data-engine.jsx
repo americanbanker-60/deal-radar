@@ -311,19 +311,39 @@ ${SECTOR_OPTIONS}
 Company: ${company.name}
 Website: ${company.website || "unknown"}
 
-Return ONLY the sector code (e.g., "HS: Dentistry"), nothing else.`;
+Return JSON with:
+1. The sector code (e.g., "HS: Dentistry")
+2. A brief one-sentence rationale explaining why you chose this sector
+
+{
+  "sector": "HS: Dentistry",
+  "rationale": "Company website indicates they provide dental services"
+}`;
 
     const result = await base44.integrations.Core.InvokeLLM({
       prompt,
-      add_context_from_internet: false
+      add_context_from_internet: false,
+      response_json_schema: {
+        type: "object",
+        properties: {
+          sector: { type: "string" },
+          rationale: { type: "string" }
+        }
+      }
     });
 
-    const sector = result.trim();
+    const sector = result.sector?.trim() || "";
     const validSector = SECTOR_OPTIONS.split('\n').find(s => s === sector);
-    return validSector || "HS: General";
+    return {
+      sector: validSector || "HS: General",
+      rationale: result.rationale || null
+    };
   } catch (error) {
     console.error("Sector classification failed:", error);
-    return "HS: General";
+    return {
+      sector: "HS: General",
+      rationale: null
+    };
   }
 }
 
@@ -340,13 +360,15 @@ Extract:
 2. Number of clinic/office locations (check locations page, about us, etc.)
 3. Most recent activity date from social media or news (YYYY-MM-DD format)
 4. Is the company potentially dormant? (no activity in 12+ months)
+5. Brief rationale: One sentence explaining where you found the clinic count (e.g., "Found 5 locations listed on /contact page")
 
 Return JSON:
 {
   "websiteStatus": "working" | "broken" | "missing",
   "clinicCount": number or null,
   "lastActive": "YYYY-MM-DD" or null,
-  "dormancyFlag": boolean
+  "dormancyFlag": boolean,
+  "enrichmentRationale": "brief explanation string"
 }`;
 
     const result = await base44.integrations.Core.InvokeLLM({
@@ -358,7 +380,8 @@ Return JSON:
           websiteStatus: { type: "string" },
           clinicCount: { type: "number" },
           lastActive: { type: "string" },
-          dormancyFlag: { type: "boolean" }
+          dormancyFlag: { type: "boolean" },
+          enrichmentRationale: { type: "string" }
         }
       }
     });
@@ -367,7 +390,8 @@ Return JSON:
       websiteStatus: result.websiteStatus || "unknown",
       clinicCount: result.clinicCount || null,
       lastActive: result.lastActive || null,
-      dormancyFlag: result.dormancyFlag || false
+      dormancyFlag: result.dormancyFlag || false,
+      crawlRationale: result.enrichmentRationale || null
     };
   } catch (error) {
     console.error(`Website crawl failed for ${company.name}:`, error);
@@ -375,7 +399,8 @@ Return JSON:
       websiteStatus: "error",
       clinicCount: null,
       lastActive: null,
-      dormancyFlag: false
+      dormancyFlag: false,
+      crawlRationale: null
     };
   }
 }

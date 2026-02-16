@@ -234,6 +234,7 @@ export default function OpsConsole(){
           raw._clinicCount = crawled.clinicCount;
           raw._lastActive = crawled.lastActive;
           raw._dormancyFlag = crawled.dormancyFlag;
+          raw._crawlRationale = crawled.crawlRationale;
         }
         return raw;
       });
@@ -276,6 +277,7 @@ export default function OpsConsole(){
           raw._companyShortName = enriched.companyShortName;
           raw._correspondenceName = enriched.correspondenceName;
           raw._sectorFocus = enriched.sectorFocus;
+          raw._sectorRationale = enriched.sectorRationale;
         }
         return raw;
       });
@@ -353,10 +355,12 @@ export default function OpsConsole(){
           companyShortName: t.companyShortName,
           correspondenceName: t.correspondenceName,
           sectorFocus: t.sectorFocus,
+          sectorRationale: t.sectorRationale,
           website: t.website,
           websiteStatus: t.websiteStatus,
           lastActive: t.lastActive,
           dormancyFlag: t.dormancyFlag,
+          crawlRationale: t.crawlRationale,
           personalization_snippet: t.personalization_snippet,
           city: t.city,
           state: t.state,
@@ -954,9 +958,11 @@ Return JSON:
       clinicCount: row._clinicCount || toNumber(row["Clinic Location Count"]),
       lastActive: row._lastActive,
       dormancyFlag: row._dormancyFlag,
+      crawlRationale: row._crawlRationale || "",
       companyShortName: row._companyShortName || row["Short Name"] || "",
       correspondenceName: row._correspondenceName || "",
       sectorFocus: row._sectorFocus || row.Sector || "",
+      sectorRationale: row._sectorRationale || "",
       personalization_snippet: row._personalization_snippet || "",
       growthSignals: (row._growthSignals || []).join(", "),
       contact: {

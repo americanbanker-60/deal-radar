@@ -29,13 +29,15 @@ Extract:
 2. Number of clinic/office locations (check locations page, about us, etc.)
 3. Most recent activity date from social media or news (YYYY-MM-DD format)
 4. Is the company potentially dormant? (no activity in 12+ months)
+5. Brief rationale: One sentence explaining where you found the clinic count (e.g., "Found 5 locations listed on /contact page")
 
 Return JSON:
 {
   "websiteStatus": "working" | "broken" | "missing",
   "clinicCount": number or null,
   "lastActive": "YYYY-MM-DD" or null,
-  "dormancyFlag": boolean
+  "dormancyFlag": boolean,
+  "enrichmentRationale": "brief explanation string"
 }`;
 
         const result = await base44.integrations.Core.InvokeLLM({
@@ -47,7 +49,8 @@ Return JSON:
               websiteStatus: { type: "string" },
               clinicCount: { type: "number" },
               lastActive: { type: "string" },
-              dormancyFlag: { type: "boolean" }
+              dormancyFlag: { type: "boolean" },
+              enrichmentRationale: { type: "string" }
             }
           }
         });
@@ -58,7 +61,8 @@ Return JSON:
           websiteStatus: result.websiteStatus || "unknown",
           clinicCount: result.clinicCount || null,
           lastActive: result.lastActive || null,
-          dormancyFlag: result.dormancyFlag || false
+          dormancyFlag: result.dormancyFlag || false,
+          crawlRationale: result.enrichmentRationale || null
         });
 
       } catch (error) {
@@ -75,7 +79,8 @@ Return JSON:
           websiteStatus: "error",
           clinicCount: null,
           lastActive: null,
-          dormancyFlag: false
+          dormancyFlag: false,
+          crawlRationale: null
         });
       }
     }
