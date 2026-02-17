@@ -1,4 +1,4 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
 
 Deno.serve(async (req) => {
     try {
@@ -9,12 +9,16 @@ Deno.serve(async (req) => {
             return Response.json({ error: 'No file URL provided' }, { status: 400 });
         }
 
-        // Define JSON schema for extraction
+        // Define JSON schema for extraction (supports both old and new export formats)
         const jsonSchema = {
             type: "object",
             properties: {
                 "Name": { type: "string" },
+                "Company Name": { type: "string" },
                 "Domain": { type: "string" },
+                "Correspondence_Name": { type: "string" },
+                "Sector_Focus": { type: "string" },
+                "Personalized_Hook": { type: "string" },
                 "Description": { type: "string" },
                 "LinkedIn": { type: "string" },
                 "Revenue Estimate": { type: "string" },
@@ -40,14 +44,23 @@ Deno.serve(async (req) => {
             }
         };
 
-        // Extract data using AI
+        // Extract data using AI with timeout protection
         const extractResult = await base44.asServiceRole.integrations.Core.ExtractDataFromUploadedFile({
             file_url: fileUrl,
             json_schema: jsonSchema
         });
 
         if (extractResult.status === "error") {
-            return Response.json({ error: extractResult.details }, { status: 500 });
+            console.error("ExtractDataFromUploadedFile error:", extractResult.details);
+            return Response.json({ 
+                error: `Failed to parse file: ${extractResult.details || 'Unknown error'}. Try a smaller file or use CSV format.` 
+            }, { status: 500 });
+        }
+
+        if (!extractResult.output) {
+            return Response.json({ 
+                error: 'No data extracted from file. Please check the file format.' 
+            }, { status: 400 });
         }
 
         const rows = Array.isArray(extractResult.output) ? extractResult.output : [extractResult.output];
@@ -62,6 +75,9 @@ Deno.serve(async (req) => {
             }
         });
     } catch (error) {
-        return Response.json({ error: error.message }, { status: 500 });
+        console.error("Excel parse error:", error);
+        return Response.json({ 
+            error: `File processing failed: ${error.message}. Large files may timeout - try CSV format or smaller batches.` 
+        }, { status: 500 });
     }
 });
