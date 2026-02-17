@@ -164,42 +164,58 @@ export default function OpsConsole(){
       console.log("📋 File extension:", ext);
       
       let result;
-      if (ext === "csv") {
-        console.log("🔄 Calling parseCsvFile...");
-        result = await base44.functions.invoke('parseCsvFile', { fileUrl });
-      } else {
-        console.log("🔄 Calling parseExcelFile...");
-        result = await base44.functions.invoke('parseExcelFile', { fileUrl });
-      }
-      
-      console.log("✅ Function returned:", result);
-      
-      const data = result.data;
-      
-      console.log("📊 Parsed data:", {
-        headers: data.headers?.length,
-        rows: data.rows?.length,
-        diagnostics: data.diagnostics
-      });
-      
-      if (!data.rows || data.rows.length === 0) {
-        throw new Error("No data extracted from file");
-      }
-      
-      if (kind === "gr-companies") { 
-        console.log("✅ Setting Grata companies:", data.rows.length);
-        // Store file URL in raw data for audit trail
-        const rowsWithSource = data.rows.map(r => ({ ...r, _sourceFileUrl: fileUrl }));
-        setGrCompaniesRaw(rowsWithSource); 
-        setGrHeaders(data.headers || Object.keys(data.rows[0])); 
+      try {
+        if (ext === "csv") {
+          console.log("🔄 Calling parseCsvFile...");
+          result = await base44.functions.invoke('parseCsvFile', { fileUrl });
+        } else {
+          console.log("🔄 Calling parseExcelFile...");
+          result = await base44.functions.invoke('parseExcelFile', { fileUrl });
+        }
+        
+        console.log("✅ Function returned:", result);
+        
+        const data = result.data;
+        
+        console.log("📊 Parsed data:", {
+          headers: data.headers?.length,
+          rows: data.rows?.length,
+          diagnostics: data.diagnostics
+        });
+        
+        if (!data.rows || data.rows.length === 0) {
+          throw new Error("No data extracted from file. Please check the file format.");
+        }
+        
+        if (kind === "gr-companies") { 
+          console.log("✅ Setting Grata companies:", data.rows.length);
+          
+          // Validate schema by checking first row
+          const firstRow = data.rows[0];
+          const hasNewSchema = firstRow["Company Name"] !== undefined;
+          const hasOldSchema = firstRow.Name !== undefined || firstRow["Revenue Estimate"] !== undefined;
+          
+          if (!hasNewSchema && !hasOldSchema) {
+            throw new Error("Unrecognized file schema. Expected columns: 'Company Name' or 'Name'");
+          }
+          
+          // Store file URL in raw data for audit trail
+          const rowsWithSource = data.rows.map(r => ({ ...r, _sourceFileUrl: fileUrl }));
+          setGrCompaniesRaw(rowsWithSource); 
+          setGrHeaders(data.headers || Object.keys(data.rows[0])); 
+          
+          const schemaType = hasNewSchema ? "new export schema" : "Grata schema";
+          showSuccess(`✓ Uploaded ${data.rows.length} companies (${schemaType})`);
+        }
+      } catch (parseError) {
+        console.error("❌ Parse/mapping error:", parseError);
+        throw new Error(`Failed to process file: ${parseError.message || 'Invalid format or large file timeout'}`);
       }
       
       setLoading(false);
-      const method = data.diagnostics?.extractionMethod || "standard parsing";
-      showSuccess(`Uploaded ${data.rows.length} rows using ${method}!`);
     } catch (error) {
       console.error("❌ Upload error:", error);
-      setUploadError(error.message || String(error));
+      setUploadError(error.message || "File processing failed. Please try a smaller file or check the format.");
       setLoading(false);
     }
   };
@@ -752,61 +768,131 @@ Return JSON:
   };
   
   const normalizeRow = useCallback((row) => {
-    const rawRevenue = row["Revenue Estimate"];
-    const rawEmployees = row["Employee Estimate"];
-    const rawName = row.Name || "";
-    const cleanedName = cleanCompanyNameRegex(rawName);
-    const normalizedState = normalizeState(row.State);
-
-    let revenue = midpointFromRange(rawRevenue);
-    if (revenue && revenue > 1_000_000) {
-      revenue = Math.round(revenue / 1_000_000);
-    } else if (revenue === undefined) {
-      const numRevenue = toNumber(rawRevenue);
-      revenue = isNaN(Number(numRevenue)) ? undefined : Math.round(Number(numRevenue) / 1_000_000);
-    }
-
-    let employees = midpointFromRange(rawEmployees);
-    if (employees === undefined) {
-      employees = toNumber(rawEmployees);
-    }
-    employees = employees ? Math.round(employees) : undefined;
-
-    return {
-      name: cleanedName,
-      url: row.Domain || "",
-      website: row.Domain || "",
-      linkedin: row.LinkedIn || "",
-      city: row.City || "",
-      state: normalizedState,
-      hq: (row.City || "") + (normalizedState ? ", " + normalizedState : ""),
-      industry: "Healthcare Services",
-      subsector: "",
-      revenue: revenue,
-      employees: employees,
-      ownership: "Unknown",
-      lastFinancingYear: toNumber(row["Year Founded"]),
-      investors: "",
-      notes: row.Notes || "",
-      websiteStatus: row._websiteStatus,
-      clinicCount: row._clinicCount || toNumber(row["Clinic Location Count"]),
-      lastActive: row._lastActive,
-      dormancyFlag: row._dormancyFlag,
-      crawlRationale: row._crawlRationale || "",
-      companyShortName: row._companyShortName || row["Short Name"] || "",
-      correspondenceName: row._correspondenceName || "",
-      sectorFocus: row._sectorFocus || row.Sector || "",
-      sectorRationale: row._sectorRationale || "",
-      personalization_snippet: row._personalization_snippet || "",
-      growthSignals: (row._growthSignals || []).join(", "),
-      contact: {
-        email: row["Executive Email"] || row["Primary Email"] || "",
-        firstName: row["Executive First Name"] || "",
-        lastName: row["Executive Last Name"] || "",
-        title: row["Executive Title"] || "",
-        phone: row["Primary Phone"] || "",
+    try {
+      // Check for new export schema (Company Name, Domain, Correspondence_Name, etc.)
+      const isNewSchema = row["Company Name"] !== undefined;
+      
+      if (isNewSchema) {
+        // New schema mapping
+        const rawName = row["Company Name"] || "";
+        const cleanedName = cleanCompanyNameRegex(rawName);
+        const city = row.City || null;
+        const state = row.State || null;
+        const normalizedState = state ? normalizeState(state) : null;
+        
+        return {
+          name: cleanedName,
+          url: row.Domain || "",
+          website: row.Domain || "",
+          linkedin: "",
+          city: city,
+          state: normalizedState,
+          hq: (city && normalizedState) ? `${city}, ${normalizedState}` : (city || normalizedState || ""),
+          industry: "Healthcare Services",
+          subsector: "",
+          revenue: undefined,
+          employees: undefined,
+          ownership: "Unknown",
+          lastFinancingYear: undefined,
+          investors: "",
+          notes: "",
+          websiteStatus: row._websiteStatus,
+          clinicCount: row._clinicCount,
+          lastActive: row._lastActive,
+          dormancyFlag: row._dormancyFlag,
+          crawlRationale: row._crawlRationale || "",
+          companyShortName: row.Correspondence_Name || row._companyShortName || "",
+          correspondenceName: row.Correspondence_Name || row._correspondenceName || "",
+          sectorFocus: row.Sector_Focus || row._sectorFocus || "",
+          sectorRationale: row._sectorRationale || "",
+          personalization_snippet: row.Personalized_Hook || row._personalization_snippet || "",
+          growthSignals: (row._growthSignals || []).join(", "),
+          contact: {
+            email: "",
+            firstName: "",
+            lastName: "",
+            title: "",
+            phone: "",
+          }
+        };
       }
-    };
+      
+      // Old Grata schema mapping
+      const rawRevenue = row["Revenue Estimate"];
+      const rawEmployees = row["Employee Estimate"];
+      const rawName = row.Name || "";
+      const cleanedName = cleanCompanyNameRegex(rawName);
+      const normalizedState = normalizeState(row.State);
+
+      let revenue = midpointFromRange(rawRevenue);
+      if (revenue && revenue > 1_000_000) {
+        revenue = Math.round(revenue / 1_000_000);
+      } else if (revenue === undefined) {
+        const numRevenue = toNumber(rawRevenue);
+        revenue = isNaN(Number(numRevenue)) ? undefined : Math.round(Number(numRevenue) / 1_000_000);
+      }
+
+      let employees = midpointFromRange(rawEmployees);
+      if (employees === undefined) {
+        employees = toNumber(rawEmployees);
+      }
+      employees = employees ? Math.round(employees) : undefined;
+
+      return {
+        name: cleanedName,
+        url: row.Domain || "",
+        website: row.Domain || "",
+        linkedin: row.LinkedIn || "",
+        city: row.City || "",
+        state: normalizedState,
+        hq: (row.City || "") + (normalizedState ? ", " + normalizedState : ""),
+        industry: "Healthcare Services",
+        subsector: "",
+        revenue: revenue,
+        employees: employees,
+        ownership: "Unknown",
+        lastFinancingYear: toNumber(row["Year Founded"]),
+        investors: "",
+        notes: row.Notes || "",
+        websiteStatus: row._websiteStatus,
+        clinicCount: row._clinicCount || toNumber(row["Clinic Location Count"]),
+        lastActive: row._lastActive,
+        dormancyFlag: row._dormancyFlag,
+        crawlRationale: row._crawlRationale || "",
+        companyShortName: row._companyShortName || row["Short Name"] || "",
+        correspondenceName: row._correspondenceName || "",
+        sectorFocus: row._sectorFocus || row.Sector || "",
+        sectorRationale: row._sectorRationale || "",
+        personalization_snippet: row._personalization_snippet || "",
+        growthSignals: (row._growthSignals || []).join(", "),
+        contact: {
+          email: row["Executive Email"] || row["Primary Email"] || "",
+          firstName: row["Executive First Name"] || "",
+          lastName: row["Executive Last Name"] || "",
+          title: row["Executive Title"] || "",
+          phone: row["Primary Phone"] || "",
+        }
+      };
+    } catch (error) {
+      console.error("Error normalizing row:", error, row);
+      // Return a minimal valid object on error
+      return {
+        name: "Error parsing row",
+        url: "",
+        website: "",
+        linkedin: "",
+        city: "",
+        state: "",
+        hq: "",
+        industry: "Healthcare Services",
+        subsector: "",
+        revenue: undefined,
+        employees: undefined,
+        ownership: "Unknown",
+        notes: `Error: ${error.message}`,
+        contact: { email: "", firstName: "", lastName: "", title: "", phone: "" }
+      };
+    }
   }, []);
 
   const normalizedGR = useMemo(() => {
