@@ -343,247 +343,63 @@ export default function OpsConsole(){
         ? campaigns.find(c => c.id === selectedCampaignId)?.name 
         : campaignName.trim();
       
-      // Get existing targets for AI comparison
-      const existingTargets = await base44.entities.BDTarget.list('-created_date', 5000);
-      
-      if (existingTargets.length === 0) {
-        // No existing records, save all in batches
-        const targetsToSave = selectedList.map(t => ({
-          campaign: finalCampaignName,
-          campaign_id: finalCampaignId,
-          name: t.name,
-          companyShortName: t.companyShortName,
-          correspondenceName: t.correspondenceName,
-          sectorFocus: t.sectorFocus,
-          sectorRationale: t.sectorRationale,
-          website: t.website,
-          websiteStatus: t.websiteStatus,
-          lastActive: t.lastActive,
-          dormancyFlag: t.dormancyFlag,
-          crawlRationale: t.crawlRationale,
-          personalization_snippet: t.personalization_snippet,
-          city: t.city,
-          state: t.state,
-          hq: t.hq,
-          industry: t.industry,
-          subsector: t.subsector,
-          revenue: t.revenue,
-          employees: t.employees,
-          clinicCount: t.clinicCount,
-          ownership: t.ownership,
-          score: t.score,
-          contactEmail: t.contact?.email,
-          contactFirstName: t.contact?.firstName,
-          contactLastName: t.contact?.lastName,
-          contactTitle: t.contact?.title,
-          contactPhone: t.contact?.phone,
-          linkedin: t.linkedin,
-          notes: t.notes,
-          status: "new"
-        }));
-        
-        // Save in batches of 500
-        const BATCH_SIZE = 500;
-        let savedCount = 0;
-        for (let i = 0; i < targetsToSave.length; i += BATCH_SIZE) {
-          const batch = targetsToSave.slice(i, i + BATCH_SIZE);
-          await base44.entities.BDTarget.bulkCreate(batch);
-          savedCount += batch.length;
-          console.log(`Saved batch ${Math.floor(i / BATCH_SIZE) + 1}: ${savedCount}/${targetsToSave.length}`);
-        }
-        
-        showSuccess(`Saved ${targetsToSave.length} companies to "${finalCampaignName}"!`);
-        setSelectedTargets(new Set());
-        setSelectedCampaignId("");
-        setCampaignName("");
-        setSaving(false);
-        return;
-      }
-
-      // Use AI to detect duplicates with fuzzy matching
-      const newCompaniesData = selectedList.map(t => ({
+      // Prepare targets for upsert
+      const targetsToUpsert = selectedList.map(t => ({
+        campaign: finalCampaignName,
+        campaign_id: finalCampaignId,
         name: t.name,
-        domain: t.website,
+        companyShortName: t.companyShortName,
+        correspondenceName: t.correspondenceName,
+        sectorFocus: t.sectorFocus,
+        sectorRationale: t.sectorRationale,
+        website: t.website,
+        websiteStatus: t.websiteStatus,
+        lastActive: t.lastActive,
+        dormancyFlag: t.dormancyFlag,
+        crawlRationale: t.crawlRationale,
+        personalization_snippet: t.personalization_snippet,
         city: t.city,
-        state: t.state
+        state: t.state,
+        hq: t.hq,
+        industry: t.industry,
+        subsector: t.subsector,
+        revenue: t.revenue,
+        employees: t.employees,
+        clinicCount: t.clinicCount,
+        ownership: t.ownership,
+        score: t.score,
+        contactEmail: t.contact?.email,
+        contactFirstName: t.contact?.firstName,
+        contactLastName: t.contact?.lastName,
+        contactTitle: t.contact?.title,
+        contactPhone: t.contact?.phone,
+        linkedin: t.linkedin,
+        notes: t.notes,
+        status: "new"
       }));
       
-      const existingCompaniesData = existingTargets.map(t => ({
-        name: t.name,
-        domain: t.website,
-        city: t.city,
-        state: t.state
-      }));
-
-      const prompt = `You are a duplicate detection system. Compare these two lists of companies and identify which companies from the NEW list are duplicates of companies in the EXISTING list.
-
-EXISTING COMPANIES:
-${JSON.stringify(existingCompaniesData, null, 2)}
-
-NEW COMPANIES TO CHECK:
-${JSON.stringify(newCompaniesData, null, 2)}
-
-Instructions:
-- Match companies by name similarity (e.g., "ABC Health" vs "ABC Healthcare"), domain similarity, or location if names are very similar
-- Return a JSON array of indices (0-based) from the NEW list that are duplicates
-- Be strict: only mark as duplicate if you're confident they're the same company
-- If no duplicates, return an empty array`;
-
-      // For large batches (>100), skip AI duplicate detection to avoid timeouts
-      let targetsToSave = [];
-      let duplicateCount = 0;
+      // Call upsert function
+      const result = await base44.functions.invoke('upsertBDTargets', {
+        targets: targetsToUpsert,
+        campaign: finalCampaignName
+      });
       
-      if (selectedList.length > 100) {
-        console.log(`Large batch (${selectedList.length}), using simple duplicate check by website`);
-        const existingWebsites = new Set(existingTargets.map(t => t.website?.toLowerCase()).filter(Boolean));
-        
-        selectedList.forEach((t) => {
-          if (t.website && existingWebsites.has(t.website.toLowerCase())) {
-            duplicateCount++;
-            console.log(`Duplicate website: ${t.name}`);
-            return;
-          }
-          
-          targetsToSave.push({
-            campaign: finalCampaignName,
-            campaign_id: finalCampaignId,
-            name: t.name,
-            companyShortName: t.companyShortName,
-            correspondenceName: t.correspondenceName,
-            sectorFocus: t.sectorFocus,
-            sectorRationale: t.sectorRationale,
-            website: t.website,
-            websiteStatus: t.websiteStatus,
-            lastActive: t.lastActive,
-            dormancyFlag: t.dormancyFlag,
-            crawlRationale: t.crawlRationale,
-            companyShortName: t.companyShortName,
-            correspondenceName: t.correspondenceName,
-            sectorFocus: t.sectorFocus,
-            website: t.website,
-            websiteStatus: t.websiteStatus,
-            lastActive: t.lastActive,
-            dormancyFlag: t.dormancyFlag,
-            personalization_snippet: t.personalization_snippet,
-            city: t.city,
-            state: t.state,
-            hq: t.hq,
-            industry: t.industry,
-            subsector: t.subsector,
-            revenue: t.revenue,
-            employees: t.employees,
-            clinicCount: t.clinicCount,
-            ownership: t.ownership,
-            score: t.score,
-            contactEmail: t.contact?.email,
-            contactFirstName: t.contact?.firstName,
-            contactLastName: t.contact?.lastName,
-            contactTitle: t.contact?.title,
-            contactPhone: t.contact?.phone,
-            linkedin: t.linkedin,
-            notes: t.notes,
-            status: "new"
-          });
-        });
-      } else {
-        // Use AI for smaller batches
-        const aiResult = await base44.integrations.Core.InvokeLLM({
-          prompt,
-          add_context_from_internet: false,
-          response_json_schema: {
-            type: "object",
-            properties: {
-              duplicate_indices: {
-                type: "array",
-                items: { type: "number" }
-              }
-            }
-          }
-        });
-
-        const duplicateIndices = new Set(aiResult.duplicate_indices || []);
-
-        selectedList.forEach((t, idx) => {
-          if (duplicateIndices.has(idx)) {
-            duplicateCount++;
-            console.log(`AI detected duplicate: ${t.name}`);
-            return;
-          }
-
-          targetsToSave.push({
-            campaign: finalCampaignName,
-            campaign_id: finalCampaignId,
-            name: t.name,
-            companyShortName: t.companyShortName,
-            correspondenceName: t.correspondenceName,
-            sectorFocus: t.sectorFocus,
-            sectorRationale: t.sectorRationale,
-            website: t.website,
-            websiteStatus: t.websiteStatus,
-            lastActive: t.lastActive,
-            dormancyFlag: t.dormancyFlag,
-            crawlRationale: t.crawlRationale,
-            companyShortName: t.companyShortName,
-            correspondenceName: t.correspondenceName,
-            sectorFocus: t.sectorFocus,
-            website: t.website,
-            websiteStatus: t.websiteStatus,
-            lastActive: t.lastActive,
-            dormancyFlag: t.dormancyFlag,
-            personalization_snippet: t.personalization_snippet,
-            city: t.city,
-            state: t.state,
-            hq: t.hq,
-            industry: t.industry,
-            subsector: t.subsector,
-            revenue: t.revenue,
-            employees: t.employees,
-            clinicCount: t.clinicCount,
-            ownership: t.ownership,
-            score: t.score,
-            contactEmail: t.contact?.email,
-            contactFirstName: t.contact?.firstName,
-            contactLastName: t.contact?.lastName,
-            contactTitle: t.contact?.title,
-            contactPhone: t.contact?.phone,
-            linkedin: t.linkedin,
-            notes: t.notes,
-            status: "new"
-          });
-        });
-      }
-
-      if (targetsToSave.length === 0) {
-        setUploadError("All selected companies are duplicates of existing records.");
-        setSaving(false);
-        return;
-      }
-
-      console.log(`Saving ${targetsToSave.length} companies to campaign: ${campaignName}`);
+      const summary = [
+        result.data.created > 0 && `✓ ${result.data.created} new targets created`,
+        result.data.updated > 0 && `↻ ${result.data.updated} existing targets updated with new info`,
+        result.data.skipped > 0 && `⊝ ${result.data.skipped} skipped (no new data)`,
+        result.data.errors.length > 0 && `✗ ${result.data.errors.length} errors`
+      ].filter(Boolean).join('\n');
       
-      // Save in batches of 500
-      const BATCH_SIZE = 500;
-      let savedCount = 0;
-      for (let i = 0; i < targetsToSave.length; i += BATCH_SIZE) {
-        const batch = targetsToSave.slice(i, i + BATCH_SIZE);
-        await base44.entities.BDTarget.bulkCreate(batch);
-        savedCount += batch.length;
-        console.log(`Saved batch ${Math.floor(i / BATCH_SIZE) + 1}: ${savedCount}/${targetsToSave.length}`);
-      }
-      
-      const message = duplicateCount > 0 
-        ? `Saved ${targetsToSave.length} companies to "${finalCampaignName}"! (${duplicateCount} AI-detected duplicates skipped)`
-        : `Saved ${targetsToSave.length} companies to "${finalCampaignName}"!`;
-      
-      showSuccess(message);
+      showSuccess(`Saved to "${finalCampaignName}"!\n${summary}`);
       setSelectedTargets(new Set());
       setSelectedCampaignId("");
       setCampaignName("");
       
-      // Redirect to Saved Targets page after 1 second
+      // Redirect to Saved Targets page after 1.5 seconds
       setTimeout(() => {
         window.location.href = createPageUrl("SavedTargets");
-      }, 1000);
+      }, 1500);
     } catch (error) {
       console.error("Save error:", error);
       setUploadError("Failed to save: " + (error.message || String(error)));
