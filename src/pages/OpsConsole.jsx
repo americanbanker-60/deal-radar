@@ -82,6 +82,7 @@ export default function OpsConsole(){
     status: "active"
   });
   const [saving, setSaving] = useState(false);
+  const [saveProgress, setSaveProgress] = useState({ current: 0, total: 0, step: "" });
   const [scoreThreshold] = useState(70);
   const [reclassifyingSectors, setReclassifyingSectors] = useState(false);
   const [sectorProgress, setSectorProgress] = useState({ current: 0, total: 0 });
@@ -394,34 +395,77 @@ export default function OpsConsole(){
         status: "new"
       }));
       
-      // Call upsert function
-      const result = await base44.functions.invoke('upsertBDTargets', {
-        targets: targetsToUpsert,
-        campaign: finalCampaignName
-      });
+      // Process in batches to avoid timeouts
+      const BATCH_SIZE = 100;
+      const totalBatches = Math.ceil(targetsToUpsert.length / BATCH_SIZE);
+      
+      let totalCreated = 0;
+      let totalUpdated = 0;
+      let totalSkipped = 0;
+      const allErrors = [];
+      
+      setSaveProgress({ current: 0, total: targetsToUpsert.length, step: "Starting..." });
+      
+      for (let i = 0; i < targetsToUpsert.length; i += BATCH_SIZE) {
+        const batch = targetsToUpsert.slice(i, i + BATCH_SIZE);
+        const batchNum = Math.floor(i / BATCH_SIZE) + 1;
+        
+        setSaveProgress({ 
+          current: i, 
+          total: targetsToUpsert.length, 
+          step: `Processing batch ${batchNum} of ${totalBatches}...` 
+        });
+        
+        try {
+          const result = await base44.functions.invoke('upsertBDTargets', {
+            targets: batch,
+            campaign: finalCampaignName
+          });
+          
+          totalCreated += result.data.created || 0;
+          totalUpdated += result.data.updated || 0;
+          totalSkipped += result.data.skipped || 0;
+          if (result.data.errors) {
+            allErrors.push(...result.data.errors);
+          }
+        } catch (error) {
+          console.error(`Batch ${batchNum} error:`, error);
+          allErrors.push({
+            batch: batchNum,
+            error: error.message || String(error)
+          });
+        }
+        
+        setSaveProgress({ 
+          current: Math.min(i + BATCH_SIZE, targetsToUpsert.length), 
+          total: targetsToUpsert.length, 
+          step: `Completed batch ${batchNum} of ${totalBatches}` 
+        });
+      }
       
       const summary = [
-        result.data.created > 0 && `✓ ${result.data.created} new targets created`,
-        result.data.updated > 0 && `↻ ${result.data.updated} existing targets updated with new info`,
-        result.data.skipped > 0 && `⊝ ${result.data.skipped} skipped (no new data)`,
-        result.data.errors.length > 0 && `✗ ${result.data.errors.length} errors`
+        totalCreated > 0 && `✓ ${totalCreated} new targets created`,
+        totalUpdated > 0 && `↻ ${totalUpdated} existing targets updated with new info`,
+        totalSkipped > 0 && `⊝ ${totalSkipped} skipped (no new data)`,
+        allErrors.length > 0 && `✗ ${allErrors.length} errors`
       ].filter(Boolean).join('\n');
       
-      showSuccess(`Saved to "${finalCampaignName}"!\n${summary}`);
+      showSuccess(`Saved ${targetsToUpsert.length} records to "${finalCampaignName}"!\n${summary}`);
       setSelectedTargets(new Set());
       setSelectedCampaignId("");
       setCampaignName("");
       
-      // Redirect to Saved Targets page after 1.5 seconds
+      // Redirect to Saved Targets page after 2 seconds
       setTimeout(() => {
         window.location.href = createPageUrl("SavedTargets");
-      }, 1500);
+      }, 2000);
     } catch (error) {
       console.error("Save error:", error);
       setUploadError("Failed to save: " + (error.message || String(error)));
     }
     
     setSaving(false);
+    setSaveProgress({ current: 0, total: 0, step: "" });
   };
 
   const toggleSelectAll = () => {
@@ -1069,6 +1113,30 @@ Return JSON:
           <div className="bg-white p-6 rounded-xl shadow-xl flex items-center gap-3">
             <Loader2 className="w-6 h-6 animate-spin text-emerald-600" />
             <span className="font-medium">Processing...</span>
+          </div>
+        </div>
+      )}
+
+      {saving && (
+        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-50 flex items-center justify-center">
+          <div className="bg-white p-6 rounded-xl shadow-xl min-w-[400px]">
+            <div className="flex items-center gap-3 mb-4">
+              <Loader2 className="w-6 h-6 animate-spin text-purple-600" />
+              <span className="font-medium">Saving to Database...</span>
+            </div>
+            {saveProgress.total > 0 && (
+              <div className="space-y-2">
+                <Progress value={(saveProgress.current / saveProgress.total) * 100} className="w-full" />
+                <div className="text-sm text-slate-600 text-center">
+                  {saveProgress.current} / {saveProgress.total} records
+                </div>
+                {saveProgress.step && (
+                  <div className="text-xs text-slate-500 text-center">
+                    {saveProgress.step}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}
