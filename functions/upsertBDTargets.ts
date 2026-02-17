@@ -15,8 +15,8 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'No targets provided' }, { status: 400 });
     }
 
-    // Fetch all existing targets once
-    const existingTargets = await base44.asServiceRole.entities.BDTarget.list('-created_date', 50000);
+    // Fetch existing targets with websites for fast domain matching
+    const existingTargets = await base44.asServiceRole.entities.BDTarget.list('-created_date', 10000);
 
     const results = {
       created: 0,
@@ -62,91 +62,59 @@ Deno.serve(async (req) => {
       return updates;
     };
 
-    // Process each target
-    for (let i = 0; i < targets.length; i++) {
-      const target = targets[i];
+    // Build a domain lookup map for fast duplicate detection
+    const domainMap = new Map();
+    existingTargets.forEach(t => {
+      const domain = normalizeDomain(t.website);
+      if (domain) {
+        domainMap.set(domain, t);
+      }
+    });
+
+    // Process targets in batches to avoid timeouts
+    const BATCH_SIZE = 100;
+    for (let i = 0; i < targets.length; i += BATCH_SIZE) {
+      const batch = targets.slice(i, i + BATCH_SIZE);
       
-      try {
-        const normalizedDomain = normalizeDomain(target.website);
-        let matchedTarget = null;
+      for (const target of batch) {
+        try {
+          const normalizedDomain = normalizeDomain(target.website);
+          let matchedTarget = null;
 
-        // Try domain matching first
-        if (normalizedDomain) {
-          matchedTarget = existingTargets.find(t => {
-            const existingDomain = normalizeDomain(t.website);
-            return existingDomain && existingDomain === normalizedDomain;
-          });
-        }
+          // Try domain matching first (fast)
+          if (normalizedDomain && domainMap.has(normalizedDomain)) {
+            matchedTarget = domainMap.get(normalizedDomain);
+          }
 
-        // Fuzzy name matching for targets without website
-        if (!matchedTarget && !normalizedDomain && target.name) {
-          const similarTargets = existingTargets.filter(t => 
-            t.name && 
-            !t.website &&
-            Math.abs(t.name.length - target.name.length) < 10
-          ).slice(0, 20);
+          // Skip fuzzy matching for now to avoid timeouts
+          // Can be added as a separate enrichment step later
 
-          if (similarTargets.length > 0) {
-            try {
-              const prompt = `Compare the company name "${target.name}" against these existing names:
-${similarTargets.map((t, i) => `${i + 1}. ${t.name}`).join('\n')}
-
-Return JSON:
-{
-  "isMatch": true/false,
-  "matchedIndex": number (1-based) or null if no match,
-  "confidence": 0-100
-}
-
-A match means the names refer to the same company despite minor spelling differences. Be strict - only match if you're very confident it's the same company.`;
-
-              const result = await base44.integrations.Core.InvokeLLM({
-                prompt,
-                add_context_from_internet: false,
-                response_json_schema: {
-                  type: "object",
-                  properties: {
-                    isMatch: { type: "boolean" },
-                    matchedIndex: { type: ["number", "null"] },
-                    confidence: { type: "number" }
-                  }
-                }
-              });
-
-              if (result.isMatch && result.matchedIndex && result.confidence >= 80) {
-                matchedTarget = similarTargets[result.matchedIndex - 1];
-              }
-            } catch (error) {
-              console.error(`Fuzzy match error for ${target.name}:`, error);
+          // Update existing or create new
+          if (matchedTarget) {
+            const updates = mergeData(matchedTarget, target);
+            
+            if (Object.keys(updates).length > 0) {
+              await base44.asServiceRole.entities.BDTarget.update(matchedTarget.id, updates);
+              results.updated++;
+              results.updatedIds.push(matchedTarget.id);
+            } else {
+              results.skipped++;
             }
-          }
-        }
-
-        // Update existing or create new
-        if (matchedTarget) {
-          const updates = mergeData(matchedTarget, target);
-          
-          if (Object.keys(updates).length > 0) {
-            await base44.asServiceRole.entities.BDTarget.update(matchedTarget.id, updates);
-            results.updated++;
-            results.updatedIds.push(matchedTarget.id);
           } else {
-            results.skipped++;
+            const created = await base44.asServiceRole.entities.BDTarget.create({
+              ...target,
+              campaign: campaign || target.campaign || 'Uncategorized'
+            });
+            results.created++;
+            results.createdIds.push(created.id);
           }
-        } else {
-          const created = await base44.asServiceRole.entities.BDTarget.create({
-            ...target,
-            campaign: campaign || target.campaign || 'Uncategorized'
-          });
-          results.created++;
-          results.createdIds.push(created.id);
-        }
 
-      } catch (error) {
-        results.errors.push({
-          company: target.name || 'Unknown',
-          error: error.message
-        });
+        } catch (error) {
+          results.errors.push({
+            company: target.name || 'Unknown',
+            error: error.message
+          });
+        }
       }
     }
 
