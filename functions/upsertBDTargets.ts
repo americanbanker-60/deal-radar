@@ -16,7 +16,8 @@ Deno.serve(async (req) => {
     }
 
     // Fetch existing targets with websites for fast domain matching
-    const existingTargets = await base44.asServiceRole.entities.BDTarget.list('-created_date', 10000);
+    const existingTargetsResponse = await base44.asServiceRole.entities.BDTarget.list('-created_date', 10000);
+    const existingTargets = Array.isArray(existingTargetsResponse) ? existingTargetsResponse : [];
 
     const results = {
       created: 0,
