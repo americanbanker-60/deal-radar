@@ -228,6 +228,7 @@ export default function OpsConsole(){
     }
 
     setCrawling(true);
+    setCrawlProgress({ current: 0, total: normalizedGR.length });
 
     try {
       const companies = normalizedGR.map(company => ({
@@ -235,14 +236,23 @@ export default function OpsConsole(){
         website: company.website
       }));
 
-      const result = await base44.functions.invoke('bulkCrawlWebsites', {
-        companies
-      });
+      // Process in batches to show progress
+      const BATCH_SIZE = 50;
+      const allCrawled = [];
+      
+      for (let i = 0; i < companies.length; i += BATCH_SIZE) {
+        const batch = companies.slice(i, i + BATCH_SIZE);
+        
+        const result = await base44.functions.invoke('bulkCrawlWebsites', {
+          companies: batch
+        });
 
-      const crawledCompanies = result.data.crawledCompanies;
+        allCrawled.push(...(result.data.crawledCompanies || []));
+        setCrawlProgress({ current: Math.min(i + BATCH_SIZE, companies.length), total: companies.length });
+      }
 
       // Update the raw data with crawled information
-      const crawledMap = new Map(crawledCompanies.map(c => [c.name, c]));
+      const crawledMap = new Map(allCrawled.map(c => [c.name, c]));
       const updatedRaw = grCompaniesRaw.map(raw => {
         const normalized = normalizeRow(raw);
         const crawled = crawledMap.get(normalized.name);
@@ -257,17 +267,14 @@ export default function OpsConsole(){
       });
 
       setGrCompaniesRaw(updatedRaw);
-      
-      const errorMsg = result.data.errors?.length > 0 
-        ? ` (${result.data.errors.length} errors)` 
-        : '';
-      showSuccess(`Crawled ${crawledCompanies.length} company websites!${errorMsg}`);
+      showSuccess(`Crawled ${allCrawled.length} company websites!`);
     } catch (error) {
       console.error("Bulk crawl error:", error);
       setUploadError("Failed to crawl websites: " + (error.message || String(error)));
     }
     
     setCrawling(false);
+    setCrawlProgress({ current: 0, total: 0 });
   };
 
   const enrichNamesAndSectors = async () => {
@@ -277,16 +284,26 @@ export default function OpsConsole(){
     }
 
     setEnriching(true);
+    setEnrichProgress({ current: 0, total: normalizedGR.length });
 
     try {
-      const result = await base44.functions.invoke('bulkEnrichTargets', {
-        targets: normalizedGR
-      });
+      // Process in batches to show progress
+      const BATCH_SIZE = 50;
+      const allEnriched = [];
+      
+      for (let i = 0; i < normalizedGR.length; i += BATCH_SIZE) {
+        const batch = normalizedGR.slice(i, i + BATCH_SIZE);
+        
+        const result = await base44.functions.invoke('bulkEnrichTargets', {
+          targets: batch
+        });
 
-      const enrichedRows = result.data.enrichedTargets;
+        allEnriched.push(...(result.data.enrichedTargets || []));
+        setEnrichProgress({ current: Math.min(i + BATCH_SIZE, normalizedGR.length), total: normalizedGR.length });
+      }
 
       // Update the raw data with enriched information
-      const enrichedMap = new Map(enrichedRows.map(r => [r.name, r]));
+      const enrichedMap = new Map(allEnriched.map(r => [r.name, r]));
       const updatedRaw = grCompaniesRaw.map(raw => {
         const normalized = normalizeRow(raw);
         const enriched = enrichedMap.get(normalized.name);
@@ -300,17 +317,14 @@ export default function OpsConsole(){
       });
 
       setGrCompaniesRaw(updatedRaw);
-      
-      const errorMsg = result.data.errors?.length > 0 
-        ? ` (${result.data.errors.length} errors)` 
-        : '';
-      showSuccess(`Enriched ${enrichedRows.length} company names and sectors!${errorMsg}`);
+      showSuccess(`Enriched ${allEnriched.length} company names and sectors!`);
     } catch (error) {
       console.error("Bulk enrichment error:", error);
       setUploadError("Failed to enrich: " + (error.message || String(error)));
     }
     
     setEnriching(false);
+    setEnrichProgress({ current: 0, total: 0 });
   };
   
   const createNewCampaign = async () => {
@@ -1143,28 +1157,38 @@ Return JSON:
 
       {crawling && (
         <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-50 flex items-center justify-center">
-          <div className="bg-white p-6 rounded-xl shadow-xl">
-            <div className="flex items-center gap-3">
+          <div className="bg-white p-6 rounded-xl shadow-xl min-w-[400px]">
+            <div className="flex items-center gap-3 mb-4">
               <Loader2 className="w-6 h-6 animate-spin text-emerald-600" />
               <span className="font-medium">Crawling Websites...</span>
             </div>
-            <div className="text-sm text-slate-600 mt-2">
-              Processing {normalizedGR.length} companies in backend
-            </div>
+            {crawlProgress.total > 0 && (
+              <div className="space-y-2">
+                <Progress value={(crawlProgress.current / crawlProgress.total) * 100} className="w-full" />
+                <div className="text-sm text-slate-600 text-center">
+                  {crawlProgress.current} / {crawlProgress.total} companies
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
 
       {enriching && (
         <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-50 flex items-center justify-center">
-          <div className="bg-white p-6 rounded-xl shadow-xl">
-            <div className="flex items-center gap-3">
+          <div className="bg-white p-6 rounded-xl shadow-xl min-w-[400px]">
+            <div className="flex items-center gap-3 mb-4">
               <Loader2 className="w-6 h-6 animate-spin text-purple-600" />
               <span className="font-medium">Enriching Names & Sectors...</span>
             </div>
-            <div className="text-sm text-slate-600 mt-2">
-              Processing {normalizedGR.length} companies in backend
-            </div>
+            {enrichProgress.total > 0 && (
+              <div className="space-y-2">
+                <Progress value={(enrichProgress.current / enrichProgress.total) * 100} className="w-full" />
+                <div className="text-sm text-slate-600 text-center">
+                  {enrichProgress.current} / {enrichProgress.total} companies
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
