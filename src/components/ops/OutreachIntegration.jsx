@@ -24,91 +24,34 @@ export default function OutreachIntegration({ prospects, onSyncComplete }) {
   const [syncResult, setSyncResult] = useState(null);
   const [error, setError] = useState(null);
   const [redirectUri, setRedirectUri] = useState("");
-  const [debugLogs, setDebugLogs] = useState([]);
-  
   const [customTag, setCustomTag] = useState("BD-Priority");
   const [customSource, setCustomSource] = useState("Ops Console");
 
-  const addLog = (msg) => {
-    console.log(msg);
-    setDebugLogs(prev => [...prev, msg].slice(-10));
-  };
-
   useEffect(() => {
     checkConnection();
-    
-    // Listen for auth results from multiple sources
-    const handleMessage = (event) => {
-      if (event.data.type === "outreach-oauth-success") {
-        addLog("📨 Received success message via postMessage");
-        setConnected(true);
-        setLoading(false);
-        setError(null);
-      } else if (event.data.type === "outreach-oauth-error") {
-        addLog("📨 Received error message via postMessage");
-        setError(event.data.error);
-        setLoading(false);
-      }
-    };
-    
-    const handleStorage = () => {
-      const result = localStorage.getItem('outreach_auth_result');
-      if (result) {
-        try {
-          const data = JSON.parse(result);
-          // Only process recent results (within last 10 seconds)
-          if (Date.now() - data.timestamp < 10000) {
-            addLog("📨 Received result via localStorage");
-            if (data.type === "outreach-oauth-success") {
-              setConnected(true);
-              setLoading(false);
-              setError(null);
-            } else if (data.type === "outreach-oauth-error") {
-              setError(data.error);
-              setLoading(false);
-            }
-            localStorage.removeItem('outreach_auth_result');
-          }
-        } catch (e) {
-          console.error("Error parsing localStorage result:", e);
-        }
-      }
-    };
-    
-    // BroadcastChannel listener
-    let channel;
-    try {
-      channel = new BroadcastChannel('outreach_auth');
-      channel.onmessage = (event) => {
-        addLog("📨 Received result via BroadcastChannel");
-        if (event.data.type === "outreach-oauth-success") {
+  }, []);
+
+  // Poll OutreachConnection entity while loading
+  useEffect(() => {
+    if (!loading) return;
+
+    const pollInterval = setInterval(async () => {
+      try {
+        const user = await base44.auth.me();
+        const connections = await base44.entities.OutreachConnection.list();
+        const userConnection = connections.find(c => c.user_email === user.email && c.status === "connected");
+        
+        if (userConnection) {
           setConnected(true);
           setLoading(false);
           setError(null);
-        } else if (event.data.type === "outreach-oauth-error") {
-          setError(event.data.error);
-          setLoading(false);
         }
-      };
-    } catch (e) {
-      console.log("BroadcastChannel not available");
-    }
-    
-    window.addEventListener("message", handleMessage);
-    window.addEventListener("storage", handleStorage);
-    
-    // Poll localStorage while loading
-    let pollInterval;
-    if (loading) {
-      pollInterval = setInterval(handleStorage, 500);
-    }
-    
-    return () => {
-      window.removeEventListener("message", handleMessage);
-      window.removeEventListener("storage", handleStorage);
-      if (channel) channel.close();
-      if (pollInterval) clearInterval(pollInterval);
-    };
+      } catch (error) {
+        console.error("Error checking connection:", error);
+      }
+    }, 2000); // Poll every 2 seconds
+
+    return () => clearInterval(pollInterval);
   }, [loading]);
 
   const checkConnection = async () => {
@@ -117,10 +60,6 @@ export default function OutreachIntegration({ prospects, onSyncComplete }) {
       const connections = await base44.entities.OutreachConnection.list();
       const userConnection = connections.find(c => c.user_email === user.email && c.status === "connected");
       setConnected(!!userConnection);
-      
-      if (userConnection) {
-        addLog("✅ Found existing Outreach connection");
-      }
     } catch (error) {
       console.error("Error checking connection:", error);
     }
@@ -129,26 +68,14 @@ export default function OutreachIntegration({ prospects, onSyncComplete }) {
   const connectOutreach = async () => {
     setLoading(true);
     setError(null);
-    setDebugLogs([]);
-    
-    // Clear any old auth results
-    localStorage.removeItem('outreach_auth_result');
     
     try {
-      addLog("🔗 Step 1: Requesting OAuth URL from backend...");
-      
       const result = await base44.functions.invoke('outreachInitAuth', {});
-      addLog("✅ Step 2: Auth URL received from backend");
-      addLog("📍 Redirect URI: " + result.data.redirectUri);
-      
-      setRedirectUri(result.data.redirectUri);
       
       const width = 600;
       const height = 700;
       const left = window.screen.width / 2 - width / 2;
       const top = window.screen.height / 2 - height / 2;
-      
-      addLog("🪟 Step 3: Opening OAuth popup window...");
       
       const popup = window.open(
         result.data.authUrl,
@@ -160,34 +87,22 @@ export default function OutreachIntegration({ prospects, onSyncComplete }) {
         throw new Error("Popup was blocked. Please allow popups for this site.");
       }
 
-      addLog("✅ Step 4: Popup opened successfully");
-      addLog("👂 Step 5: Waiting for authorization (check popup window)...");
-
-      // Monitor popup state
+      // Monitor popup closure
       const popupCheckInterval = setInterval(() => {
         if (popup.closed) {
           clearInterval(popupCheckInterval);
-          addLog("⚠️ Popup was closed");
           
-          // Give localStorage/BroadcastChannel a moment to update
+          // Give database a moment to update
           setTimeout(() => {
             if (loading) {
-              addLog("❌ No auth result received after popup closed");
               setLoading(false);
-              
-              // Check connection one more time
-              checkConnection().then((isConnected) => {
-                if (!isConnected) {
-                  setError("Authorization was not completed. Please try again and make sure to approve the authorization in Outreach.");
-                }
-              });
+              setError("Authorization window closed. Please try again and approve the authorization.");
             }
-          }, 1000);
+          }, 3000);
         }
       }, 500);
 
     } catch (error) {
-      addLog("❌ Connection error: " + error.message);
       setError("Failed to connect: " + error.message);
       setLoading(false);
     }
@@ -314,17 +229,6 @@ export default function OutreachIntegration({ prospects, onSyncComplete }) {
                 <strong>Error:</strong> {error}
               </AlertDescription>
             </Alert>
-          )}
-
-          {debugLogs.length > 0 && (
-            <div className="bg-slate-900 text-green-400 rounded-lg p-3 max-h-48 overflow-y-auto">
-              <div className="text-xs font-mono space-y-1">
-                <div className="text-slate-400 mb-1">Debug Log:</div>
-                {debugLogs.map((log, i) => (
-                  <div key={i}>{log}</div>
-                ))}
-              </div>
-            </div>
           )}
 
           <Button
