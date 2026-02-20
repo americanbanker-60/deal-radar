@@ -332,10 +332,14 @@ const STATE_MAP = {
 
 export function normalizeState(state) {
   if (!state) return '';
-  const trimmed = state.trim();
   
-  if (trimmed.length === 2) return trimmed.toUpperCase();
+  // Strip trailing periods and trim whitespace
+  const cleaned = state.trim().replace(/\.+$/, '');
   
-  const lower = trimmed.toLowerCase();
-  return STATE_MAP[lower] || trimmed;
+  // If it's a 2-letter code, uppercase and return
+  if (cleaned.length === 2) return cleaned.toUpperCase();
+  
+  // Try to match full state name (case-insensitive)
+  const lower = cleaned.toLowerCase();
+  return STATE_MAP[lower] || cleaned;
 }

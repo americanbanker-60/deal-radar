@@ -90,12 +90,20 @@ Deno.serve(async (req) => {
                     }
                 });
 
+                // Helper to normalize state codes
+                const normalizeState = (state) => {
+                    if (!state) return '';
+                    const cleaned = state.trim().replace(/\.+$/, '');
+                    if (cleaned.length === 2) return cleaned.toUpperCase();
+                    return cleaned;
+                };
+
                 // Update all records from batch
                 const updatePromises = (result.results || []).map(async (data) => {
                     const updates = {};
                     const targetData = batchData.find(t => t.id === data.id);
                     
-                    if (targetData?.needsState && data.state) updates.state = data.state;
+                    if (targetData?.needsState && data.state) updates.state = normalizeState(data.state);
                     if (targetData?.needsRevenue && data.revenue) updates.revenue = data.revenue;
                     if (targetData?.needsEmployees && data.employees) updates.employees = data.employees;
 
