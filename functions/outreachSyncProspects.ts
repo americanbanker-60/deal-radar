@@ -9,10 +9,10 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { targetIds } = await req.json();
+    const { prospects, sequenceId, customFields } = await req.json();
 
-    if (!targetIds || !Array.isArray(targetIds) || targetIds.length === 0) {
-      return Response.json({ error: 'No targets provided' }, { status: 400 });
+    if (!prospects || !Array.isArray(prospects) || prospects.length === 0) {
+      return Response.json({ error: 'No prospects provided' }, { status: 400 });
     }
 
     // Get Outreach connection for this user
@@ -60,43 +60,32 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Fetch targets
-    const targets = await base44.entities.BDTarget.filter({
-      id: { $in: targetIds }
-    });
-
-    const results = [];
+    const created = [];
+    const updated = [];
     const errors = [];
 
-    // Sector to Sequence mapping (you can customize these)
-    const sectorSequenceMap = {
-      'HS: Urgent Care': 'urgent-care-sequence',
-      'HS: Dentistry': 'dentistry-sequence',
-      'HS: Behavioral Health': 'behavioral-health-sequence',
-      'HS: Primary Care': 'primary-care-sequence',
-      'HS: Multi-Specialty': 'multi-specialty-sequence',
-      'HS: General': 'general-healthcare-sequence'
-    };
-
-    for (const target of targets) {
+    for (const prospect of prospects) {
       try {
         // Create prospect in Outreach
         const prospectData = {
           data: {
             type: 'prospect',
             attributes: {
-              firstName: target.contactFirstName || '',
-              lastName: target.contactLastName || '',
-              emails: target.contactEmail ? [target.contactEmail] : [],
-              title: target.contactTitle || '',
-              company: target.name,
-              phoneNumbers: target.contactPhone ? [{ number: target.contactPhone }] : [],
-              custom1: target.sectorFocus || '', // Custom field for sector
-              custom2: String(target.score || ''), // Custom field for score
-              tags: [target.campaign, target.sectorFocus].filter(Boolean)
+              firstName: prospect.firstName || '',
+              lastName: prospect.lastName || '',
+              emails: prospect.email ? [prospect.email] : [],
+              title: prospect.title || '',
+              company: prospect.company || '',
+              phoneNumbers: prospect.phone ? [{ number: prospect.phone }] : [],
+              tags: customFields?.customTag ? [customFields.customTag] : []
             }
           }
         };
+
+        // Add custom fields if provided
+        if (customFields?.customSource) {
+          prospectData.data.attributes.custom1 = customFields.customSource;
+        }
 
         const prospectResponse = await fetch('https://api.outreach.io/api/v2/prospects', {
           method: 'POST',
@@ -109,31 +98,26 @@ Deno.serve(async (req) => {
 
         if (!prospectResponse.ok) {
           const errorText = await prospectResponse.text();
-          errors.push({ target: target.name, error: errorText });
+          
+          // Check if it's a duplicate error (prospect already exists)
+          if (errorText.includes('already exists') || errorText.includes('duplicate')) {
+            updated.push({ email: prospect.email, status: 'exists' });
+          } else {
+            errors.push({ email: prospect.email, error: errorText });
+          }
           continue;
         }
 
         const prospectResult = await prospectResponse.json();
-        const prospectId = prospectResult.data.id;
-
-        // Add to sequence based on sector (if sequence exists)
-        const sequenceName = sectorSequenceMap[target.sectorFocus] || sectorSequenceMap['HS: General'];
-        
-        // Note: This requires knowing the sequence IDs in Outreach
-        // You'll need to fetch sequences first or configure them manually
-        // For now, we'll just log it
-        console.log(`Would add prospect ${prospectId} to sequence: ${sequenceName}`);
-
-        results.push({
-          target: target.name,
-          prospectId,
-          sequence: sequenceName,
-          status: 'success'
+        created.push({ 
+          email: prospect.email,
+          prospectId: prospectResult.data.id,
+          status: 'created'
         });
 
       } catch (error) {
         errors.push({ 
-          target: target.name, 
+          email: prospect.email,
           error: error.message 
         });
       }
@@ -141,16 +125,16 @@ Deno.serve(async (req) => {
 
     return Response.json({
       success: true,
-      pushed: results.length,
-      results,
+      created: created.length,
+      updated: updated.length,
       errors,
-      message: `Successfully pushed ${results.length} prospects to Outreach${errors.length > 0 ? ` (${errors.length} failed)` : ''}`
+      message: `Successfully synced ${created.length} prospects${updated.length > 0 ? ` (${updated.length} already existed)` : ''}${errors.length > 0 ? ` (${errors.length} failed)` : ''}`
     });
 
   } catch (error) {
-    console.error('Push to Outreach error:', error);
+    console.error('Outreach sync error:', error);
     return Response.json({ 
-      error: error.message || 'Failed to push to Outreach' 
+      error: error.message || 'Failed to sync prospects to Outreach' 
     }, { status: 500 });
   }
 });
