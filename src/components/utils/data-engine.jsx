@@ -253,12 +253,19 @@ export async function crawlCompanyWebsite(company) {
   try {
     const prompt = `Analyze the website and social media for "${company.name}" (${company.website || 'healthcare company'}).
 
+CRITICAL - For clinic count accuracy:
+1. PRIORITIZE searching these specific pages: "Locations", "Find a Clinic", "Contact Us", "Our Offices", "Where We Are"
+2. Look for STRUCTURED DATA: lists of addresses, location cards, interactive maps, store locators
+3. Count ACTUAL locations listed - do NOT estimate from general descriptions
+4. If you find a dedicated locations page with a list, count each unique address
+5. Ignore vague statements like "serving multiple communities" - we need exact counts
+
 Extract:
 1. Website status: working, broken, or missing
-2. Number of clinic/office locations (check locations page, about us, etc.)
+2. Number of clinic/office locations (from structured location pages ONLY)
 3. Most recent activity date from social media or news (YYYY-MM-DD format)
 4. Is the company potentially dormant? (no activity in 12+ months)
-5. Brief rationale: One sentence explaining where you found the clinic count (e.g., "Found 5 locations listed on /contact page")
+5. Brief rationale: Explain WHERE you found the count (e.g., "Found 5 locations with full addresses on /locations page" or "No dedicated locations page found")
 
 Return JSON:
 {
