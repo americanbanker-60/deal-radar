@@ -100,8 +100,35 @@ Deno.serve(async (req) => {
         if (customFields?.customSource) {
           prospectData.data.attributes.custom1 = customFields.customSource;
         }
-        if (prospect.sectorFocus) {
-          prospectData.data.attributes.custom2 = prospect.sectorFocus;
+        
+        // Map score to custom2
+        if (prospect.score !== undefined && prospect.score !== null) {
+          prospectData.data.attributes.custom2 = String(prospect.score);
+        }
+        
+        // Generate and map Sales Context to custom3
+        if (prospect.notes || prospect.crawlRationale) {
+          try {
+            const contextPrompt = `Summarize the following information about a healthcare company into a concise 2-3 sentence "Sales Context" for outreach:
+
+Company: ${prospect.company || 'Unknown'}
+Notes: ${prospect.notes || 'N/A'}
+Research Rationale: ${prospect.crawlRationale || 'N/A'}
+
+Write a brief, actionable summary highlighting key business insights that would help a sales rep personalize their outreach. Focus on what makes this target interesting.`;
+
+            const summaryResult = await base44.integrations.Core.InvokeLLM({
+              prompt: contextPrompt,
+              add_context_from_internet: false
+            });
+
+            if (summaryResult) {
+              prospectData.data.attributes.custom3 = summaryResult.trim();
+            }
+          } catch (llmError) {
+            console.error('Failed to generate sales context:', llmError);
+            // Continue without sales context if LLM fails
+          }
         }
 
         const prospectResponse = await fetch('https://api.outreach.io/api/v2/prospects', {
