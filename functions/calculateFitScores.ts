@@ -37,50 +37,81 @@ Deno.serve(async (req) => {
     }
 });
 
+/**
+ * IMPORTANT: This scoring logic is shared with components/utils/scoring.js
+ * If you modify this function, update the frontend utility to keep scores consistent.
+ */
 function calculateScore(target, { weights, targetRange, fitKeywords }) {
-    const w = weights || { employees: 35, clinics: 25, revenue: 15, website: 15, keywords: 10 };
-    
+    const defaultWeights = {
+        employees: 35,
+        clinics: 25,
+        revenue: 15,
+        website: 15,
+        keywords: 10
+    };
+
+    const w = { ...defaultWeights, ...weights };
+    const keywordsLower = (fitKeywords || "").toLowerCase();
+
     // Employee score
     let empScore = 0;
-    if (targetRange?.minEmployees && targetRange?.maxEmployees) {
-        const emp = target.employees || 0;
-        const min = targetRange.minEmployees;
-        const max = targetRange.maxEmployees;
-        const mid = (min + max) / 2;
-        const range = max - min;
-        empScore = Math.max(0, 100 - (Math.abs(emp - mid) / range) * 100);
+    const emp = target.employees || 0;
+    if (emp > 0 && targetRange?.minEmployees && targetRange?.maxEmployees) {
+        const mid = (targetRange.minEmployees + targetRange.maxEmployees) / 2;
+        const distance = Math.abs(emp - mid);
+        const range = targetRange.maxEmployees - targetRange.minEmployees;
+        empScore = Math.max(0, 100 - (distance / range) * 100);
     }
 
     // Clinic score
-    const clinicScore = target.clinicCount ? Math.min(100, (target.clinicCount / 10) * 100) : 0;
+    let clinicScore = 0;
+    const clinics = target.clinicCount || 0;
+    if (clinics > 0) {
+        clinicScore = Math.min(100, clinics * 25);
+    }
 
     // Revenue score
     let revScore = 0;
-    if (targetRange?.minRevenue && targetRange?.maxRevenue) {
-        const rev = target.revenue || 0;
-        const min = targetRange.minRevenue;
-        const max = targetRange.maxRevenue;
-        const mid = (min + max) / 2;
-        const range = max - min;
-        revScore = Math.max(0, 100 - (Math.abs(rev - mid) / range) * 100);
+    const rev = target.revenue || 0;
+    if (rev > 0 && targetRange?.minRevenue && targetRange?.maxRevenue) {
+        const mid = (targetRange.minRevenue + targetRange.maxRevenue) / 2;
+        const distance = Math.abs(rev - mid);
+        const range = targetRange.maxRevenue - targetRange.minRevenue;
+        revScore = Math.max(0, 100 - (distance / range) * 100);
     }
 
     // Website score
-    const webScore = target.websiteStatus === 'working' ? 100 : 0;
+    let websiteScore = 0;
+    if (target.websiteStatus === "working") websiteScore = 100;
+    else if (target.websiteStatus === "broken") websiteScore = 50;
 
     // Keyword score
-    const keyScore = fitKeywords && target.sectorFocus?.toLowerCase().includes(fitKeywords.toLowerCase()) ? 100 : 0;
+    let keywordScore = 0;
+    if (keywordsLower) {
+        const textToCheck = [
+            target.name || "",
+            target.industry || "",
+            target.subsector || "",
+            target.sectorFocus || "",
+            target.notes || ""
+        ].join(" ").toLowerCase();
+        
+        if (textToCheck.includes(keywordsLower)) {
+            keywordScore = 100;
+        }
+    }
 
-    // Weighted total
-    let total = (
-        (empScore * w.employees) +
-        (clinicScore * w.clinics) +
-        (revScore * w.revenue) +
-        (webScore * w.website) +
-        (keyScore * w.keywords)
-    ) / 100;
-
-    let score = Math.round(total);
+    // Calculate weighted total
+    const totalWeight = w.employees + w.clinics + w.revenue + w.website + w.keywords;
+    let score = totalWeight > 0 
+        ? Math.round(
+            (empScore * w.employees + 
+             clinicScore * w.clinics + 
+             revScore * w.revenue + 
+             websiteScore * w.website + 
+             keywordScore * w.keywords) / totalWeight
+          )
+        : 0;
 
     // Apply recency penalty based on lastActive date
     if (target.lastActive) {
