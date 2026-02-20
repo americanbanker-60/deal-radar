@@ -26,6 +26,7 @@ export default function OutreachIntegration({ prospects, onSyncComplete }) {
   const [redirectUri, setRedirectUri] = useState("");
   const [customTag, setCustomTag] = useState("BD-Priority");
   const [customSource, setCustomSource] = useState("Ops Console");
+  const [needsReconnect, setNeedsReconnect] = useState(false);
 
   useEffect(() => {
     checkConnection();
@@ -68,6 +69,7 @@ export default function OutreachIntegration({ prospects, onSyncComplete }) {
   const connectOutreach = async () => {
     setLoading(true);
     setError(null);
+    setNeedsReconnect(false);
     
     try {
       const result = await base44.functions.invoke('outreachInitAuth', {});
@@ -151,7 +153,23 @@ export default function OutreachIntegration({ prospects, onSyncComplete }) {
       }
     } catch (error) {
       console.error("❌ Sync error:", error);
-      setError("Sync failed: " + error.message);
+      
+      // Check for authorization errors
+      const errorMsg = error.message || String(error);
+      const isAuthError = 
+        error.response?.status === 401 ||
+        errorMsg.includes('401') ||
+        errorMsg.includes('Unauthorized') ||
+        errorMsg.includes('token') ||
+        errorMsg.includes('Token expired') ||
+        errorMsg.includes('refresh');
+      
+      if (isAuthError) {
+        setError("Your Outreach connection has expired. Please reconnect your account.");
+        setNeedsReconnect(true);
+      } else {
+        setError("Sync failed: " + errorMsg);
+      }
     }
     
     setSyncing(false);
@@ -310,7 +328,29 @@ export default function OutreachIntegration({ prospects, onSyncComplete }) {
           <Alert className="bg-red-50 border-red-200">
             <AlertCircle className="h-4 w-4 text-red-600" />
             <AlertDescription className="text-red-800 text-sm">
-              {error}
+              <div className="flex flex-col gap-3">
+                <div>{error}</div>
+                {needsReconnect && (
+                  <Button
+                    onClick={connectOutreach}
+                    disabled={loading}
+                    size="sm"
+                    className="bg-blue-600 hover:bg-blue-700 w-full sm:w-auto"
+                  >
+                    {loading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Reconnecting...
+                      </>
+                    ) : (
+                      <>
+                        <RefreshCw className="w-4 h-4 mr-2" />
+                        Reconnect Outreach Account
+                      </>
+                    )}
+                  </Button>
+                )}
+              </div>
             </AlertDescription>
           </Alert>
         )}
