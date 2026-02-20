@@ -40,8 +40,8 @@ Deno.serve(async (req) => {
             return Response.json(results);
         }
 
-        // Process 5 targets per LLM call for maximum efficiency
-        const BATCH_SIZE = 5;
+        // Process 10 targets per LLM call for maximum efficiency
+        const BATCH_SIZE = 10;
         
         for (let i = 0; i < pendingTargets.length; i += BATCH_SIZE) {
             const batch = pendingTargets.slice(i, i + BATCH_SIZE);
@@ -114,11 +114,6 @@ Deno.serve(async (req) => {
                         error: error.message
                     });
                 });
-            }
-
-            // Minimal delay between batches
-            if (i + BATCH_SIZE < pendingTargets.length) {
-                await new Promise(resolve => setTimeout(resolve, 1000));
             }
         }
 
