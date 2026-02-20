@@ -94,8 +94,9 @@ export function cleanCompanyNameRegex(name) {
   if (!name) return name;
   
   let cleaned = name
-    .replace(/,?\s+(LLC|L\.L\.C\.|Inc\.?|Incorporated|Corporation|Corp\.?|Ltd\.?|Limited|P\.A\.|PA|Co\.?|Company|Group|Holdings|Partners|Services|MSO|PC|P\.C\.|PLLC|P\.L\.L\.C\.)/gi, '')
+    .replace(/,?\s+(LLC|L\.L\.C\.|Inc\.?|Incorporated|Corporation|Corp\.?|Ltd\.?|Limited|P\.A\.|PA|PLLC|P\.L\.L\.C\.|MSO|PC|P\.C\.|Professional\s+Association|Co\.?|Company|Group|Holdings|Partners|Services)/gi, '')
     .replace(/^(The|A|An)\s+/i, '')
+    .replace(/[,.\s]+$/, '')
     .trim();
   
   return cleaned || name;
