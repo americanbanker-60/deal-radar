@@ -809,16 +809,59 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
     setAlertMessage("");
     
     try {
-      const { data } = await base44.functions.invoke('pushToOutreach', {
-        targetIds: Array.from(selectedTargets)
+      const selectedList = filteredTargets.filter(t => selectedTargets.has(t.id));
+      const prospects = selectedList
+        .filter(t => t.contactEmail)
+        .map(t => ({
+          email: t.contactEmail,
+          firstName: t.contactPreferredName || t.contactFirstName || "",
+          lastName: t.contactLastName || "",
+          title: t.contactTitle || "",
+          company: t.name || "",
+          score: t.score,
+          notes: t.notes,
+          crawlRationale: t.crawlRationale,
+          sectorFocus: t.sectorFocus,
+          _targetId: t.id,
+        }));
+
+      if (prospects.length === 0) {
+        alert("No selected targets have contact emails. Please enrich contacts first.");
+        setPushingToOutreach(false);
+        return;
+      }
+
+      const { data } = await base44.functions.invoke('outreachSyncProspects', {
+        prospects,
+        sequenceId: null,
+        customFields: {},
       });
 
+      // Stamp last_synced_at and outreach_id on successfully synced targets
+      const syncedByEmail = new Map();
+      (data.created || []).forEach(c => syncedByEmail.set(c.email, c.prospectId));
+      (data.updated || []).forEach(u => syncedByEmail.set(u.email, u.prospectId));
+
+      const now = new Date().toISOString();
+      await Promise.allSettled(
+        prospects
+          .filter(p => syncedByEmail.has(p.email))
+          .map(p =>
+            base44.entities.BDTarget.update(p._targetId, {
+              last_synced_at: now,
+              outreach_id: String(syncedByEmail.get(p.email) || ""),
+            })
+          )
+      );
+
+      await queryClient.invalidateQueries({ queryKey: ['bdTargets'] });
+
       if (data.errors && data.errors.length > 0) {
-        const errorList = data.errors.slice(0, 5).map(e => `• ${e.target}: ${e.error}`).join('\n');
+        const errorList = data.errors.slice(0, 5).map(e => `• ${e.email}: ${e.error}`).join('\n');
         const moreErrors = data.errors.length > 5 ? `\n...and ${data.errors.length - 5} more` : '';
         alert(`${data.message}\n\nErrors:\n${errorList}${moreErrors}`);
       } else {
-        alert(data.message);
+        alert(data.message || `Synced ${prospects.length} prospects to Outreach.`);
       }
     } catch (error) {
       console.error('Push to Outreach failed:', error);
