@@ -20,6 +20,7 @@ import { createPageUrl } from "../utils";
 import OutreachIntegration from "../components/ops/OutreachIntegration";
 import TargetRow from "../components/targets/TargetRow";
 import ActionButtons from "../components/targets/ActionButtons";
+import TargetDrawer from "../components/targets/TargetDrawer";
 import { LoadingOverlay } from "@/components/ui/loading-overlay";
 
 export default function SavedTargets() {
