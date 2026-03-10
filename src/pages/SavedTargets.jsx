@@ -354,7 +354,7 @@ Write ONLY the opening line, no quotes, no explanation. Make it sound natural an
     setDetectingGrowth(true);
     setGrowthProgress({ current: 0, total: pendingList.length });
 
-    const BATCH_SIZE = 10;
+    const BATCH_SIZE = 5;
     let completed = 0;
     let skippedCount = selectedList.length - pendingList.length;
 
@@ -365,16 +365,20 @@ Write ONLY the opening line, no quotes, no explanation. Make it sound natural an
         try {
           const prompt = `Search for recent news about "${target.name}" (${target.website || 'healthcare company'}) from the last 6 months.
 
-Look for:
-1. New office/clinic openings
-2. Awards and recognition
-3. Executive hires
-4. Funding/Investment
-5. Growth indicators
+Find concrete growth events: new clinic/office openings, funding rounds, executive hires, awards, or expansions.
 
-Return JSON with brief summaries (1 sentence each):
+Return a JSON array of signal objects. Each object must have:
+- type: one of "funding", "expansion", or "hiring"
+- description: one clear sentence describing the event
+- date: approximate date like "Jan 2026" or "Q1 2026"
+
+Return only real, verifiable events. If no signals found, return an empty signals array.
+
 {
-  "signals": ["Opened 3rd location in Phoenix (Jan 2026)"],
+  "signals": [
+    { "type": "expansion", "description": "Opened 3rd clinic location in Phoenix.", "date": "Jan 2026" },
+    { "type": "hiring", "description": "Hired Dr. Jane Smith as Chief Medical Officer.", "date": "Nov 2025" }
+  ],
   "hasGrowthSignals": true
 }`;
 
@@ -384,15 +388,38 @@ Return JSON with brief summaries (1 sentence each):
             response_json_schema: {
               type: "object",
               properties: {
-                signals: { type: "array", items: { type: "string" } },
+                signals: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    properties: {
+                      type: { type: "string" },
+                      description: { type: "string" },
+                      date: { type: "string" }
+                    }
+                  }
+                },
                 hasGrowthSignals: { type: "boolean" }
               }
             }
           });
 
+          const signals = result.signals || [];
+
+          // Create a GrowthSignal entity record for each signal
+          await Promise.allSettled(signals.map(signal =>
+            base44.entities.GrowthSignal.create({
+              target_id: target.id,
+              type: ["funding", "expansion", "hiring"].includes(signal.type) ? signal.type : "expansion",
+              description: signal.description,
+              date: signal.date || "",
+            })
+          ));
+
+          // Also update the flat field for backward-compat filtering
           await base44.entities.BDTarget.update(target.id, {
-            growthSignals: (result.signals || []).join(", "),
-            growthSignalsDate: new Date().toISOString()
+            growthSignals: signals.map(s => s.description).join("; "),
+            growthSignalsDate: new Date().toISOString(),
           });
         } catch (error) {
           console.error(`Error detecting growth for ${target.name}:`, error);
