@@ -76,6 +76,7 @@ export default function SavedTargets() {
   const [itemsPerPage] = useState(50);
   const [pushingToOutreach, setPushingToOutreach] = useState(false);
   const [alertMessage, setAlertMessage] = useState("");
+  const [drawerTarget, setDrawerTarget] = useState(null);
   const queryClient = useQueryClient();
 
   const [user, setUser] = useState(null);
