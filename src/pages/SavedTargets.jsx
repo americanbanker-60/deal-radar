@@ -1569,6 +1569,14 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
       {generatingRationales && (
         <LoadingOverlay message="Generating Strategic Rationales..." progress={rationaleProgress} />
       )}
+
+      <TargetDrawer
+        target={drawerTarget}
+        open={!!drawerTarget}
+        onClose={() => setDrawerTarget(null)}
+        onGenerateRationale={generateSingleRationale}
+        isGeneratingRationale={generatingSingleRationale === drawerTarget?.id}
+      />
     </div>
   );
 }
