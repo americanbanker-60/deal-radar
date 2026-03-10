@@ -92,6 +92,23 @@ export default function OpsConsole(){
   const [lookalikes, setLookalikes] = useState([]);
   const [findingLookalikes, setFindingLookalikes] = useState(false);
   const [addingLookalike, setAddingLookalike] = useState(null);
+  const [healthAlertCount, setHealthAlertCount] = useState(0);
+
+  // Load health alert count on mount
+  useEffect(() => {
+    const loadHealthAlerts = async () => {
+      try {
+        const allTargets = await base44.entities.BDTarget.list('-created_date', 500);
+        const alertCount = allTargets.filter(t =>
+          t.websiteStatus === 'broken' || t.dormancyFlag === true
+        ).length;
+        setHealthAlertCount(alertCount);
+      } catch (err) {
+        console.error('Failed to load health alerts:', err);
+      }
+    };
+    loadHealthAlerts();
+  }, []);
 
   // Load saved settings and campaigns on mount
   useEffect(() => {
