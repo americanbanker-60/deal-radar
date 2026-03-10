@@ -1567,23 +1567,35 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex gap-2">
-              <Button
-                onClick={handlePushToOutreach}
-                disabled={pushingToOutreach}
-                className="flex-1 bg-indigo-600 hover:bg-indigo-700"
-              >
-                {pushingToOutreach ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Pushing to Outreach...
-                  </>
-                ) : (
-                  <>
-                    <Send className="w-4 h-4 mr-2" />
-                    Push to Outreach
-                  </>
-                )}
-              </Button>
+              {(() => {
+                const selectedList = filteredTargets.filter(t => selectedTargets.has(t.id));
+                const alreadySynced = selectedList.every(t => !!t.last_synced_at);
+                const someSynced = selectedList.some(t => !!t.last_synced_at);
+                return (
+                  <Button
+                    onClick={handlePushToOutreach}
+                    disabled={pushingToOutreach}
+                    className={`flex-1 ${alreadySynced ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-indigo-600 hover:bg-indigo-700'}`}
+                  >
+                    {pushingToOutreach ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Syncing to Outreach...
+                      </>
+                    ) : alreadySynced ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 mr-2" />
+                        Re-sync to Outreach
+                      </>
+                    ) : (
+                      <>
+                        <Send className="w-4 h-4 mr-2" />
+                        Push to Outreach{someSynced ? ' (some new)' : ''}
+                      </>
+                    )}
+                  </Button>
+                );
+              })()}
             </div>
             <div className="border-t pt-4">
               <OutreachIntegration 
