@@ -1472,16 +1472,15 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
                 </thead>
                 <tbody>
                   {paginatedTargets.map((t) => (
-                    <TargetRow
-                      key={t.id}
-                      target={t}
-                      isSelected={selectedTargets.has(t.id)}
-                      onToggle={toggleTarget}
-                      onGenerateRationale={generateSingleRationale}
-                      isGeneratingRationale={generatingSingleRationale === t.id}
-                      onRefreshData={refreshSingleTargetData}
-                      isRefreshingData={refreshingData === t.id}
-                    />
+                   <TargetRow
+                     key={t.id}
+                     target={t}
+                     isSelected={selectedTargets.has(t.id)}
+                     onToggle={toggleTarget}
+                     onRowClick={setDrawerTarget}
+                     onRefreshData={refreshSingleTargetData}
+                     isRefreshingData={refreshingData === t.id}
+                   />
                   ))}
                 </tbody>
               </table>
