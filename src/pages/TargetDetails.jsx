@@ -442,6 +442,9 @@ export default function TargetDetails() {
           )}
         </CardContent>
       </Card>
+
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
