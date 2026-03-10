@@ -1,12 +1,13 @@
-import React from "react";
+import React, { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { MapPin, Loader2, Sparkles, Check, RefreshCw, Info } from "lucide-react";
+import { MapPin, Loader2, Sparkles, Check, RefreshCw, Info, UserPlus } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "../../utils";
+import AddContactDialog from "./AddContactDialog";
 
 const TargetRow = React.memo(({ 
   target, 
@@ -18,6 +19,7 @@ const TargetRow = React.memo(({
   isRefreshingData
 }) => {
   const navigate = useNavigate();
+  const [showAddContact, setShowAddContact] = useState(false);
 
   // Calculate enrichment status
   const hasCorrespondence = target.correspondenceName && target.correspondenceName.trim();
@@ -52,6 +54,12 @@ const TargetRow = React.memo(({
   };
 
   return (
+    <>
+    <AddContactDialog
+      open={showAddContact}
+      onOpenChange={setShowAddContact}
+      target={target}
+    />
     <tr 
       className="border-b border-slate-100 hover:bg-slate-50 transition-colors cursor-pointer group"
       onClick={handleRowClick}
@@ -184,16 +192,30 @@ const TargetRow = React.memo(({
         )}
       </td>
       <td className="py-3 px-4 max-w-[200px]">
-        {target.contactEmail ? (
-          <div className="text-xs">
-            <div className="font-medium">
-              {target.contactPreferredName || target.contactFirstName} {target.contactLastName}
+        <div className="flex items-center gap-1">
+          {target.contactEmail ? (
+            <div className="text-xs">
+              <div className="font-medium">
+                {target.contactPreferredName || target.contactFirstName} {target.contactLastName}
+              </div>
+              <div className="text-slate-500 truncate">{target.contactEmail}</div>
             </div>
-            <div className="text-slate-500 truncate">{target.contactEmail}</div>
-          </div>
-        ) : (
-          <span className="text-xs text-muted-foreground">—</span>
-        )}
+          ) : (
+            <span className="text-xs text-muted-foreground">—</span>
+          )}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowAddContact(true);
+            }}
+            title="Add Contact"
+          >
+            <UserPlus className="w-3 h-3 text-blue-600" />
+          </Button>
+        </div>
       </td>
       <td className="py-3 px-4 max-w-[250px]">
         {hasGrowthSignals ? (
@@ -260,6 +282,7 @@ const TargetRow = React.memo(({
         )}
       </td>
     </tr>
+    </>
   );
 });
 
