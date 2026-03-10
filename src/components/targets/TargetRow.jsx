@@ -4,7 +4,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { MapPin, Loader2, Sparkles, Check, RefreshCw, Info, UserPlus } from "lucide-react";
+import { MapPin, Check, RefreshCw, Info, UserPlus } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "../../utils";
 import AddContactDialog from "./AddContactDialog";
@@ -13,15 +13,13 @@ const TargetRow = React.memo(({
   target, 
   isSelected, 
   onToggle, 
-  onGenerateRationale,
-  isGeneratingRationale,
+  onRowClick,
   onRefreshData,
   isRefreshingData
 }) => {
   const navigate = useNavigate();
   const [showAddContact, setShowAddContact] = useState(false);
 
-  // Calculate enrichment status
   const hasCorrespondence = target.correspondenceName && target.correspondenceName.trim();
   const hasState = target.state && target.state.trim();
   const hasRevenue = target.revenue && target.revenue > 0;
@@ -32,14 +30,8 @@ const TargetRow = React.memo(({
   const hasPersonalization = target.personalization_snippet && target.personalization_snippet.trim();
   
   const enrichmentFields = [
-    hasCorrespondence,
-    hasState,
-    hasRevenue,
-    hasEmployees,
-    hasContactEnrichment,
-    hasGrowthSignals,
-    hasRationale,
-    hasPersonalization
+    hasCorrespondence, hasState, hasRevenue, hasEmployees,
+    hasContactEnrichment, hasGrowthSignals, hasRationale, hasPersonalization
   ];
   
   const enrichedCount = enrichmentFields.filter(Boolean).length;
@@ -62,7 +54,7 @@ const TargetRow = React.memo(({
       target={target}
     />
     <tr 
-      className="border-b border-slate-100 hover:bg-slate-50 transition-colors cursor-pointer group"
+      className="border-b border-slate-100 hover:bg-blue-50/50 transition-colors cursor-pointer group"
       onClick={handleRowClick}
     >
       <td className="py-3 px-4">
@@ -82,9 +74,7 @@ const TargetRow = React.memo(({
         <div className="flex items-center gap-2">
           {target.name}
           {enrichmentPercentage === 100 ? (
-            <Badge className="bg-green-100 text-green-700 border-green-300 text-xs">
-              Enriched
-            </Badge>
+            <Badge className="bg-green-100 text-green-700 border-green-300 text-xs">Enriched</Badge>
           ) : (
             <Badge className="bg-orange-100 text-orange-700 border-orange-300 text-xs">
               Pending ({enrichedCount}/{totalFields})
@@ -127,10 +117,7 @@ const TargetRow = React.memo(({
               variant="ghost"
               size="icon"
               className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
-              onClick={(e) => {
-                e.stopPropagation();
-                onRefreshData(target.id);
-              }}
+              onClick={(e) => { e.stopPropagation(); onRefreshData(target.id); }}
               disabled={isRefreshingData}
             >
               <RefreshCw className={`w-3 h-3 ${isRefreshingData ? 'animate-spin' : ''}`} />
@@ -208,29 +195,12 @@ const TargetRow = React.memo(({
             variant="ghost"
             size="icon"
             className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
-            onClick={(e) => {
-              e.stopPropagation();
-              setShowAddContact(true);
-            }}
+            onClick={(e) => { e.stopPropagation(); setShowAddContact(true); }}
             title="Add Contact"
           >
             <UserPlus className="w-3 h-3 text-blue-600" />
           </Button>
         </div>
-      </td>
-      <td className="py-3 px-4 max-w-[250px]">
-        {hasGrowthSignals ? (
-          <p className="text-xs text-slate-600 line-clamp-2">{target.growthSignals}</p>
-        ) : (
-          <span className="text-orange-500 italic text-xs">Pending</span>
-        )}
-      </td>
-      <td className="py-3 px-4 max-w-[250px]">
-        {hasPersonalization ? (
-          <p className="text-xs text-slate-600 line-clamp-2">{target.personalization_snippet}</p>
-        ) : (
-          <span className="text-orange-500 italic text-xs">Pending</span>
-        )}
       </td>
       <td className="py-3 px-4">
         <div className="flex items-center gap-2">
@@ -242,17 +212,11 @@ const TargetRow = React.memo(({
       </td>
       <td className="py-3 px-4">
         {target.score >= 75 ? (
-          <Badge className="bg-green-100 text-green-700">
-            {target.score}%
-          </Badge>
+          <Badge className="bg-green-100 text-green-700">{target.score}%</Badge>
         ) : target.score >= 50 ? (
-          <Badge className="bg-yellow-100 text-yellow-700">
-            {target.score}%
-          </Badge>
+          <Badge className="bg-yellow-100 text-yellow-700">{target.score}%</Badge>
         ) : (
-          <Badge className="bg-slate-100 text-slate-600">
-            {target.score}%
-          </Badge>
+          <Badge className="bg-slate-100 text-slate-600">{target.score}%</Badge>
         )}
       </td>
       <td className="py-3 px-4">
@@ -260,26 +224,6 @@ const TargetRow = React.memo(({
           <Badge className="bg-green-100 text-green-700 border-green-200">Priority</Badge>
         ) : (
           <span className="text-xs text-muted-foreground">—</span>
-        )}
-      </td>
-      <td className="py-3 px-4 max-w-[300px]">
-        {target.strategicRationale ? (
-          <p className="text-xs text-slate-600 line-clamp-2">{target.strategicRationale}</p>
-        ) : (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => onGenerateRationale(target)}
-            disabled={isGeneratingRationale}
-            className="text-xs whitespace-nowrap"
-          >
-            {isGeneratingRationale ? (
-              <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-            ) : (
-              <Sparkles className="w-3 h-3 mr-1" />
-            )}
-            Generate
-          </Button>
         )}
       </td>
     </tr>
