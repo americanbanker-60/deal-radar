@@ -368,11 +368,22 @@ export default function OpsConsole(){
     try {
       const selectedList = grScored.filter((_, index) => selectedTargets.has(index));
       
-      // Determine campaign name and ID
-      const finalCampaignId = selectedCampaignId || null;
-      const finalCampaignName = selectedCampaignId 
+      // Determine campaign name and ID — create a formal Campaign record if one doesn't exist yet
+      let finalCampaignId = selectedCampaignId || null;
+      let finalCampaignName = selectedCampaignId 
         ? campaigns.find(c => c.id === selectedCampaignId)?.name 
         : campaignName.trim();
+
+      if (!finalCampaignId && finalCampaignName) {
+        setSaveProgress({ current: 0, total: 1, step: "Creating campaign record..." });
+        const newCampaign = await base44.entities.Campaign.create({
+          name: finalCampaignName,
+          vertical: vertical || "Healthcare Services",
+          status: "active",
+        });
+        finalCampaignId = newCampaign.id;
+        setCampaigns(prev => [newCampaign, ...prev]);
+      }
       
       // Prepare targets for upsert
       const targetsToUpsert = selectedList.map(t => ({
