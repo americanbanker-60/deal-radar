@@ -47,10 +47,11 @@ const TargetRow = React.memo(({
   const enrichmentPercentage = (enrichedCount / totalFields) * 100;
 
   const handleRowClick = (e) => {
-    if (e.target.closest('input[type="checkbox"]') || e.target.closest('button')) {
+    if (e.target.closest('input[type="checkbox"]') || e.target.closest('button') || e.target.closest('a')) {
       return;
     }
-    navigate(createPageUrl('TargetDetails') + `?id=${target.id}`);
+    if (onRowClick) onRowClick(target);
+    else navigate(createPageUrl('TargetDetails') + `?id=${target.id}`);
   };
 
   return (
