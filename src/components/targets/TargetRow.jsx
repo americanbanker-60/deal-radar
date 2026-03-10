@@ -71,8 +71,23 @@ const TargetRow = React.memo(({
         </div>
       </td>
       <td className="py-3 px-4 max-w-[200px] truncate font-medium">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           {target.name}
+          {target.last_synced_at && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="flex items-center gap-1 text-green-600 text-xs font-medium">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    Synced
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p className="text-xs">Synced to Outreach on {new Date(target.last_synced_at).toLocaleDateString()}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
           {enrichmentPercentage === 100 ? (
             <Badge className="bg-green-100 text-green-700 border-green-300 text-xs">Enriched</Badge>
           ) : (
