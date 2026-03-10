@@ -1113,6 +1113,12 @@ Return JSON:
             <span className="sm:hidden">Help</span>
           </Button>
           <Badge variant="secondary" className="self-center">v3</Badge>
+          {healthAlertCount > 0 && (
+            <Badge className="self-center bg-red-100 text-red-700 border border-red-200 gap-1">
+              <CircleAlert className="w-3 h-3" />
+              {healthAlertCount} Health Alert{healthAlertCount !== 1 ? 's' : ''}
+            </Badge>
+          )}
         </div>
       </div>
 
