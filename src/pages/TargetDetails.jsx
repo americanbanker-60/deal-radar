@@ -7,11 +7,13 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { 
   ArrowLeft, Building2, MapPin, DollarSign, Users, Globe, 
   Calendar, Target, Award, TrendingUp, Mail, Phone, User,
   ExternalLink, Sparkles, Clock, FileText, AlertCircle, Tag
 } from "lucide-react";
+import SignalsFeed from "../components/targets/SignalsFeed";
 
 export default function TargetDetails() {
   const location = useLocation();
@@ -102,6 +104,31 @@ export default function TargetDetails() {
           {target.qualityTier?.toUpperCase() || "UNSCORED"}
         </Badge>
       </div>
+
+      <Tabs defaultValue="overview">
+        <TabsList className="bg-white border border-slate-200">
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="signals" className="flex items-center gap-1.5">
+            <TrendingUp className="w-3.5 h-3.5" />
+            Signals Feed
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="signals" className="pt-2">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <TrendingUp className="w-5 h-5 text-green-600" />
+                Growth Signals Timeline
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <SignalsFeed targetId={targetId} />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="overview" className="space-y-6 pt-2">
 
       {target.strategicRationale && (
         <Card className="border-blue-200 bg-gradient-to-br from-blue-50 to-indigo-50">
