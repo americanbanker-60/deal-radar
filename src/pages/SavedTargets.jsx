@@ -1465,12 +1465,9 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
                     <th className="py-3 px-4 font-semibold">Website</th>
                     <th className="py-3 px-4 font-semibold">Quality Tier</th>
                     <th className="py-3 px-4 font-semibold">Contact</th>
-                    <th className="py-3 px-4 font-semibold">Growth Signals</th>
-                    <th className="py-3 px-4 font-semibold">Personalization</th>
                     <SortHeader field="score">Score</SortHeader>
                     <th className="py-3 px-4 font-semibold">Fit</th>
                     <th className="py-3 px-4 font-semibold">Priority</th>
-                    <th className="py-3 px-4 font-semibold">Strategic Rationale</th>
                   </tr>
                 </thead>
                 <tbody>
