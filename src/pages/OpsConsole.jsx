@@ -766,7 +766,7 @@ Return JSON:
 
     for (let i = 0; i < selectedList.length; i++) {
       const company = selectedList[i];
-      setSectorProgress({ current: i + 1, total: selectedList.length });
+      dispatch({ type: ActionTypes.SET_SECTOR_PROGRESS, payload: { current: i + 1, total: selectedList.length } });
 
       const sector = await classifyCompanySector(company);
       enrichedRows.push({
@@ -786,9 +786,9 @@ Return JSON:
       return raw;
     });
 
-    setGrCompaniesRaw(updatedRaw);
-    setReclassifyingSectors(false);
-    setSectorProgress({ current: 0, total: 0 });
+    dispatch({ type: ActionTypes.SET_GR_COMPANIES_RAW, payload: updatedRaw });
+    dispatch({ type: ActionTypes.SET_RECLASSIFYING_SECTORS, payload: false });
+    dispatch({ type: ActionTypes.SET_SECTOR_PROGRESS, payload: { current: 0, total: 0 } });
     showSuccess(`Reclassified ${enrichedRows.length} company sectors!`);
   };
   
@@ -970,7 +970,7 @@ Return JSON:
 
 
   const exportExcel = async (filename, data) => {
-    setLoading(true);
+    dispatch({ type: ActionTypes.SET_LOADING, payload: true });
     try {
       const result = await base44.functions.invoke('exportToExcel', {
         data,
@@ -979,21 +979,21 @@ Return JSON:
       window.open(result.data.fileUrl, '_blank');
     } catch (error) {
       console.error("Excel export error:", error);
-      setUploadError("Failed to export Excel: " + (error.message || String(error)));
+      dispatch({ type: ActionTypes.SET_UPLOAD_ERROR, payload: "Failed to export Excel: " + (error.message || String(error)) });
     }
-    setLoading(false);
+    dispatch({ type: ActionTypes.SET_LOADING, payload: false });
   };
 
   const exportCSV = async (filename, data) => {
-    setLoading(true);
+    dispatch({ type: ActionTypes.SET_LOADING, payload: true });
     try {
       const result = await base44.functions.invoke('dataToCsv', { data });
       downloadText(filename, result.data.csv);
     } catch (error) {
       console.error("CSV export error:", error);
-      setUploadError("Failed to export CSV: " + (error.message || String(error)));
+      dispatch({ type: ActionTypes.SET_UPLOAD_ERROR, payload: "Failed to export CSV: " + (error.message || String(error)) });
     }
-    setLoading(false);
+    dispatch({ type: ActionTypes.SET_LOADING, payload: false });
   };
 
   const outreachCsv = (rows, opts) => {
@@ -1022,7 +1022,7 @@ Return JSON:
 
   return (
     <div className="w-full mx-auto p-3 sm:p-4 md:p-6 space-y-4 sm:space-y-6 bg-gradient-to-br from-slate-50 to-blue-50 min-h-screen">
-      <HowToUse open={showHowTo} onClose={() => setShowHowTo(false)} />
+      <HowToUse open={showHowTo} onClose={() => dispatch({ type: ActionTypes.SET_SHOW_HOW_TO, payload: false })} />
       
       <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 bg-white p-4 md:p-6 rounded-xl shadow-sm border border-slate-200">
         <img 
@@ -1044,7 +1044,7 @@ Return JSON:
           </Link>
           <Button
             variant="outline"
-            onClick={() => setShowHowTo(true)}
+            onClick={() => dispatch({ type: ActionTypes.SET_SHOW_HOW_TO, payload: true })}
             className="gap-2 text-xs sm:text-sm"
           >
             <Sparkles className="w-3 h-3 sm:w-4 sm:h-4" />
@@ -1071,7 +1071,7 @@ Return JSON:
             variant="ghost"
             size="icon"
             className="absolute top-2 right-2 h-6 w-6"
-            onClick={() => setSuccessMessage(null)}
+            onClick={() => dispatch({ type: ActionTypes.SET_SUCCESS_MESSAGE, payload: null })}
           >
             <X className="h-4 w-4" />
           </Button>
@@ -1088,7 +1088,7 @@ Return JSON:
             variant="ghost"
             size="icon"
             className="absolute top-2 right-2 h-6 w-6"
-            onClick={() => setUploadError(null)}
+            onClick={() => dispatch({ type: ActionTypes.SET_UPLOAD_ERROR, payload: null })}
           >
             <X className="h-4 w-4" />
           </Button>
@@ -1183,7 +1183,7 @@ Return JSON:
 
 
 
-      <Dialog open={showNewCampaignDialog} onOpenChange={setShowNewCampaignDialog}>
+      <Dialog open={showNewCampaignDialog} onOpenChange={(open) => dispatch({ type: ActionTypes.SET_SHOW_NEW_CAMPAIGN_DIALOG, payload: open })}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Create New Campaign</DialogTitle>
@@ -1198,7 +1198,7 @@ Return JSON:
               <Input
                 placeholder="e.g., California Urgent Care Q1 2025"
                 value={newCampaignData.name}
-                onChange={(e) => setNewCampaignData({...newCampaignData, name: e.target.value})}
+                onChange={(e) => dispatch({ type: ActionTypes.SET_NEW_CAMPAIGN_DATA, payload: {...newCampaignData, name: e.target.value} })}
               />
             </div>
 
@@ -1207,7 +1207,7 @@ Return JSON:
               <Input
                 placeholder="Brief description of this campaign"
                 value={newCampaignData.description}
-                onChange={(e) => setNewCampaignData({...newCampaignData, description: e.target.value})}
+                onChange={(e) => dispatch({ type: ActionTypes.SET_NEW_CAMPAIGN_DATA, payload: {...newCampaignData, description: e.target.value} })}
               />
             </div>
 
@@ -1216,7 +1216,7 @@ Return JSON:
               <Input
                 placeholder="e.g., Healthcare Services"
                 value={newCampaignData.vertical}
-                onChange={(e) => setNewCampaignData({...newCampaignData, vertical: e.target.value})}
+                onChange={(e) => dispatch({ type: ActionTypes.SET_NEW_CAMPAIGN_DATA, payload: {...newCampaignData, vertical: e.target.value} })}
               />
             </div>
 
@@ -1224,7 +1224,7 @@ Return JSON:
               <label className="text-sm font-medium">Status</label>
               <Select
                 value={newCampaignData.status}
-                onValueChange={(value) => setNewCampaignData({...newCampaignData, status: value})}
+                onValueChange={(value) => dispatch({ type: ActionTypes.SET_NEW_CAMPAIGN_DATA, payload: {...newCampaignData, status: value} })}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -1240,15 +1240,7 @@ Return JSON:
             <div className="flex justify-end gap-2 pt-4">
               <Button
                 variant="outline"
-                onClick={() => {
-                  setShowNewCampaignDialog(false);
-                  setNewCampaignData({
-                    name: "",
-                    description: "",
-                    vertical: "Healthcare Services",
-                    status: "active"
-                  });
-                }}
+                onClick={() => dispatch({ type: ActionTypes.RESET_NEW_CAMPAIGN_DIALOG })}
               >
                 Cancel
               </Button>
@@ -1263,7 +1255,7 @@ Return JSON:
         </DialogContent>
       </Dialog>
 
-      <Dialog open={showLookalikeDialog} onOpenChange={setShowLookalikeDialog}>
+      <Dialog open={showLookalikeDialog} onOpenChange={(open) => dispatch({ type: ActionTypes.SET_SHOW_LOOKALIKE_DIALOG, payload: open })}>
         <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Find Lookalike Companies</DialogTitle>
@@ -1336,7 +1328,7 @@ Return JSON:
         </DialogContent>
       </Dialog>
 
-      <Tabs value={page} onValueChange={setPage}>
+      <Tabs value={page} onValueChange={(value) => dispatch({ type: ActionTypes.SET_PAGE, payload: value })}>
         <TabsList className="bg-white border border-slate-200">
           <TabsTrigger value="grata">Grata Data</TabsTrigger>
           <TabsTrigger value="settings"><Settings className="w-4 h-4 mr-1"/>Settings</TabsTrigger>
@@ -1356,7 +1348,7 @@ Return JSON:
                       Upload Grata exports, filter and score companies, then save to your database. All AI enrichment and outreach happens on the Saved Targets page.
                     </p>
                     <Button
-                      onClick={() => setShowHowTo(true)}
+                      onClick={() => dispatch({ type: ActionTypes.SET_SHOW_HOW_TO, payload: true })}
                       className="bg-emerald-600 hover:bg-emerald-700"
                     >
                       <Sparkles className="w-4 h-4 mr-2" />
@@ -1476,10 +1468,10 @@ Return JSON:
                       value={selectedCampaignId}
                       onValueChange={(value) => {
                         if (value === "new") {
-                          setShowNewCampaignDialog(true);
+                          dispatch({ type: ActionTypes.SET_SHOW_NEW_CAMPAIGN_DIALOG, payload: true });
                         } else {
-                          setSelectedCampaignId(value);
-                          setCampaignName("");
+                          dispatch({ type: ActionTypes.SET_SELECTED_CAMPAIGN_ID, payload: value });
+                          dispatch({ type: ActionTypes.SET_CAMPAIGN_NAME, payload: "" });
                         }
                       }}
                     >
@@ -1507,7 +1499,7 @@ Return JSON:
                       <Input
                         placeholder="e.g., California Urgent Care Q1 2025"
                         value={campaignName}
-                        onChange={(e) => setCampaignName(e.target.value)}
+                        onChange={(e) => dispatch({ type: ActionTypes.SET_CAMPAIGN_NAME, payload: e.target.value })}
                       />
                     </div>
                   )}
@@ -1640,15 +1632,15 @@ Return JSON:
 
           <ScoringWeights
             weights={weights}
-            setWeights={setWeights}
+            setWeights={(w) => dispatch({ type: ActionTypes.SET_WEIGHTS, payload: w })}
             targetMinEmp={targetMinEmp}
-            setTargetMinEmp={setTargetMinEmp}
+            setTargetMinEmp={(v) => dispatch({ type: ActionTypes.SET_TARGET_MIN_EMP, payload: v })}
             targetMaxEmp={targetMaxEmp}
-            setTargetMaxEmp={setTargetMaxEmp}
+            setTargetMaxEmp={(v) => dispatch({ type: ActionTypes.SET_TARGET_MAX_EMP, payload: v })}
             targetMinRev={targetMinRev}
-            setTargetMinRev={setTargetMinRev}
+            setTargetMinRev={(v) => dispatch({ type: ActionTypes.SET_TARGET_MIN_REV, payload: v })}
             targetMaxRev={targetMaxRev}
-            setTargetMaxRev={setTargetMaxRev}
+            setTargetMaxRev={(v) => dispatch({ type: ActionTypes.SET_TARGET_MAX_REV, payload: v })}
             onRecalculate={recalculatingScores ? null : recalculateAllScores}
             previewTargets={grScored}
           />
