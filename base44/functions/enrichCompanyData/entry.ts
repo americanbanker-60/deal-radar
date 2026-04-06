@@ -90,11 +90,15 @@ Deno.serve(async (req) => {
                     }
                 });
 
-                // Helper to normalize state codes
+                // Helper to normalize and validate state codes
+                const VALID_STATES = new Set(['AL','AK','AZ','AR','CA','CO','CT','DE','FL','GA','HI','ID','IL','IN','IA','KS','KY','LA','ME','MD','MA','MI','MN','MS','MO','MT','NE','NV','NH','NJ','NM','NY','NC','ND','OH','OK','OR','PA','RI','SC','SD','TN','TX','UT','VT','VA','WA','WV','WI','WY','DC','PR','GU','VI']);
                 const normalizeState = (state) => {
                     if (!state) return '';
                     const cleaned = state.trim().replace(/\.+$/, '');
-                    if (cleaned.length === 2) return cleaned.toUpperCase();
+                    if (cleaned.length === 2) {
+                        const upper = cleaned.toUpperCase();
+                        return VALID_STATES.has(upper) ? upper : '';
+                    }
                     return cleaned;
                 };
 

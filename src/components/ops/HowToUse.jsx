@@ -502,14 +502,25 @@ export default function HowToUse({ open, onClose }) {
   const currentStepData = steps[currentStep];
   const Icon = currentStepData.icon;
 
+  // Static class map to avoid dynamic Tailwind class purging
+  const colorClasses = {
+    blue: { bg: "bg-blue-100", text: "text-blue-600" },
+    emerald: { bg: "bg-emerald-100", text: "text-emerald-600" },
+    indigo: { bg: "bg-indigo-100", text: "text-indigo-600" },
+    amber: { bg: "bg-amber-100", text: "text-amber-600" },
+    purple: { bg: "bg-purple-100", text: "text-purple-600" },
+    green: { bg: "bg-green-100", text: "text-green-600" },
+  };
+  const colorClass = colorClasses[currentStepData.color] || colorClasses.blue;
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <div className="flex items-center justify-between">
             <DialogTitle className="flex items-center gap-3">
-              <div className={`p-2 bg-${currentStepData.color}-100 rounded-lg`}>
-                <Icon className={`w-6 h-6 text-${currentStepData.color}-600`} />
+              <div className={`p-2 ${colorClass.bg} rounded-lg`}>
+                <Icon className={`w-6 h-6 ${colorClass.text}`} />
               </div>
               {currentStepData.title}
             </DialogTitle>

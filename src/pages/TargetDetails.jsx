@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from "react";
+import React from "react";
 import { base44 } from "@/api/base44Client";
 import { useLocation, Link } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { createPageUrl } from "../utils";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,32 +16,29 @@ import {
 } from "lucide-react";
 import SignalsFeed from "../components/targets/SignalsFeed";
 
+const InfoRow = ({ icon: Icon, label, value, badge }) => (
+  <div className="flex items-start gap-3 py-3">
+    <Icon className="w-5 h-5 text-slate-400 mt-0.5" />
+    <div className="flex-1">
+      <div className="text-sm font-medium text-slate-500">{label}</div>
+      <div className="text-base text-slate-900 mt-1">
+        {badge ? badge : (value || "—")}
+      </div>
+    </div>
+  </div>
+);
+
 export default function TargetDetails() {
   const location = useLocation();
   const params = new URLSearchParams(location.search);
   const targetId = params.get('id');
-  
-  const [target, setTarget] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
 
-  useEffect(() => {
-    if (targetId) {
-      loadTarget();
-    }
-  }, [targetId]);
-
-  const loadTarget = async () => {
-    try {
-      setLoading(true);
-      const data = await base44.entities.BDTarget.get(targetId);
-      setTarget(data);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { data: target, isLoading: loading, error: queryError } = useQuery({
+    queryKey: ['bdTarget', targetId],
+    queryFn: () => base44.entities.BDTarget.get(targetId),
+    enabled: !!targetId,
+  });
+  const error = queryError?.message || (!targetId ? "No target ID provided" : null);
 
   if (loading) {
     return (
@@ -71,18 +69,6 @@ export default function TargetDetails() {
       </div>
     );
   }
-
-  const InfoRow = ({ icon: Icon, label, value, badge }) => (
-    <div className="flex items-start gap-3 py-3">
-      <Icon className="w-5 h-5 text-slate-400 mt-0.5" />
-      <div className="flex-1">
-        <div className="text-sm font-medium text-slate-500">{label}</div>
-        <div className="text-base text-slate-900 mt-1">
-          {badge ? badge : (value || "—")}
-        </div>
-      </div>
-    </div>
-  );
 
   return (
     <div className="max-w-5xl mx-auto p-6 space-y-6">

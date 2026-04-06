@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
@@ -20,23 +20,34 @@ const TargetRow = React.memo(({
   const navigate = useNavigate();
   const [showAddContact, setShowAddContact] = useState(false);
 
-  const hasCorrespondence = target.correspondenceName && target.correspondenceName.trim();
-  const hasState = target.state && target.state.trim();
-  const hasRevenue = target.revenue && target.revenue > 0;
-  const hasEmployees = target.employees && target.employees > 0;
-  const hasContactEnrichment = target.contactPreferredName && target.contactPreferredName.trim();
-  const hasGrowthSignals = target.growthSignals && target.growthSignals.trim();
-  const hasRationale = target.strategicRationale && target.strategicRationale.trim();
-  const hasPersonalization = target.personalization_snippet && target.personalization_snippet.trim();
-  
-  const enrichmentFields = [
-    hasCorrespondence, hasState, hasRevenue, hasEmployees,
-    hasContactEnrichment, hasGrowthSignals, hasRationale, hasPersonalization
-  ];
-  
-  const enrichedCount = enrichmentFields.filter(Boolean).length;
-  const totalFields = enrichmentFields.length;
-  const enrichmentPercentage = (enrichedCount / totalFields) * 100;
+  const { enrichedCount, totalFields, enrichmentPercentage, hasCorrespondence, hasState, hasRevenue, hasEmployees } = useMemo(() => {
+    const _hasCorrespondence = target.correspondenceName && target.correspondenceName.trim();
+    const _hasState = target.state && target.state.trim();
+    const _hasRevenue = target.revenue && target.revenue > 0;
+    const _hasEmployees = target.employees && target.employees > 0;
+    const _hasContactEnrichment = target.contactPreferredName && target.contactPreferredName.trim();
+    const _hasGrowthSignals = target.growthSignals && target.growthSignals.trim();
+    const _hasRationale = target.strategicRationale && target.strategicRationale.trim();
+    const _hasPersonalization = target.personalization_snippet && target.personalization_snippet.trim();
+
+    const fields = [
+      _hasCorrespondence, _hasState, _hasRevenue, _hasEmployees,
+      _hasContactEnrichment, _hasGrowthSignals, _hasRationale, _hasPersonalization
+    ];
+
+    const _enrichedCount = fields.filter(Boolean).length;
+    const _totalFields = fields.length;
+
+    return {
+      enrichedCount: _enrichedCount,
+      totalFields: _totalFields,
+      enrichmentPercentage: (_enrichedCount / _totalFields) * 100,
+      hasCorrespondence: _hasCorrespondence,
+      hasState: _hasState,
+      hasRevenue: _hasRevenue,
+      hasEmployees: _hasEmployees,
+    };
+  }, [target]);
 
   const handleRowClick = (e) => {
     if (e.target.closest('input[type="checkbox"]') || e.target.closest('button') || e.target.closest('a')) {

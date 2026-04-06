@@ -15,7 +15,7 @@ export default function NavigationTracker() {
         window.parent?.postMessage({
             type: "app_changed_url",
             url: window.location.href
-        }, '*');
+        }, window.location.origin);
     }, [location]);
 
     // Log user activity when navigating to a page

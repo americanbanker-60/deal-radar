@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Loader2, CheckCircle2, XCircle } from "lucide-react";
 import { base44 } from "@/api/base44Client";
+import { createPageUrl } from "../utils";
 
 export default function OAuthCallback() {
   const [status, setStatus] = useState("processing");
@@ -8,16 +9,15 @@ export default function OAuthCallback() {
   const [debugInfo, setDebugInfo] = useState([]);
 
   const addLog = (msg) => {
-    console.log(msg);
+    if (import.meta.env.DEV) console.log(msg);
     setDebugInfo(prev => [...prev, msg]);
   };
 
   useEffect(() => {
     const handleAuth = async () => {
       addLog("🔄 OAuthCallback page loaded");
-      addLog("🔄 Full URL: " + window.location.href);
-      addLog("🔄 Search params: " + window.location.search);
-      addLog("🔄 Hash: " + window.location.hash);
+      addLog("🔄 Search params present: " + !!window.location.search);
+      addLog("🔄 Hash present: " + !!window.location.hash);
       addLog("🔄 window.opener exists: " + !!window.opener);
       
       // Try to get code from query params OR hash fragment
@@ -27,7 +27,7 @@ export default function OAuthCallback() {
       const code = params.get("code") || hashParams.get("code");
       const error = params.get("error") || hashParams.get("error");
 
-      addLog("🔄 OAuth code: " + (code ? "✅ Found (" + code.substring(0, 20) + "...)" : "❌ Not found"));
+      addLog("🔄 OAuth code: " + (code ? "✅ Found" : "❌ Not found"));
       addLog("🔄 OAuth error: " + (error || "none"));
 
       if (error) {
@@ -75,7 +75,7 @@ export default function OAuthCallback() {
           // Redirect back to main app after short delay
           setTimeout(() => {
             addLog("🔄 Redirecting to Ops Console...");
-            window.location.href = "/OpsConsole";
+            window.location.href = createPageUrl("OpsConsole");
           }, 2000);
         } else {
           throw new Error(result.data.error || "Unknown error");
@@ -98,7 +98,7 @@ export default function OAuthCallback() {
     if (window.opener && !window.opener.closed) {
       addLog("📤 Sending via window.opener");
       try {
-        window.opener.postMessage(data, "*");
+        window.opener.postMessage(data, window.location.origin);
         addLog("✅ Sent via window.opener");
       } catch (e) {
         addLog("❌ window.opener failed: " + e.message);

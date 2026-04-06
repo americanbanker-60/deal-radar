@@ -20,9 +20,22 @@ export default function DataRefresh() {
     setResult(null);
     
     try {
+      const parsedDays = parseInt(daysOld);
+      const parsedBatch = parseInt(batchSize);
+      if (isNaN(parsedDays) || parsedDays < 1 || parsedDays > 365) {
+        setResult({ success: false, error: "Days must be between 1 and 365" });
+        setRefreshing(false);
+        return;
+      }
+      if (isNaN(parsedBatch) || parsedBatch < 1 || parsedBatch > 50) {
+        setResult({ success: false, error: "Batch size must be between 1 and 50" });
+        setRefreshing(false);
+        return;
+      }
+
       const response = await base44.functions.invoke('refreshTargetData', {
-        daysOld: parseInt(daysOld),
-        batchSize: parseInt(batchSize)
+        daysOld: parsedDays,
+        batchSize: parsedBatch
       });
 
       setResult(response.data);

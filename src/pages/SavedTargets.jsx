@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from "react";
+import React, { useReducer, useState, useMemo, useCallback } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import _ from "lodash";
@@ -22,61 +22,110 @@ import TargetRow from "../components/targets/TargetRow";
 import ActionButtons from "../components/targets/ActionButtons";
 import TargetDrawer from "../components/targets/TargetDrawer";
 import { LoadingOverlay } from "@/components/ui/loading-overlay";
+import { reducer, initialState, ActionTypes } from "./saved-targets/useSavedTargetsReducer";
 
 export default function SavedTargets() {
-  const [selectedCampaign, setSelectedCampaign] = useState("all");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [sortField, setSortField] = useState(null);
-  const [sortDirection, setSortDirection] = useState("desc");
-  const [rescoring, setRescoring] = useState(false);
-  const [crawling, setCrawling] = useState(false);
-  const [crawlProgress, setCrawlProgress] = useState({ current: 0, total: 0 });
-  const [enrichingContacts, setEnrichingContacts] = useState(false);
-  const [enrichProgress, setEnrichProgress] = useState({ current: 0, total: 0 });
-  const [scoringQuality, setScoringQuality] = useState(false);
-  const [qualityProgress, setQualityProgress] = useState({ current: 0, total: 0 });
-  const [clinicFilter, setClinicFilter] = useState("all");
-  const [qualityFilter, setQualityFilter] = useState("all");
-  const [sectorFilter, setSectorFilter] = useState("all");
-  const [nameFilter, setNameFilter] = useState("all");
-  const [correspondenceFilter, setCorrespondenceFilter] = useState("all");
-  const [contactEnrichFilter, setContactEnrichFilter] = useState("all");
-  const [growthSignalsFilter, setGrowthSignalsFilter] = useState("all");
-  const [rationaleFilter, setRationaleFilter] = useState("all");
-  const [personalizationFilter, setPersonalizationFilter] = useState("all");
-  const [selectedTargets, setSelectedTargets] = useState(new Set());
-  const [reclassifyingSectors, setReclassifyingSectors] = useState(false);
-  const [sectorProgress, setSectorProgress] = useState({ current: 0, total: 0 });
-  const [showBulkSectorDialog, setShowBulkSectorDialog] = useState(false);
-  const [bulkSectorValue, setBulkSectorValue] = useState("");
-  const [generatingShortNames, setGeneratingShortNames] = useState(false);
-  const [shortNameProgress, setShortNameProgress] = useState({ current: 0, total: 0 });
-  const [personalizingTargets, setPersonalizingTargets] = useState(false);
-  const [personalizeProgress, setPersonalizeProgress] = useState({ current: 0, total: 0 });
-  const [detectingGrowth, setDetectingGrowth] = useState(false);
-  const [growthProgress, setGrowthProgress] = useState({ current: 0, total: 0 });
-  const [generatingRationales, setGeneratingRationales] = useState(false);
-  const [rationaleProgress, setRationaleProgress] = useState({ current: 0, total: 0 });
-  const [generatingSingleRationale, setGeneratingSingleRationale] = useState(null);
-  const [refreshingData, setRefreshingData] = useState(null);
-  const [cleaningNames, setCleaningNames] = useState(false);
-  const [cleanProgress, setCleanProgress] = useState({ current: 0, total: 0 });
-  const [enrichingAll, setEnrichingAll] = useState(false);
-  const [enrichAllProgress, setEnrichAllProgress] = useState({ step: "", current: 0, total: 0 });
-  const [enrichingCompanyData, setEnrichingCompanyData] = useState(false);
-  const [companyDataProgress, setCompanyDataProgress] = useState({ current: 0, total: 0 });
-  const [extractingNames, setExtractingNames] = useState(false);
-  const [extractProgress, setExtractProgress] = useState({ current: 0, total: 0 });
-  const [insights, setInsights] = useState("");
-  const [emailSubject, setEmailSubject] = useState("BD Targets & Market Snapshot");
-  const [emailBody, setEmailBody] = useState("");
-  const [fitKeywords, setFitKeywords] = useState("Healthcare Services");
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(50);
-  const [pushingToOutreach, setPushingToOutreach] = useState(false);
-  const [alertMessage, setAlertMessage] = useState("");
-  const [drawerTarget, setDrawerTarget] = useState(null);
+  const [state, dispatch] = useReducer(reducer, initialState);
+
+  // Destructure state groups for convenient access
+  const {
+    selectedCampaign, searchQuery, statusFilter, sectorFilter, clinicFilter,
+    qualityFilter, nameFilter, correspondenceFilter, contactEnrichFilter,
+    growthSignalsFilter, rationaleFilter, personalizationFilter,
+  } = state.filters;
+
+  const { sortField, sortDirection } = state.sort;
+  const { currentPage, itemsPerPage } = state.pagination;
+  const { selectedTargets } = state.selection;
+
+  const {
+    rescoring, crawling, crawlProgress, enrichingContacts, enrichProgress,
+    scoringQuality, qualityProgress, reclassifyingSectors, sectorProgress,
+    generatingShortNames, shortNameProgress, personalizingTargets, personalizeProgress,
+    detectingGrowth, growthProgress, generatingRationales, rationaleProgress,
+    generatingSingleRationale, refreshingData, cleaningNames, cleanProgress,
+    enrichingAll, enrichAllProgress, enrichingCompanyData, companyDataProgress,
+    extractingNames, extractProgress, pushingToOutreach,
+  } = state.operations;
+
+  const {
+    drawerTarget, showBulkSectorDialog, bulkSectorValue, alertMessage,
+    insights, emailSubject, emailBody,
+  } = state.ui;
+
+  const { fitKeywords } = state.settings;
+
+  // Dispatch helpers that mirror the old setState signatures
+  const setSelectedCampaign = useCallback((v) => dispatch({ type: ActionTypes.SET_SELECTED_CAMPAIGN, payload: v }), []);
+  const setSearchQuery = useCallback((v) => dispatch({ type: ActionTypes.SET_SEARCH_QUERY, payload: v }), []);
+  const setStatusFilter = useCallback((v) => dispatch({ type: ActionTypes.SET_STATUS_FILTER, payload: v }), []);
+  const setSectorFilter = useCallback((v) => dispatch({ type: ActionTypes.SET_SECTOR_FILTER, payload: v }), []);
+  const setClinicFilter = useCallback((v) => dispatch({ type: ActionTypes.SET_CLINIC_FILTER, payload: v }), []);
+  const setQualityFilter = useCallback((v) => dispatch({ type: ActionTypes.SET_QUALITY_FILTER, payload: v }), []);
+  const setNameFilter = useCallback((v) => dispatch({ type: ActionTypes.SET_NAME_FILTER, payload: v }), []);
+  const setCorrespondenceFilter = useCallback((v) => dispatch({ type: ActionTypes.SET_CORRESPONDENCE_FILTER, payload: v }), []);
+  const setContactEnrichFilter = useCallback((v) => dispatch({ type: ActionTypes.SET_CONTACT_ENRICH_FILTER, payload: v }), []);
+  const setGrowthSignalsFilter = useCallback((v) => dispatch({ type: ActionTypes.SET_GROWTH_SIGNALS_FILTER, payload: v }), []);
+  const setRationaleFilter = useCallback((v) => dispatch({ type: ActionTypes.SET_RATIONALE_FILTER, payload: v }), []);
+  const setPersonalizationFilter = useCallback((v) => dispatch({ type: ActionTypes.SET_PERSONALIZATION_FILTER, payload: v }), []);
+
+  const setSortField = useCallback((v) => dispatch({ type: ActionTypes.SET_SORT_FIELD, payload: v }), []);
+  const setSortDirection = useCallback((v) => dispatch({ type: ActionTypes.SET_SORT_DIRECTION, payload: v }), []);
+  const setCurrentPage = useCallback((v) => {
+    if (typeof v === "function") {
+      // Handle callback form: setCurrentPage(p => p + 1)
+      dispatch({ type: ActionTypes.SET_CURRENT_PAGE, payload: v(currentPage) });
+    } else {
+      dispatch({ type: ActionTypes.SET_CURRENT_PAGE, payload: v });
+    }
+  }, [currentPage]);
+
+  const setSelectedTargets = useCallback((v) => {
+    if (typeof v === "function") {
+      dispatch({ type: ActionTypes.SET_SELECTED_TARGETS, payload: v(selectedTargets) });
+    } else {
+      dispatch({ type: ActionTypes.SET_SELECTED_TARGETS, payload: v });
+    }
+  }, [selectedTargets]);
+
+  const setRescoring = useCallback((v) => dispatch({ type: ActionTypes.SET_RESCORING, payload: v }), []);
+  const setCrawling = useCallback((v) => dispatch({ type: ActionTypes.SET_CRAWLING, payload: v }), []);
+  const setCrawlProgress = useCallback((v) => dispatch({ type: ActionTypes.SET_CRAWL_PROGRESS, payload: v }), []);
+  const setEnrichingContacts = useCallback((v) => dispatch({ type: ActionTypes.SET_ENRICHING_CONTACTS, payload: v }), []);
+  const setEnrichProgress = useCallback((v) => dispatch({ type: ActionTypes.SET_ENRICH_PROGRESS, payload: v }), []);
+  const setScoringQuality = useCallback((v) => dispatch({ type: ActionTypes.SET_SCORING_QUALITY, payload: v }), []);
+  const setQualityProgress = useCallback((v) => dispatch({ type: ActionTypes.SET_QUALITY_PROGRESS, payload: v }), []);
+  const setReclassifyingSectors = useCallback((v) => dispatch({ type: ActionTypes.SET_RECLASSIFYING_SECTORS, payload: v }), []);
+  const setSectorProgress = useCallback((v) => dispatch({ type: ActionTypes.SET_SECTOR_PROGRESS, payload: v }), []);
+  const setGeneratingShortNames = useCallback((v) => dispatch({ type: ActionTypes.SET_GENERATING_SHORT_NAMES, payload: v }), []);
+  const setShortNameProgress = useCallback((v) => dispatch({ type: ActionTypes.SET_SHORT_NAME_PROGRESS, payload: v }), []);
+  const setPersonalizingTargets = useCallback((v) => dispatch({ type: ActionTypes.SET_PERSONALIZING_TARGETS, payload: v }), []);
+  const setPersonalizeProgress = useCallback((v) => dispatch({ type: ActionTypes.SET_PERSONALIZE_PROGRESS, payload: v }), []);
+  const setDetectingGrowth = useCallback((v) => dispatch({ type: ActionTypes.SET_DETECTING_GROWTH, payload: v }), []);
+  const setGrowthProgress = useCallback((v) => dispatch({ type: ActionTypes.SET_GROWTH_PROGRESS, payload: v }), []);
+  const setGeneratingRationales = useCallback((v) => dispatch({ type: ActionTypes.SET_GENERATING_RATIONALES, payload: v }), []);
+  const setRationaleProgress = useCallback((v) => dispatch({ type: ActionTypes.SET_RATIONALE_PROGRESS, payload: v }), []);
+  const setGeneratingSingleRationale = useCallback((v) => dispatch({ type: ActionTypes.SET_GENERATING_SINGLE_RATIONALE, payload: v }), []);
+  const setRefreshingData = useCallback((v) => dispatch({ type: ActionTypes.SET_REFRESHING_DATA, payload: v }), []);
+  const setCleaningNames = useCallback((v) => dispatch({ type: ActionTypes.SET_CLEANING_NAMES, payload: v }), []);
+  const setCleanProgress = useCallback((v) => dispatch({ type: ActionTypes.SET_CLEAN_PROGRESS, payload: v }), []);
+  const setEnrichingAll = useCallback((v) => dispatch({ type: ActionTypes.SET_ENRICHING_ALL, payload: v }), []);
+  const setEnrichAllProgress = useCallback((v) => dispatch({ type: ActionTypes.SET_ENRICH_ALL_PROGRESS, payload: v }), []);
+  const setEnrichingCompanyData = useCallback((v) => dispatch({ type: ActionTypes.SET_ENRICHING_COMPANY_DATA, payload: v }), []);
+  const setCompanyDataProgress = useCallback((v) => dispatch({ type: ActionTypes.SET_COMPANY_DATA_PROGRESS, payload: v }), []);
+  const setExtractingNames = useCallback((v) => dispatch({ type: ActionTypes.SET_EXTRACTING_NAMES, payload: v }), []);
+  const setExtractProgress = useCallback((v) => dispatch({ type: ActionTypes.SET_EXTRACT_PROGRESS, payload: v }), []);
+  const setPushingToOutreach = useCallback((v) => dispatch({ type: ActionTypes.SET_PUSHING_TO_OUTREACH, payload: v }), []);
+
+  const setDrawerTarget = useCallback((v) => dispatch({ type: ActionTypes.SET_DRAWER_TARGET, payload: v }), []);
+  const setShowBulkSectorDialog = useCallback((v) => dispatch({ type: ActionTypes.SET_SHOW_BULK_SECTOR_DIALOG, payload: v }), []);
+  const setBulkSectorValue = useCallback((v) => dispatch({ type: ActionTypes.SET_BULK_SECTOR_VALUE, payload: v }), []);
+  const setAlertMessage = useCallback((v) => dispatch({ type: ActionTypes.SET_ALERT_MESSAGE, payload: v }), []);
+  const setInsights = useCallback((v) => dispatch({ type: ActionTypes.SET_INSIGHTS, payload: v }), []);
+  const setEmailSubject = useCallback((v) => dispatch({ type: ActionTypes.SET_EMAIL_SUBJECT, payload: v }), []);
+  const setEmailBody = useCallback((v) => dispatch({ type: ActionTypes.SET_EMAIL_BODY, payload: v }), []);
+  const setFitKeywords = useCallback((v) => dispatch({ type: ActionTypes.SET_FIT_KEYWORDS, payload: v }), []);
+
   const queryClient = useQueryClient();
 
   const [user, setUser] = useState(null);
@@ -974,16 +1023,11 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
   const totalPages = Math.ceil(filteredTargets.length / itemsPerPage);
 
   React.useEffect(() => {
-    setCurrentPage(1);
+    dispatch({ type: ActionTypes.SET_CURRENT_PAGE, payload: 1 });
   }, [selectedCampaign, statusFilter, clinicFilter, qualityFilter, sectorFilter, nameFilter, correspondenceFilter, contactEnrichFilter, growthSignalsFilter, rationaleFilter, personalizationFilter, searchQuery]);
 
   const toggleSort = (field) => {
-    if (sortField === field) {
-      setSortDirection(prev => prev === "asc" ? "desc" : "asc");
-    } else {
-      setSortField(field);
-      setSortDirection("desc");
-    }
+    dispatch({ type: ActionTypes.TOGGLE_SORT, payload: { field } });
   };
 
   const SortHeader = ({ field, children }) => (
@@ -1003,25 +1047,11 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
   );
 
   const toggleSelectAll = useCallback(() => {
-    setSelectedTargets(prev => {
-      if (prev.size === filteredTargets.length) {
-        return new Set();
-      } else {
-        return new Set(filteredTargets.map(t => t.id));
-      }
-    });
+    dispatch({ type: ActionTypes.TOGGLE_SELECT_ALL, payload: { filteredIds: filteredTargets.map(t => t.id) } });
   }, [filteredTargets]);
 
   const toggleTarget = useCallback((id) => {
-    setSelectedTargets(prev => {
-      const newSelected = new Set(prev);
-      if (newSelected.has(id)) {
-        newSelected.delete(id);
-      } else {
-        newSelected.add(id);
-      }
-      return newSelected;
-    });
+    dispatch({ type: ActionTypes.TOGGLE_TARGET, payload: id });
   }, []);
 
   const exportCSV = async (exportAll = true) => {

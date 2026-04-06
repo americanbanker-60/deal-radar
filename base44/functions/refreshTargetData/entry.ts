@@ -1,12 +1,19 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
+import { checkRateLimit, rateLimitResponse } from '../../shared/rate-limiter.ts';
 
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
     const user = await base44.auth.me();
 
-    if (user?.role !== 'admin') {
+    if (!user || user.role !== 'admin') {
       return Response.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
+    }
+
+    // Rate limit: 3 refresh requests per minute for admin
+    const rateCheck = checkRateLimit(user.email, { maxRequests: 3, keyPrefix: 'refresh-data' });
+    if (!rateCheck.allowed) {
+      return rateLimitResponse(rateCheck.retryAfterMs);
     }
 
     const { targetIds, daysOld = 30, batchSize = 10 } = await req.json();
@@ -136,6 +143,7 @@ Return JSON with brief summaries:
         // 4. Re-score if we have updated data
         if (Object.keys(updates).length > 0) {
           // Get scoring params from localStorage defaults
+          // Same default weights as calculateFitScores and processBatchScoring
           const weights = {
             employees: 35,
             clinics: 25,
@@ -185,45 +193,67 @@ Return JSON with brief summaries:
   }
 });
 
-// Score calculation helper
+// Score calculation - consistent with calculateFitScores and processBatchScoring
 function calculateScore(target, weights) {
-  let score = 0;
-  const { employees, clinicCount, revenue, websiteStatus } = target;
+  const w = weights;
 
-  // Employee score
-  if (employees) {
-    const empScore = Math.min(100, (employees / 100) * 100);
-    score += (empScore * weights.employees) / 100;
+  // Employee score (using peer-relative since we don't have target ranges in refresh context)
+  let empScore = 0;
+  const emp = target.employees || 0;
+  if (emp > 0) {
+    // Cap at 100 employees as "ideal" for refresh scoring
+    empScore = Math.min(100, (emp / 100) * 100);
   }
 
-  // Clinic score
-  if (clinicCount) {
-    const clinicScore = Math.min(100, (clinicCount / 10) * 100);
-    score += (clinicScore * weights.clinics) / 100;
+  // Clinic score - same as other implementations
+  let clinicScore = 0;
+  const clinics = target.clinicCount || 0;
+  if (clinics > 0) {
+    clinicScore = Math.min(100, clinics * 25);
   }
 
   // Revenue score
-  if (revenue) {
-    const revScore = Math.min(100, (revenue / 50) * 100);
-    score += (revScore * weights.revenue) / 100;
+  let revScore = 0;
+  const rev = target.revenue || 0;
+  if (rev > 0) {
+    revScore = Math.min(100, (rev / 50) * 100);
   }
 
-  // Website score
-  if (websiteStatus === 'working') {
-    score += weights.website;
-  } else if (websiteStatus === 'broken') {
-    score += weights.website * 0.3;
+  // Website score - same as other implementations
+  let websiteScore = 0;
+  if (target.websiteStatus === 'working') websiteScore = 100;
+  else if (target.websiteStatus === 'broken') websiteScore = 50;
+
+  // Keyword score placeholder (no keywords in refresh context)
+  const keywordScore = 0;
+
+  // Calculate weighted total - same formula as other implementations
+  const totalWeight = w.employees + w.clinics + w.revenue + w.website + w.keywords;
+  let score = totalWeight > 0
+    ? Math.round(
+        (empScore * w.employees +
+         clinicScore * w.clinics +
+         revScore * w.revenue +
+         websiteScore * w.website +
+         keywordScore * w.keywords) / totalWeight
+      )
+    : 0;
+
+  // Apply recency penalty - same as other implementations
+  if (target.lastActive) {
+    try {
+      const lastActiveDate = new Date(target.lastActive);
+      const now = new Date();
+      const monthsInactive = (now.getTime() - lastActiveDate.getTime()) / (1000 * 60 * 60 * 24 * 30);
+      if (monthsInactive > 12) {
+        score = Math.max(0, score - 25);
+      } else if (monthsInactive > 6) {
+        score = Math.max(0, score - 10);
+      }
+    } catch {
+      // Invalid date, no penalty
+    }
   }
 
-  // Growth signals bonus
-  if (target.growthSignals && target.growthSignals.trim()) {
-    score += 5; // Bonus for growth
-  }
-
-  // Dormancy penalty
-  if (target.dormancyFlag) {
-    score = Math.max(0, score - 15);
-  }
-
-  return Math.round(Math.max(0, Math.min(100, score)));
+  return score;
 }
