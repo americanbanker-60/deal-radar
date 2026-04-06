@@ -87,6 +87,20 @@ export function filterTargets(targets, { regionFilter, minRev, maxRev, ownerPref
 export { scoreTargets } from './scoring';
 
 // =====================
+// LLM RESULT CACHE
+// =====================
+
+const _llmCache = new Map();
+
+function getCachedOrCall(cacheKey, llmFn) {
+  if (_llmCache.has(cacheKey)) return Promise.resolve(_llmCache.get(cacheKey));
+  return llmFn().then(result => {
+    _llmCache.set(cacheKey, result);
+    return result;
+  });
+}
+
+// =====================
 // NAME CLEANING
 // =====================
 
@@ -107,11 +121,13 @@ export async function generateFriendlyName(companyName) {
   
   if (regexCleaned === companyName) {
     try {
-      const result = await base44.integrations.Core.InvokeLLM({
-        prompt: `Create a short, natural company name from: "${companyName}". Remove legal suffixes and articles. Return ONLY the name, no quotes or explanation. Examples: "ABC Pediatric Dental Group, LLC" → "ABC Pediatric Dental", "The North Atlanta Primary Care Partners" → "North Atlanta Primary Care"`,
-        add_context_from_internet: false
-      });
-      return result.trim();
+      const result = await getCachedOrCall(`friendlyName:${companyName}`, () =>
+        base44.integrations.Core.InvokeLLM({
+          prompt: `Create a short, natural company name from: "${companyName}". Remove legal suffixes and articles. Return ONLY the name, no quotes or explanation. Examples: "ABC Pediatric Dental Group, LLC" → "ABC Pediatric Dental", "The North Atlanta Primary Care Partners" → "North Atlanta Primary Care"`,
+          add_context_from_internet: false
+        })
+      );
+      return typeof result === 'string' ? result.trim() : regexCleaned;
     } catch (error) {
       console.error("AI name generation failed:", error);
       return regexCleaned;
@@ -125,8 +141,9 @@ export async function generateCorrespondenceName(companyName) {
   const cleaned = cleanCompanyNameRegex(companyName);
   
   try {
-    const result = await base44.integrations.Core.InvokeLLM({
-      prompt: `Convert this company name to a natural, conversational form for email greetings: "${cleaned}"
+    const result = await getCachedOrCall(`corrName:${cleaned}`, () =>
+      base44.integrations.Core.InvokeLLM({
+        prompt: `Convert this company name to a natural, conversational form for email greetings: "${cleaned}"
 
 Examples:
 - "ABC Pediatric Dental Group" → "Pediatric Dental Group" (drop initials if redundant)
@@ -135,10 +152,11 @@ Examples:
 - "XYZ Medical Associates" → "XYZ Medical" (simplify if needed)
 
 Return ONLY the natural name, no quotes or explanation.`,
-      add_context_from_internet: false
-    });
-    
-    return result.trim();
+        add_context_from_internet: false
+      })
+    );
+
+    return typeof result === 'string' ? result.trim() : cleaned;
   } catch (error) {
     console.error("AI correspondence name failed:", error);
     return cleaned;

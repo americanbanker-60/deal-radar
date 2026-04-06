@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -20,6 +20,20 @@ export default function AddContactDialog({ open, onOpenChange, target }) {
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState(null);
 
+  // Reset form when target changes
+  useEffect(() => {
+    setForm({
+      first_name: target?.contactFirstName || "",
+      last_name: target?.contactLastName || "",
+      email: target?.contactEmail || "",
+      title: target?.contactTitle || "",
+      linkedin: target?.linkedin || "",
+      is_primary: true,
+    });
+    setError(null);
+    setSaved(false);
+  }, [target?.id]);
+
   const handleChange = (field, value) => {
     setForm(prev => ({ ...prev, [field]: value }));
   };
@@ -37,31 +51,36 @@ export default function AddContactDialog({ open, onOpenChange, target }) {
     setSaving(true);
     setError(null);
 
-    await base44.entities.Contact.create({
-      target_id: target.id,
-      first_name: form.first_name.trim(),
-      last_name: form.last_name.trim(),
-      email: form.email.trim(),
-      title: form.title.trim(),
-      linkedin: form.linkedin.trim(),
-      is_primary: form.is_primary,
-    });
-
-    setSaved(true);
-    setSaving(false);
-
-    setTimeout(() => {
-      setSaved(false);
-      onOpenChange(false);
-      setForm({
-        first_name: "",
-        last_name: "",
-        email: "",
-        title: "",
-        linkedin: "",
-        is_primary: true,
+    try {
+      await base44.entities.Contact.create({
+        target_id: target.id,
+        first_name: form.first_name.trim(),
+        last_name: form.last_name.trim(),
+        email: form.email.trim(),
+        title: form.title.trim(),
+        linkedin: form.linkedin.trim(),
+        is_primary: form.is_primary,
       });
-    }, 1200);
+
+      setSaved(true);
+      setSaving(false);
+
+      setTimeout(() => {
+        setSaved(false);
+        onOpenChange(false);
+        setForm({
+          first_name: "",
+          last_name: "",
+          email: "",
+          title: "",
+          linkedin: "",
+          is_primary: true,
+        });
+      }, 1200);
+    } catch (err) {
+      setError("Failed to save contact: " + (err.message || "Unknown error"));
+      setSaving(false);
+    }
   };
 
   return (

@@ -35,7 +35,7 @@ export function calculateScore(target, { weights = {}, targetRange = {}, fitKeyw
       const mid = (targetRange.minEmployees + targetRange.maxEmployees) / 2;
       const distance = Math.abs(emp - mid);
       const range = targetRange.maxEmployees - targetRange.minEmployees;
-      empScore = Math.max(0, 100 - (distance / range) * 100);
+      empScore = range > 0 ? Math.max(0, 100 - (distance / range) * 100) : (emp === mid ? 100 : 0);
     } else if (peerData.empP75 && peerData.empP75 > 0) {
       empScore = Math.min(100, (emp / peerData.empP75) * 100);
     }
@@ -56,7 +56,7 @@ export function calculateScore(target, { weights = {}, targetRange = {}, fitKeyw
       const mid = (targetRange.minRevenue + targetRange.maxRevenue) / 2;
       const distance = Math.abs(rev - mid);
       const range = targetRange.maxRevenue - targetRange.minRevenue;
-      revScore = Math.max(0, 100 - (distance / range) * 100);
+      revScore = range > 0 ? Math.max(0, 100 - (distance / range) * 100) : (rev === mid ? 100 : 0);
     } else if (peerData.revP75 && peerData.revP75 > 0) {
       revScore = Math.min(100, (rev / peerData.revP75) * 100);
     }

@@ -205,10 +205,10 @@ Return your analysis as JSON with this structure:
 
     // Calculate final confidence
     const nameConfidence = Math.round(Math.max(...signals.map(s => s.strength || 0), 0.5) * 100);
-    const doctorConfidence = Math.round(
-      (signals.filter(s => s.credential || s.source === "npi").reduce((sum, s) => sum + (s.strength || 0), 0) / 
-      Math.max(signals.filter(s => s.credential || s.source === "npi").length, 1)) * 100
-    );
+    const doctorSignals = signals.filter(s => s.credential || s.source === "npi");
+    const doctorConfidence = doctorSignals.length > 0
+      ? Math.round((doctorSignals.reduce((sum, s) => sum + (s.strength || 0), 0) / doctorSignals.length) * 100)
+      : 0;
 
     const reason = signals
       .slice(0, 3)

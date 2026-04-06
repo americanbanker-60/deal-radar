@@ -155,7 +155,7 @@ export default function ScoringWeights({
                   type="number"
                   placeholder="Min"
                   value={targetMinEmp}
-                  onChange={(e) => setTargetMinEmp(e.target.value)}
+                  onChange={(e) => setTargetMinEmp(e.target.value === "" ? "" : Number(e.target.value))}
                   className="h-8 text-sm"
                 />
                 <span className="text-slate-400 self-center">to</span>
@@ -163,10 +163,13 @@ export default function ScoringWeights({
                   type="number"
                   placeholder="Max"
                   value={targetMaxEmp}
-                  onChange={(e) => setTargetMaxEmp(e.target.value)}
+                  onChange={(e) => setTargetMaxEmp(e.target.value === "" ? "" : Number(e.target.value))}
                   className="h-8 text-sm"
                 />
               </div>
+              {targetMinEmp !== "" && targetMaxEmp !== "" && Number(targetMinEmp) > Number(targetMaxEmp) && (
+                <p className="text-xs text-red-500">Min must be less than or equal to Max</p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -176,7 +179,7 @@ export default function ScoringWeights({
                   type="number"
                   placeholder="Min"
                   value={targetMinRev}
-                  onChange={(e) => setTargetMinRev(e.target.value)}
+                  onChange={(e) => setTargetMinRev(e.target.value === "" ? "" : Number(e.target.value))}
                   className="h-8 text-sm"
                 />
                 <span className="text-slate-400 self-center">to</span>
@@ -184,10 +187,13 @@ export default function ScoringWeights({
                   type="number"
                   placeholder="Max"
                   value={targetMaxRev}
-                  onChange={(e) => setTargetMaxRev(e.target.value)}
+                  onChange={(e) => setTargetMaxRev(e.target.value === "" ? "" : Number(e.target.value))}
                   className="h-8 text-sm"
                 />
               </div>
+              {targetMinRev !== "" && targetMaxRev !== "" && Number(targetMinRev) > Number(targetMaxRev) && (
+                <p className="text-xs text-red-500">Min must be less than or equal to Max</p>
+              )}
             </div>
           </div>
 

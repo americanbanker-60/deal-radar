@@ -30,18 +30,34 @@ const SIGNAL_CONFIG = {
 export default function SignalsFeed({ targetId }) {
   const [signals, setSignals] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     if (!targetId) return;
+    let cancelled = false;
+
     base44.entities.GrowthSignal.filter({ target_id: targetId }, '-created_date')
-      .then(setSignals)
-      .finally(() => setLoading(false));
+      .then((data) => { if (!cancelled) setSignals(data); })
+      .catch((err) => { if (!cancelled) setError(err.message); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+
+    return () => { cancelled = true; };
   }, [targetId]);
 
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
         <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 text-center">
+        <TrendingUp className="w-12 h-12 text-red-200 mb-4" />
+        <p className="text-red-500 font-medium">Failed to load signals</p>
+        <p className="text-slate-400 text-sm mt-1">{error}</p>
       </div>
     );
   }

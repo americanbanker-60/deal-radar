@@ -13,6 +13,7 @@ export default function TargetsTable({ targets, selectedTargets, onToggleTarget,
           <tr className="text-left border-b-2 border-slate-200 bg-slate-50">
             <th className="py-3 px-4 font-semibold w-12">
               <Checkbox
+                aria-label="Select all targets"
                 checked={selectedTargets.size === targets.length && targets.length > 0}
                 onCheckedChange={onToggleAll}
               />
@@ -37,7 +38,7 @@ export default function TargetsTable({ targets, selectedTargets, onToggleTarget,
         </thead>
         <tbody>
           {targets.map((t, i) => (
-            <tr key={i} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
+            <tr key={t.id || t.name || i} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
               <td className="py-3 px-4">
                 <Checkbox
                   checked={selectedTargets.has(i)}

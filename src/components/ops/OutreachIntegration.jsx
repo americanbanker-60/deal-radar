@@ -23,10 +23,10 @@ export default function OutreachIntegration({ prospects, onSyncComplete }) {
   const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState(null);
   const [error, setError] = useState(null);
-  const [redirectUri, setRedirectUri] = useState("");
   const [customTag, setCustomTag] = useState("BD-Priority");
   const [customSource, setCustomSource] = useState("Ops Console");
   const [needsReconnect, setNeedsReconnect] = useState(false);
+  const pollIntervalRef = React.useRef(null);
 
   useEffect(() => {
     checkConnection();
@@ -34,14 +34,17 @@ export default function OutreachIntegration({ prospects, onSyncComplete }) {
 
   // Poll OutreachConnection entity while loading
   useEffect(() => {
-    if (!loading) return;
+    if (!loading) {
+      if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+      return;
+    }
 
-    const pollInterval = setInterval(async () => {
+    pollIntervalRef.current = setInterval(async () => {
       try {
         const user = await base44.auth.me();
         const connections = await base44.entities.OutreachConnection.list();
         const userConnection = connections.find(c => c.user_email === user.email && c.status === "connected");
-        
+
         if (userConnection) {
           setConnected(true);
           setLoading(false);
@@ -50,9 +53,11 @@ export default function OutreachIntegration({ prospects, onSyncComplete }) {
       } catch (error) {
         console.error("Error checking connection:", error);
       }
-    }, 2000); // Poll every 2 seconds
+    }, 2000);
 
-    return () => clearInterval(pollInterval);
+    return () => {
+      if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+    };
   }, [loading]);
 
   const checkConnection = async () => {
@@ -79,8 +84,14 @@ export default function OutreachIntegration({ prospects, onSyncComplete }) {
       const left = window.screen.width / 2 - width / 2;
       const top = window.screen.height / 2 - height / 2;
       
+      // Validate auth URL before opening popup
+      const authUrl = result.data.authUrl;
+      if (!authUrl || !authUrl.startsWith('https://')) {
+        throw new Error("Invalid authorization URL received.");
+      }
+
       const popup = window.open(
-        result.data.authUrl,
+        authUrl,
         "Outreach Authorization",
         `width=${width},height=${height},left=${left},top=${top}`
       );

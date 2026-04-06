@@ -4,6 +4,16 @@ Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
 
+    // Verify caller is authenticated (scheduled tasks use service role internally)
+    try {
+      const user = await base44.auth.me();
+      if (!user) {
+        return Response.json({ error: 'Unauthorized' }, { status: 401 });
+      }
+    } catch {
+      return Response.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     // Use service role since this is a scheduled/admin task
     const targets = await base44.asServiceRole.entities.BDTarget.list('lastActive', 50);
 

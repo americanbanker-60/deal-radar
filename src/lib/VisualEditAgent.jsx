@@ -165,7 +165,7 @@ export default function VisualEditAgent() {
 			// Send message to parent to close all dropdowns
 			window.parent.postMessage({
 				type: 'close-dropdowns'
-			}, '*');
+			}, window.location.origin);
 			return;
 		}
 
@@ -406,14 +406,14 @@ export default function VisualEditAgent() {
 						position: elementPosition,
 						isInViewport: isInViewport,
 						visualSelectorId: selectedElementIdRef.current
-					}, '*');
+					}, window.location.origin);
 				}
 			}
 		};
 
 		const handleMessage = (event) => {
-			// Check origin if desired
-			//if (event.origin !== 'parent-origin') return;
+			// Validate message origin to prevent cross-origin attacks
+			if (event.origin !== window.location.origin) return;
 
 			const message = event.data;
 
@@ -490,7 +490,7 @@ export default function VisualEditAgent() {
 								position: elementPosition,
 								isInViewport: isInViewport,
 								visualSelectorId: selectedElementIdRef.current
-							}, '*');
+							}, window.location.origin);
 						}
 					}
 					break;
@@ -531,7 +531,7 @@ export default function VisualEditAgent() {
 		document.addEventListener('scroll', handleScroll, true); // Also listen on document
 
 		// Send ready message to parent
-		window.parent.postMessage({ type: 'visual-edit-agent-ready' }, '*');
+		window.parent.postMessage({ type: 'visual-edit-agent-ready' }, window.location.origin);
 
 		return () => {
 			window.removeEventListener('message', handleMessage);
