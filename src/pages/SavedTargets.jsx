@@ -19,6 +19,7 @@ import { createPageUrl } from "../utils";
 
 import OutreachIntegration from "../components/ops/OutreachIntegration";
 import TargetRow from "../components/targets/TargetRow";
+import VirtualizedTargetTable from "../components/targets/VirtualizedTargetTable";
 import ActionButtons from "../components/targets/ActionButtons";
 import TargetDrawer from "../components/targets/TargetDrawer";
 import { LoadingOverlay } from "@/components/ui/loading-overlay";
@@ -1543,19 +1544,14 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
                     <th className="py-3 px-4 font-semibold">Priority</th>
                   </tr>
                 </thead>
-                <tbody>
-                  {paginatedTargets.map((t) => (
-                   <TargetRow
-                     key={t.id}
-                     target={t}
-                     isSelected={selectedTargets.has(t.id)}
-                     onToggle={toggleTarget}
-                     onRowClick={setDrawerTarget}
-                     onRefreshData={refreshSingleTargetData}
-                     isRefreshingData={refreshingData === t.id}
-                   />
-                  ))}
-                </tbody>
+                <VirtualizedTargetTable
+                  targets={paginatedTargets}
+                  selectedTargets={selectedTargets}
+                  onToggle={toggleTarget}
+                  onRowClick={setDrawerTarget}
+                  onRefreshData={refreshSingleTargetData}
+                  refreshingData={refreshingData}
+                />
               </table>
             </div>
           </CardContent>
