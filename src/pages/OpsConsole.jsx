@@ -597,7 +597,7 @@ Write ONLY the opening line, no quotes, no explanation. Make it sound natural an
 
     for (let i = 0; i < selectedList.length; i++) {
       const target = selectedList[i];
-      setGrowthProgress({ current: i + 1, total: selectedList.length });
+      dispatch({ type: ActionTypes.SET_GROWTH_PROGRESS, payload: { current: i + 1, total: selectedList.length } });
 
       try {
         const prompt = `Search for recent news about "${target.name}" (${target.website || 'healthcare company'}) from the last 6 months.
@@ -639,17 +639,14 @@ Return JSON with brief summaries (1 sentence each):
       }
     }
 
-    setGrCompaniesRaw([...grCompaniesRaw]);
-    setDetectingGrowth(false);
-    setGrowthProgress({ current: 0, total: 0 });
+    dispatch({ type: ActionTypes.SET_GR_COMPANIES_RAW, payload: [...grCompaniesRaw] });
+    dispatch({ type: ActionTypes.SET_DETECTING_GROWTH, payload: false });
+    dispatch({ type: ActionTypes.SET_GROWTH_PROGRESS, payload: { current: 0, total: 0 } });
     showSuccess(`Detected growth signals for ${selectedList.length} companies!`);
   };
 
   const findLookalikes = async (target) => {
-    setLookalikeTarget(target);
-    setShowLookalikeDialog(true);
-    setFindingLookalikes(true);
-    setLookalikes([]);
+    dispatch({ type: ActionTypes.OPEN_LOOKALIKE_DIALOG, payload: target });
 
     try {
       const prompt = `Search for 3 similar healthcare companies to "${target.name}" that match these criteria:
@@ -715,17 +712,17 @@ Return JSON:
         }
       });
 
-      setLookalikes(result.companies || []);
+      dispatch({ type: ActionTypes.SET_LOOKALIKES, payload: result.companies || [] });
     } catch (error) {
       console.error("Error finding lookalikes:", error);
-      setUploadError("Failed to find lookalikes: " + error.message);
+      dispatch({ type: ActionTypes.SET_UPLOAD_ERROR, payload: "Failed to find lookalikes: " + error.message });
     }
-    
-    setFindingLookalikes(false);
+
+    dispatch({ type: ActionTypes.SET_FINDING_LOOKALIKES, payload: false });
   };
 
   const addLookalikeToDatabase = async (lookalike) => {
-    setAddingLookalike(lookalike.name);
+    dispatch({ type: ActionTypes.SET_ADDING_LOOKALIKE, payload: lookalike.name });
     
     try {
       await base44.entities.BDTarget.create({
@@ -744,25 +741,25 @@ Return JSON:
       showSuccess(`Added ${lookalike.name} to database!`);
       
       // Remove from lookalikes list
-      setLookalikes(prev => prev.filter(l => l.name !== lookalike.name));
+      dispatch({ type: ActionTypes.SET_LOOKALIKES, payload: lookalikes.filter(l => l.name !== lookalike.name) });
     } catch (error) {
       console.error("Error adding lookalike:", error);
-      setUploadError("Failed to add lookalike: " + error.message);
+      dispatch({ type: ActionTypes.SET_UPLOAD_ERROR, payload: "Failed to add lookalike: " + error.message });
     }
-    
-    setAddingLookalike(null);
+
+    dispatch({ type: ActionTypes.SET_ADDING_LOOKALIKE, payload: null });
   };
 
   const reclassifySelectedSectors = async () => {
     const selectedList = grScored.filter((_, index) => selectedTargets.has(index));
-    
+
     if (selectedList.length === 0) {
-      setUploadError("Please select targets to reclassify");
+      dispatch({ type: ActionTypes.SET_UPLOAD_ERROR, payload: "Please select targets to reclassify" });
       return;
     }
 
-    setReclassifyingSectors(true);
-    setSectorProgress({ current: 0, total: selectedList.length });
+    dispatch({ type: ActionTypes.SET_RECLASSIFYING_SECTORS, payload: true });
+    dispatch({ type: ActionTypes.SET_SECTOR_PROGRESS, payload: { current: 0, total: selectedList.length } });
 
     const { classifyCompanySector } = await import("../components/utils/data-engine");
     const enrichedRows = [];
