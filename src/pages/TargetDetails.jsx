@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from "react";
+import React from "react";
 import { base44 } from "@/api/base44Client";
 import { useLocation, Link } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { createPageUrl } from "../utils";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -31,28 +32,13 @@ export default function TargetDetails() {
   const location = useLocation();
   const params = new URLSearchParams(location.search);
   const targetId = params.get('id');
-  
-  const [target, setTarget] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
 
-  useEffect(() => {
-    if (targetId) {
-      loadTarget();
-    }
-  }, [targetId]);
-
-  const loadTarget = async () => {
-    try {
-      setLoading(true);
-      const data = await base44.entities.BDTarget.get(targetId);
-      setTarget(data);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { data: target, isLoading: loading, error: queryError } = useQuery({
+    queryKey: ['bdTarget', targetId],
+    queryFn: () => base44.entities.BDTarget.get(targetId),
+    enabled: !!targetId,
+  });
+  const error = queryError?.message || (!targetId ? "No target ID provided" : null);
 
   if (loading) {
     return (

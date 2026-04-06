@@ -1,4 +1,6 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
+import { checkRateLimit, rateLimitResponse } from '../../shared/rate-limiter.ts';
+import { encryptToken, decryptToken, isEncryptionConfigured } from '../../shared/token-encryption.ts';
 
 Deno.serve(async (req) => {
   try {
@@ -7,6 +9,12 @@ Deno.serve(async (req) => {
 
     if (!user) {
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Rate limit: 10 sync requests per minute per user
+    const rateCheck = checkRateLimit(user.email, { maxRequests: 10, keyPrefix: 'outreach-sync' });
+    if (!rateCheck.allowed) {
+      return rateLimitResponse(rateCheck.retryAfterMs);
     }
 
     const { prospects, sequenceId, customFields, sectorSequenceMap } = await req.json();
@@ -41,7 +49,15 @@ Deno.serve(async (req) => {
     }
 
     const connection = connections[0];
-    let accessToken = connection.access_token;
+    const useEncryption = isEncryptionConfigured();
+
+    // Decrypt stored tokens if encryption is configured
+    let accessToken = useEncryption && connection.access_token_encrypted
+      ? await decryptToken(connection.access_token_encrypted)
+      : connection.access_token;
+    let refreshToken = useEncryption && connection.refresh_token_encrypted
+      ? await decryptToken(connection.refresh_token_encrypted)
+      : connection.refresh_token;
 
     // Check if token is expired and refresh if needed
     if (new Date(connection.expires_at) < new Date()) {
@@ -50,27 +66,38 @@ Deno.serve(async (req) => {
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: new URLSearchParams({
           grant_type: 'refresh_token',
-          refresh_token: connection.refresh_token,
+          refresh_token: refreshToken,
           client_id: Deno.env.get('OUTREACH_CLIENT_ID'),
           client_secret: Deno.env.get('OUTREACH_CLIENT_SECRET')
         })
       });
 
       if (!refreshResponse.ok) {
-        return Response.json({ 
-          error: 'Failed to refresh Outreach token. Please reconnect your account.' 
+        return Response.json({
+          error: 'Failed to refresh Outreach token. Please reconnect your account.'
         }, { status: 400 });
       }
 
       const tokens = await refreshResponse.json();
       accessToken = tokens.access_token;
 
-      // Update stored tokens
-      await base44.asServiceRole.entities.OutreachConnection.update(connection.id, {
-        access_token: tokens.access_token,
-        refresh_token: tokens.refresh_token,
+      // Store tokens — encrypt if configured, otherwise store plaintext (backward compatible)
+      const tokenUpdate: Record<string, string> = {
         expires_at: new Date(Date.now() + tokens.expires_in * 1000).toISOString()
-      });
+      };
+
+      if (useEncryption) {
+        tokenUpdate.access_token_encrypted = await encryptToken(tokens.access_token);
+        tokenUpdate.refresh_token_encrypted = await encryptToken(tokens.refresh_token);
+        // Clear plaintext tokens when migrating to encrypted storage
+        tokenUpdate.access_token = '';
+        tokenUpdate.refresh_token = '';
+      } else {
+        tokenUpdate.access_token = tokens.access_token;
+        tokenUpdate.refresh_token = tokens.refresh_token;
+      }
+
+      await base44.asServiceRole.entities.OutreachConnection.update(connection.id, tokenUpdate);
     }
 
     const created = [];

@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect, useCallback } from "react";
+import React, { useMemo, useReducer, useEffect, useCallback } from "react";
 import { base44 } from "@/api/base44Client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -21,78 +21,41 @@ import DataPipelineDebug from "../components/ops/DataPipelineDebug";
 import WorkflowSummary from "../components/ops/WorkflowSummary";
 import TargetsTable from "../components/ops/TargetsTable";
 import { filterTargets, scoreTargets, toNumber, midpointFromRange, normalizeState, cleanCompanyNameRegex } from "../components/utils/data-engine";
+import { reducer, initialState, ActionTypes } from "./ops-console/useOpsConsoleReducer";
 
 export default function OpsConsole(){
-  const [page, setPage] = useState("grata");
-  const [loading, setLoading] = useState(false);
-  const [crawling, setCrawling] = useState(false);
-  const [enriching, setEnriching] = useState(false);
-  const [crawlProgress, setCrawlProgress] = useState({ current: 0, total: 0 });
-  const [enrichProgress, setEnrichProgress] = useState({ current: 0, total: 0 });
-  const [showHowTo, setShowHowTo] = useState(false);
-  const [uploadError, setUploadError] = useState(null);
-  const [successMessage, setSuccessMessage] = useState(null);
+  const [state, dispatch] = useReducer(reducer, initialState);
 
-  // Grata states
-  const [grCompaniesRaw, setGrCompaniesRaw] = useState([]);
-  const [grHeaders, setGrHeaders] = useState([]);
-  // Shared filters & settings
-  const [regionFilter, setRegionFilter] = useState("");
-  const [minRev, setMinRev] = useState(0);
-  const [maxRev, setMaxRev] = useState(100000);
-  const [ownerPref, setOwnerPref] = useState("Any");
-
-  // Scoring weights - load from localStorage
-  const [weights, setWeights] = useState(() => {
-    try {
-      const saved = localStorage.getItem('ops_console_weights');
-      return saved ? JSON.parse(saved) : {
-        employees: 35,
-        clinics: 25,
-        revenue: 15,
-        website: 15,
-        keywords: 10
-      };
-    } catch {
-      return { employees: 35, clinics: 25, revenue: 15, website: 15, keywords: 10 };
-    }
-  });
-
-  // Target ranges for fit score - load from localStorage
-  const [targetMinEmp, setTargetMinEmp] = useState(() => localStorage.getItem('ops_console_targetMinEmp') || "");
-  const [targetMaxEmp, setTargetMaxEmp] = useState(() => localStorage.getItem('ops_console_targetMaxEmp') || "");
-  const [targetMinRev, setTargetMinRev] = useState(() => localStorage.getItem('ops_console_targetMinRev') || "");
-  const [targetMaxRev, setTargetMaxRev] = useState(() => localStorage.getItem('ops_console_targetMaxRev') || "");
-
-  // Outreach custom fields
-  const [vertical, setVertical] = useState("Healthcare Services");
-  const [tag, setTag] = useState("BD-Priority");
-
-  // New states for saving targets
-  const [selectedTargets, setSelectedTargets] = useState(new Set());
-  const [campaignName, setCampaignName] = useState("");
-  const [selectedCampaignId, setSelectedCampaignId] = useState("");
-  const [campaigns, setCampaigns] = useState([]);
-  const [loadingCampaigns, setLoadingCampaigns] = useState(false);
-  const [showNewCampaignDialog, setShowNewCampaignDialog] = useState(false);
-  const [newCampaignData, setNewCampaignData] = useState({
-    name: "",
-    description: "",
-    vertical: "Healthcare Services",
-    status: "active"
-  });
-  const [saving, setSaving] = useState(false);
-  const [saveProgress, setSaveProgress] = useState({ current: 0, total: 0, step: "" });
-  const [scoreThreshold] = useState(70);
-  const [reclassifyingSectors, setReclassifyingSectors] = useState(false);
-  const [sectorProgress, setSectorProgress] = useState({ current: 0, total: 0 });
-  const [recalculatingScores, setRecalculatingScores] = useState(false);
-  const [showLookalikeDialog, setShowLookalikeDialog] = useState(false);
-  const [lookalikeTarget, setLookalikeTarget] = useState(null);
-  const [lookalikes, setLookalikes] = useState([]);
-  const [findingLookalikes, setFindingLookalikes] = useState(false);
-  const [addingLookalike, setAddingLookalike] = useState(null);
-  const [healthAlertCount, setHealthAlertCount] = useState(0);
+  const {
+    // Upload
+    loading, uploadError, successMessage, grCompaniesRaw, grHeaders,
+    // Crawl
+    crawling, crawlProgress,
+    // Enrich
+    enriching, enrichProgress, reclassifyingSectors, sectorProgress, recalculatingScores,
+    // Filters
+    regionFilter, minRev, maxRev, ownerPref,
+    // Scoring
+    weights, targetMinEmp, targetMaxEmp, targetMinRev, targetMaxRev, scoreThreshold,
+    // Campaign
+    campaignName, selectedCampaignId, campaigns, loadingCampaigns, showNewCampaignDialog, newCampaignData,
+    // Save
+    saving, saveProgress,
+    // UI
+    page, showHowTo, showLookalikeDialog, lookalikeTarget, lookalikes, findingLookalikes, addingLookalike,
+    // Selection
+    selectedTargets,
+    // Settings
+    vertical, tag,
+    // Personalize
+    personalizingTargets, personalizeProgress,
+    // Growth
+    detectingGrowth, growthProgress,
+    // Rationale
+    generatingRationales, rationaleProgress,
+    // Health
+    healthAlertCount,
+  } = state;
 
   // Load health alert count on mount
   useEffect(() => {
@@ -102,7 +65,7 @@ export default function OpsConsole(){
         const alertCount = allTargets.filter(t =>
           t.websiteStatus === 'broken' || t.dormancyFlag === true
         ).length;
-        setHealthAlertCount(alertCount);
+        dispatch({ type: ActionTypes.SET_HEALTH_ALERT_COUNT, payload: alertCount });
       } catch (err) {
         console.error('Failed to load health alerts:', err);
       }
@@ -114,31 +77,21 @@ export default function OpsConsole(){
   useEffect(() => {
     const loadInitialData = async () => {
       try {
-        const savedVertical = localStorage.getItem('ops_console_vertical');
-        const savedTag = localStorage.getItem('ops_console_tag');
-        
-        if (savedVertical) {
-          setVertical(savedVertical);
-        }
-        if (savedTag) {
-          setTag(savedTag);
-        }
-
         // Load existing campaigns
-        setLoadingCampaigns(true);
+        dispatch({ type: ActionTypes.SET_LOADING_CAMPAIGNS, payload: true });
         const existingCampaigns = await base44.entities.Campaign.list('-created_date');
-        setCampaigns(existingCampaigns);
-        setLoadingCampaigns(false);
+        dispatch({ type: ActionTypes.SET_CAMPAIGNS, payload: existingCampaigns });
+        dispatch({ type: ActionTypes.SET_LOADING_CAMPAIGNS, payload: false });
       } catch (error) {
         console.error("Error loading initial data:", error);
-        setLoadingCampaigns(false);
+        dispatch({ type: ActionTypes.SET_LOADING_CAMPAIGNS, payload: false });
       }
     };
 
     loadInitialData();
   }, []);
 
-  // Save settings
+  // Save settings to localStorage
   useEffect(() => {
     localStorage.setItem('ops_console_vertical', vertical);
   }, [vertical]);
@@ -147,12 +100,12 @@ export default function OpsConsole(){
     localStorage.setItem('ops_console_tag', tag);
   }, [tag]);
 
-  // Save scoring weights
+  // Save scoring weights to localStorage
   useEffect(() => {
     localStorage.setItem('ops_console_weights', JSON.stringify(weights));
   }, [weights]);
 
-  // Save target ranges
+  // Save target ranges to localStorage
   useEffect(() => {
     localStorage.setItem('ops_console_targetMinEmp', targetMinEmp);
     localStorage.setItem('ops_console_targetMaxEmp', targetMaxEmp);
@@ -161,15 +114,15 @@ export default function OpsConsole(){
   }, [targetMinEmp, targetMaxEmp, targetMinRev, targetMaxRev]);
 
   const showSuccess = (message) => {
-    setSuccessMessage(message);
-    setTimeout(() => setSuccessMessage(null), 5000);
+    dispatch({ type: ActionTypes.SET_SUCCESS_MESSAGE, payload: message });
+    setTimeout(() => dispatch({ type: ActionTypes.SET_SUCCESS_MESSAGE, payload: null }), 5000);
   };
 
   const onUpload = async (file, kind) => {
     console.log("📤 Starting upload:", file.name, "kind:", kind);
-    setLoading(true);
-    setUploadError(null);
-    
+    dispatch({ type: ActionTypes.SET_LOADING, payload: true });
+    dispatch({ type: ActionTypes.SET_UPLOAD_ERROR, payload: null });
+
     try {
       // First, upload to Base44 CDN
       console.log("☁️ Uploading to CDN...");
@@ -180,7 +133,7 @@ export default function OpsConsole(){
       // Determine file type and call appropriate parser
       const ext = file.name.toLowerCase().split(".").pop();
       console.log("📋 File extension:", ext);
-      
+
       let result;
       try {
         if (ext === "csv") {
@@ -190,38 +143,38 @@ export default function OpsConsole(){
           console.log("🔄 Calling parseExcelFile...");
           result = await base44.functions.invoke('parseExcelFile', { fileUrl });
         }
-        
+
         console.log("✅ Function returned:", result);
-        
+
         const data = result.data;
-        
+
         console.log("📊 Parsed data:", {
           headers: data.headers?.length,
           rows: data.rows?.length,
           diagnostics: data.diagnostics
         });
-        
+
         if (!data.rows || data.rows.length === 0) {
           throw new Error("No data extracted from file. Please check the file format.");
         }
-        
-        if (kind === "gr-companies") { 
+
+        if (kind === "gr-companies") {
           console.log("✅ Setting Grata companies:", data.rows.length);
-          
+
           // Validate schema by checking first row
           const firstRow = data.rows[0];
           const hasNewSchema = firstRow["Company Name"] !== undefined;
           const hasOldSchema = firstRow.Name !== undefined || firstRow["Revenue Estimate"] !== undefined;
-          
+
           if (!hasNewSchema && !hasOldSchema) {
             throw new Error("Unrecognized file schema. Expected columns: 'Company Name' or 'Name'");
           }
-          
+
           // Store file URL in raw data for audit trail
           const rowsWithSource = data.rows.map(r => ({ ...r, _sourceFileUrl: fileUrl }));
-          setGrCompaniesRaw(rowsWithSource); 
-          setGrHeaders(data.headers || Object.keys(data.rows[0])); 
-          
+          dispatch({ type: ActionTypes.SET_GR_COMPANIES_RAW, payload: rowsWithSource });
+          dispatch({ type: ActionTypes.SET_GR_HEADERS, payload: data.headers || Object.keys(data.rows[0]) });
+
           const schemaType = hasNewSchema ? "new export schema" : "Grata schema";
           showSuccess(`✓ Uploaded ${data.rows.length} companies (${schemaType})`);
         }
@@ -229,23 +182,23 @@ export default function OpsConsole(){
         console.error("❌ Parse/mapping error:", parseError);
         throw new Error(`Failed to process file: ${parseError.message || 'Invalid format or large file timeout'}`);
       }
-      
-      setLoading(false);
+
+      dispatch({ type: ActionTypes.SET_LOADING, payload: false });
     } catch (error) {
       console.error("❌ Upload error:", error);
-      setUploadError(error.message || "File processing failed. Please try a smaller file or check the format.");
-      setLoading(false);
+      dispatch({ type: ActionTypes.SET_UPLOAD_ERROR, payload: error.message || "File processing failed. Please try a smaller file or check the format." });
+      dispatch({ type: ActionTypes.SET_LOADING, payload: false });
     }
   };
 
   const crawlWebsites = async () => {
     if (normalizedGR.length === 0) {
-      setUploadError("No companies to crawl. Please upload data first.");
+      dispatch({ type: ActionTypes.SET_UPLOAD_ERROR, payload: "No companies to crawl. Please upload data first." });
       return;
     }
 
-    setCrawling(true);
-    setCrawlProgress({ current: 0, total: normalizedGR.length });
+    dispatch({ type: ActionTypes.SET_CRAWLING, payload: true });
+    dispatch({ type: ActionTypes.SET_CRAWL_PROGRESS, payload: { current: 0, total: normalizedGR.length } });
 
     try {
       const companies = normalizedGR.map(company => ({
@@ -256,16 +209,16 @@ export default function OpsConsole(){
       // Process in batches to show progress
       const BATCH_SIZE = 50;
       const allCrawled = [];
-      
+
       for (let i = 0; i < companies.length; i += BATCH_SIZE) {
         const batch = companies.slice(i, i + BATCH_SIZE);
-        
+
         const result = await base44.functions.invoke('bulkCrawlWebsites', {
           companies: batch
         });
 
         allCrawled.push(...(result.data.crawledCompanies || []));
-        setCrawlProgress({ current: Math.min(i + BATCH_SIZE, companies.length), total: companies.length });
+        dispatch({ type: ActionTypes.SET_CRAWL_PROGRESS, payload: { current: Math.min(i + BATCH_SIZE, companies.length), total: companies.length } });
       }
 
       // Update the raw data with crawled information
@@ -283,40 +236,40 @@ export default function OpsConsole(){
         return raw;
       });
 
-      setGrCompaniesRaw(updatedRaw);
+      dispatch({ type: ActionTypes.SET_GR_COMPANIES_RAW, payload: updatedRaw });
       showSuccess(`Crawled ${allCrawled.length} company websites!`);
     } catch (error) {
       console.error("Bulk crawl error:", error);
-      setUploadError("Failed to crawl websites: " + (error.message || String(error)));
+      dispatch({ type: ActionTypes.SET_UPLOAD_ERROR, payload: "Failed to crawl websites: " + (error.message || String(error)) });
     }
-    
-    setCrawling(false);
-    setCrawlProgress({ current: 0, total: 0 });
+
+    dispatch({ type: ActionTypes.SET_CRAWLING, payload: false });
+    dispatch({ type: ActionTypes.SET_CRAWL_PROGRESS, payload: { current: 0, total: 0 } });
   };
 
   const enrichNamesAndSectors = async () => {
     if (normalizedGR.length === 0) {
-      setUploadError("No companies to enrich. Please upload data first.");
+      dispatch({ type: ActionTypes.SET_UPLOAD_ERROR, payload: "No companies to enrich. Please upload data first." });
       return;
     }
 
-    setEnriching(true);
-    setEnrichProgress({ current: 0, total: normalizedGR.length });
+    dispatch({ type: ActionTypes.SET_ENRICHING, payload: true });
+    dispatch({ type: ActionTypes.SET_ENRICH_PROGRESS, payload: { current: 0, total: normalizedGR.length } });
 
     try {
       // Process in batches to show progress
       const BATCH_SIZE = 50;
       const allEnriched = [];
-      
+
       for (let i = 0; i < normalizedGR.length; i += BATCH_SIZE) {
         const batch = normalizedGR.slice(i, i + BATCH_SIZE);
-        
+
         const result = await base44.functions.invoke('bulkEnrichTargets', {
           targets: batch
         });
 
         allEnriched.push(...(result.data.enrichedTargets || []));
-        setEnrichProgress({ current: Math.min(i + BATCH_SIZE, normalizedGR.length), total: normalizedGR.length });
+        dispatch({ type: ActionTypes.SET_ENRICH_PROGRESS, payload: { current: Math.min(i + BATCH_SIZE, normalizedGR.length), total: normalizedGR.length } });
       }
 
       // Update the raw data with enriched information
@@ -333,73 +286,64 @@ export default function OpsConsole(){
         return raw;
       });
 
-      setGrCompaniesRaw(updatedRaw);
+      dispatch({ type: ActionTypes.SET_GR_COMPANIES_RAW, payload: updatedRaw });
       showSuccess(`Enriched ${allEnriched.length} company names and sectors!`);
     } catch (error) {
       console.error("Bulk enrichment error:", error);
-      setUploadError("Failed to enrich: " + (error.message || String(error)));
+      dispatch({ type: ActionTypes.SET_UPLOAD_ERROR, payload: "Failed to enrich: " + (error.message || String(error)) });
     }
-    
-    setEnriching(false);
-    setEnrichProgress({ current: 0, total: 0 });
+
+    dispatch({ type: ActionTypes.SET_ENRICHING, payload: false });
+    dispatch({ type: ActionTypes.SET_ENRICH_PROGRESS, payload: { current: 0, total: 0 } });
   };
   
   const createNewCampaign = async () => {
     if (!newCampaignData.name.trim()) {
-      setUploadError("Please enter a campaign name");
+      dispatch({ type: ActionTypes.SET_UPLOAD_ERROR, payload: "Please enter a campaign name" });
       return;
     }
 
     try {
       const campaign = await base44.entities.Campaign.create(newCampaignData);
-      setCampaigns(prev => [campaign, ...prev]);
-      setSelectedCampaignId(campaign.id);
-      setCampaignName(campaign.name);
-      setShowNewCampaignDialog(false);
-      setNewCampaignData({
-        name: "",
-        description: "",
-        vertical: "Healthcare Services",
-        status: "active"
-      });
+      dispatch({ type: ActionTypes.CAMPAIGN_CREATED, payload: campaign });
       showSuccess(`Campaign "${campaign.name}" created!`);
     } catch (error) {
       console.error("Error creating campaign:", error);
-      setUploadError("Failed to create campaign: " + error.message);
+      dispatch({ type: ActionTypes.SET_UPLOAD_ERROR, payload: "Failed to create campaign: " + error.message });
     }
   };
 
   const saveToDatabase = async () => {
     if (selectedTargets.size === 0) {
-      setUploadError("Please select companies to save");
+      dispatch({ type: ActionTypes.SET_UPLOAD_ERROR, payload: "Please select companies to save" });
       return;
     }
 
     if (!selectedCampaignId && !campaignName.trim()) {
-      setUploadError("Please select or create a campaign");
+      dispatch({ type: ActionTypes.SET_UPLOAD_ERROR, payload: "Please select or create a campaign" });
       return;
     }
 
-    setSaving(true);
-    
+    dispatch({ type: ActionTypes.SET_SAVING, payload: true });
+
     try {
       const selectedList = grScored.filter((_, index) => selectedTargets.has(index));
-      
+
       // Determine campaign name and ID — create a formal Campaign record if one doesn't exist yet
       let finalCampaignId = selectedCampaignId || null;
-      let finalCampaignName = selectedCampaignId 
-        ? campaigns.find(c => c.id === selectedCampaignId)?.name 
+      let finalCampaignName = selectedCampaignId
+        ? campaigns.find(c => c.id === selectedCampaignId)?.name
         : campaignName.trim();
 
       if (!finalCampaignId && finalCampaignName) {
-        setSaveProgress({ current: 0, total: 1, step: "Creating campaign record..." });
+        dispatch({ type: ActionTypes.SET_SAVE_PROGRESS, payload: { current: 0, total: 1, step: "Creating campaign record..." } });
         const newCampaign = await base44.entities.Campaign.create({
           name: finalCampaignName,
           vertical: vertical || "Healthcare Services",
           status: "active",
         });
         finalCampaignId = newCampaign.id;
-        setCampaigns(prev => [newCampaign, ...prev]);
+        dispatch({ type: ActionTypes.PREPEND_CAMPAIGN, payload: newCampaign });
       }
       
       // Prepare targets for upsert
@@ -446,17 +390,17 @@ export default function OpsConsole(){
       let totalSkipped = 0;
       const allErrors = [];
       
-      setSaveProgress({ current: 0, total: targetsToUpsert.length, step: "Starting..." });
-      
+      dispatch({ type: ActionTypes.SET_SAVE_PROGRESS, payload: { current: 0, total: targetsToUpsert.length, step: "Starting..." } });
+
       for (let i = 0; i < targetsToUpsert.length; i += BATCH_SIZE) {
         const batch = targetsToUpsert.slice(i, i + BATCH_SIZE);
         const batchNum = Math.floor(i / BATCH_SIZE) + 1;
-        
-        setSaveProgress({ 
-          current: i, 
-          total: targetsToUpsert.length, 
-          step: `Processing batch ${batchNum} of ${totalBatches}...` 
-        });
+
+        dispatch({ type: ActionTypes.SET_SAVE_PROGRESS, payload: {
+          current: i,
+          total: targetsToUpsert.length,
+          step: `Processing batch ${batchNum} of ${totalBatches}...`
+        }});
         
         try {
           const result = await base44.functions.invoke('upsertBDTargets', {
@@ -478,11 +422,11 @@ export default function OpsConsole(){
           });
         }
         
-        setSaveProgress({ 
-          current: Math.min(i + BATCH_SIZE, targetsToUpsert.length), 
-          total: targetsToUpsert.length, 
-          step: `Completed batch ${batchNum} of ${totalBatches}` 
-        });
+        dispatch({ type: ActionTypes.SET_SAVE_PROGRESS, payload: {
+          current: Math.min(i + BATCH_SIZE, targetsToUpsert.length),
+          total: targetsToUpsert.length,
+          step: `Completed batch ${batchNum} of ${totalBatches}`
+        }});
       }
       
       const summary = [
@@ -493,9 +437,9 @@ export default function OpsConsole(){
       ].filter(Boolean).join('\n');
       
       showSuccess(`Saved ${targetsToUpsert.length} records to "${finalCampaignName}"!\n${summary}`);
-      setSelectedTargets(new Set());
-      setSelectedCampaignId("");
-      setCampaignName("");
+      dispatch({ type: ActionTypes.SET_SELECTED_TARGETS, payload: new Set() });
+      dispatch({ type: ActionTypes.SET_SELECTED_CAMPAIGN_ID, payload: "" });
+      dispatch({ type: ActionTypes.SET_CAMPAIGN_NAME, payload: "" });
       
       // Redirect to Saved Targets page after 2 seconds
       setTimeout(() => {
@@ -503,35 +447,33 @@ export default function OpsConsole(){
       }, 2000);
     } catch (error) {
       console.error("Save error:", error);
-      setUploadError("Failed to save: " + (error.message || String(error)));
+      dispatch({ type: ActionTypes.SET_UPLOAD_ERROR, payload: "Failed to save: " + (error.message || String(error)) });
     }
-    
-    setSaving(false);
-    setSaveProgress({ current: 0, total: 0, step: "" });
+
+    dispatch({ type: ActionTypes.SET_SAVING, payload: false });
+    dispatch({ type: ActionTypes.SET_SAVE_PROGRESS, payload: { current: 0, total: 0, step: "" } });
   };
 
   const toggleSelectAll = () => {
     if (selectedTargets.size === grScored.length) {
-      setSelectedTargets(new Set());
+      dispatch({ type: ActionTypes.SET_SELECTED_TARGETS, payload: new Set() });
     } else {
-      setSelectedTargets(new Set(grScored.map((_, i) => i)));
+      dispatch({ type: ActionTypes.SET_SELECTED_TARGETS, payload: new Set(grScored.map((_, i) => i)) });
     }
   };
 
   const toggleTarget = useCallback((index) => {
-    setSelectedTargets(prev => {
-      const newSelected = new Set(prev);
-      if (newSelected.has(index)) {
-        newSelected.delete(index);
-      } else {
-        newSelected.add(index);
-      }
-      return newSelected;
-    });
-  }, []);
+    const newSelected = new Set(selectedTargets);
+    if (newSelected.has(index)) {
+      newSelected.delete(index);
+    } else {
+      newSelected.add(index);
+    }
+    dispatch({ type: ActionTypes.SET_SELECTED_TARGETS, payload: newSelected });
+  }, [selectedTargets]);
 
   const recalculateAllScores = async () => {
-    setRecalculatingScores(true);
+    dispatch({ type: ActionTypes.SET_RECALCULATING_SCORES, payload: true });
     try {
       const result = await base44.functions.invoke('calculateFitScores', {
         weights,
@@ -543,37 +485,37 @@ export default function OpsConsole(){
         },
         fitKeywords: vertical
       });
-      
+
       showSuccess(`Updated scores for ${result.data.updated} saved targets!`);
     } catch (error) {
       console.error('Score calculation error:', error);
-      setUploadError('Failed to recalculate scores: ' + error.message);
+      dispatch({ type: ActionTypes.SET_UPLOAD_ERROR, payload: 'Failed to recalculate scores: ' + error.message });
     }
-    setRecalculatingScores(false);
+    dispatch({ type: ActionTypes.SET_RECALCULATING_SCORES, payload: false });
   };
 
   const generateRationalesForSelected = async () => {
     const selectedList = grScored.filter((_, index) => selectedTargets.has(index));
     const highScoring = selectedList.filter(t => t.score >= scoreThreshold);
-    
+
     if (highScoring.length === 0) {
-      setUploadError("No high-scoring (priority) targets selected. Select targets with score >= " + scoreThreshold);
+      dispatch({ type: ActionTypes.SET_UPLOAD_ERROR, payload: "No high-scoring (priority) targets selected. Select targets with score >= " + scoreThreshold });
       return;
     }
 
-    setGeneratingRationales(true);
-    setRationaleProgress({ current: 0, total: highScoring.length });
+    dispatch({ type: ActionTypes.SET_GENERATING_RATIONALES, payload: true });
+    dispatch({ type: ActionTypes.SET_RATIONALE_PROGRESS, payload: { current: 0, total: highScoring.length } });
 
     for (let i = 0; i < highScoring.length; i++) {
       const target = highScoring[i];
-      setRationaleProgress({ current: i + 1, total: highScoring.length });
+      dispatch({ type: ActionTypes.SET_RATIONALE_PROGRESS, payload: { current: i + 1, total: highScoring.length } });
 
       try {
-        const result = await base44.functions.invoke('generateRationale', { 
+        const result = await base44.functions.invoke('generateRationale', {
           targetId: target.id,
-          weights 
+          weights
         });
-        
+
         // Update local state with the rationale
         target.notes = result.data.rationale;
       } catch (error) {
@@ -582,26 +524,26 @@ export default function OpsConsole(){
     }
 
     // Force re-render by updating the raw data
-    setGrCompaniesRaw([...grCompaniesRaw]);
-    setGeneratingRationales(false);
-    setRationaleProgress({ current: 0, total: 0 });
+    dispatch({ type: ActionTypes.SET_GR_COMPANIES_RAW, payload: [...grCompaniesRaw] });
+    dispatch({ type: ActionTypes.SET_GENERATING_RATIONALES, payload: false });
+    dispatch({ type: ActionTypes.SET_RATIONALE_PROGRESS, payload: { current: 0, total: 0 } });
     showSuccess(`Generated strategic rationales for ${highScoring.length} priority targets!`);
   };
 
   const bulkPersonalizeSelected = async () => {
     const selectedList = grScored.filter((_, index) => selectedTargets.has(index));
-    
+
     if (selectedList.length === 0) {
-      setUploadError("Please select targets to personalize");
+      dispatch({ type: ActionTypes.SET_UPLOAD_ERROR, payload: "Please select targets to personalize" });
       return;
     }
 
-    setPersonalizingTargets(true);
-    setPersonalizeProgress({ current: 0, total: selectedList.length });
+    dispatch({ type: ActionTypes.SET_PERSONALIZING_TARGETS, payload: true });
+    dispatch({ type: ActionTypes.SET_PERSONALIZE_PROGRESS, payload: { current: 0, total: selectedList.length } });
 
     for (let i = 0; i < selectedList.length; i++) {
       const target = selectedList[i];
-      setPersonalizeProgress({ current: i + 1, total: selectedList.length });
+      dispatch({ type: ActionTypes.SET_PERSONALIZE_PROGRESS, payload: { current: i + 1, total: selectedList.length } });
 
       try {
         const city = target.city || "your area";
@@ -636,22 +578,22 @@ Write ONLY the opening line, no quotes, no explanation. Make it sound natural an
       }
     }
 
-    setGrCompaniesRaw([...grCompaniesRaw]);
-    setPersonalizingTargets(false);
-    setPersonalizeProgress({ current: 0, total: 0 });
+    dispatch({ type: ActionTypes.SET_GR_COMPANIES_RAW, payload: [...grCompaniesRaw] });
+    dispatch({ type: ActionTypes.SET_PERSONALIZING_TARGETS, payload: false });
+    dispatch({ type: ActionTypes.SET_PERSONALIZE_PROGRESS, payload: { current: 0, total: 0 } });
     showSuccess(`Generated personalized openers for ${selectedList.length} targets!`);
   };
 
   const detectGrowthSignalsForSelected = async () => {
     const selectedList = grScored.filter((_, index) => selectedTargets.has(index));
-    
+
     if (selectedList.length === 0) {
-      setUploadError("Please select targets to analyze");
+      dispatch({ type: ActionTypes.SET_UPLOAD_ERROR, payload: "Please select targets to analyze" });
       return;
     }
 
-    setDetectingGrowth(true);
-    setGrowthProgress({ current: 0, total: selectedList.length });
+    dispatch({ type: ActionTypes.SET_DETECTING_GROWTH, payload: true });
+    dispatch({ type: ActionTypes.SET_GROWTH_PROGRESS, payload: { current: 0, total: selectedList.length } });
 
     for (let i = 0; i < selectedList.length; i++) {
       const target = selectedList[i];

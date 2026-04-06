@@ -1,4 +1,5 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
+import { checkRateLimit, rateLimitResponse } from '../../shared/rate-limiter.ts';
 
 Deno.serve(async (req) => {
   try {
@@ -7,6 +8,12 @@ Deno.serve(async (req) => {
 
     if (!user) {
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Rate limit: 10 bulk enrich requests per minute
+    const rateCheck = checkRateLimit(user.email, { maxRequests: 10, keyPrefix: 'bulk-enrich' });
+    if (!rateCheck.allowed) {
+      return rateLimitResponse(rateCheck.retryAfterMs);
     }
 
     const { targets } = await req.json();
