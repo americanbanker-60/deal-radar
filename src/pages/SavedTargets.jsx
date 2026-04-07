@@ -1152,17 +1152,6 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
         </DialogContent>
       </Dialog>
 
-      {generatingShortNames && (
-        <LoadingOverlay message="Generating Short Names..." progress={shortNameProgress} />
-      )}
-
-      {reclassifyingSectors && (
-        <LoadingOverlay message="Reclassifying Sectors..." progress={sectorProgress} />
-      )}
-
-      {personalizingTargets && (
-        <LoadingOverlay message="Creating Personalized Openers..." progress={personalizeProgress} />
-      )}
       <div className="bg-white p-4 md:p-6 rounded-xl shadow-sm border border-slate-200">
         <div className="flex flex-col sm:flex-row items-start gap-3">
           <Link to={createPageUrl("OpsConsole")}>
@@ -1196,40 +1185,6 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
               </Alert>
             )}
           </div>
-        </div>
-        <div className="flex flex-wrap gap-2 items-center mb-4">
-          <Button
-            variant="destructive"
-            size="sm"
-            disabled={rescoring}
-            onClick={async () => {
-              const today = new Date().toISOString().split('T')[0];
-              const todayTargets = targets.filter(t => t.created_date && t.created_date.startsWith(today));
-              
-              if (todayTargets.length === 0) {
-                alert("No targets uploaded today");
-                return;
-              }
-              
-              if (!confirm(`Delete ${todayTargets.length} targets uploaded today (${new Date().toLocaleDateString()})? This cannot be undone.`)) return;
-              
-              setRescoring(true);
-              try {
-                const result = await base44.functions.invoke('bulkDeleteTargets', {
-                  targetIds: todayTargets.map(t => t.id)
-                });
-                
-                await queryClient.invalidateQueries({ queryKey: ['bdTargets'] });
-                alert(`Successfully deleted ${result.data.deleted} targets`);
-              } catch (error) {
-                console.error("Delete error:", error);
-                alert("Delete failed: " + error.message);
-              }
-              setRescoring(false);
-            }}
-          >
-            {rescoring ? "Deleting..." : `Delete Today's Upload (${targets.filter(t => t.created_date && t.created_date.startsWith(new Date().toISOString().split('T')[0])).length})`}
-          </Button>
         </div>
 
         <ActionButtons
@@ -1275,6 +1230,20 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
           onEnrichAll={enrichAllSelected}
           onEnrichCompanyData={enrichCompanyDataSelected}
           onExportSelected={() => exportCSV(false)}
+          onDeleteTodayUpload={async () => {
+            const today = new Date().toISOString().split('T')[0];
+            const todayTargets = targets.filter(t => t.created_date && t.created_date.startsWith(today));
+            if (todayTargets.length === 0) { alert("No targets uploaded today"); return; }
+            if (!confirm(`Delete ${todayTargets.length} targets uploaded today? This cannot be undone.`)) return;
+            dispatch({ type: ActionTypes.SET_RESCORING, payload: true });
+            try {
+              const result = await base44.functions.invoke('bulkDeleteTargets', { targetIds: todayTargets.map(t => t.id) });
+              await queryClient.invalidateQueries({ queryKey: ['bdTargets'] });
+              alert(`Deleted ${result.data.deleted} targets`);
+            } catch (error) { alert("Delete failed: " + error.message); }
+            dispatch({ type: ActionTypes.SET_RESCORING, payload: false });
+          }}
+          todayUploadCount={targets.filter(t => t.created_date && t.created_date.startsWith(new Date().toISOString().split('T')[0])).length}
         />
       </div>
 
@@ -1634,22 +1603,6 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
             </div>
           </CardContent>
         </Card>
-      )}
-
-      {cleaningNames && (
-        <LoadingOverlay message="Cleaning Company Names..." progress={cleanProgress} />
-      )}
-
-      {extractingNames && (
-        <LoadingOverlay message="Extracting Company Names from Websites..." progress={extractProgress} />
-      )}
-
-      {detectingGrowth && (
-        <LoadingOverlay message="Detecting Growth Signals..." progress={growthProgress} />
-      )}
-
-      {generatingRationales && (
-        <LoadingOverlay message="Generating Strategic Rationales..." progress={rationaleProgress} />
       )}
 
       <TargetDrawer
