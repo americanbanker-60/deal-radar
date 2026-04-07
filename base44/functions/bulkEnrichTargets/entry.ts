@@ -26,12 +26,10 @@ Deno.serve(async (req) => {
     const enrichedTargets = [];
     const errors = [];
 
-    for (let i = 0; i < targetsToProcess.length; i++) {
-      const target = targetsToProcess[i];
-      
-      try {
-        // Generate short names
-        const shortNamePrompt = `Transform this company name into a clean, conversational short name:
+    const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+    const enrichOne = async (target) => {
+      const shortNamePrompt = `Transform this company name into a clean, conversational short name:
 
 Company Name: "${target.name}"
 
@@ -45,13 +43,7 @@ Rules:
 
 Return ONLY the short name, nothing else.`;
 
-        const shortNameResult = await base44.integrations.Core.InvokeLLM({
-          prompt: shortNamePrompt,
-          add_context_from_internet: false
-        });
-
-        // Generate correspondence name
-        const corrNamePrompt = `Transform this company name into a natural, email-friendly correspondence name:
+      const corrNamePrompt = `Transform this company name into a natural, email-friendly correspondence name:
 
 Company Name: "${target.name}"
 
@@ -65,13 +57,7 @@ Rules:
 
 Return ONLY the correspondence name, nothing else.`;
 
-        const corrNameResult = await base44.integrations.Core.InvokeLLM({
-          prompt: corrNamePrompt,
-          add_context_from_internet: false
-        });
-
-        // Classify sector
-        const sectorPrompt = `Classify this healthcare company into ONE of these specific subsectors:
+      const sectorPrompt = `Classify this healthcare company into ONE of these specific subsectors:
 
 Company: ${target.name}
 Website: ${target.website || 'Not provided'}
@@ -98,52 +84,64 @@ Instructions:
 - If unclear or doesn't fit any specific category, use "HS: General"
 - Return ONLY the subsector code (e.g., "HS: Dental / Orthodontics"), nothing else`;
 
-        const sectorResult = await base44.integrations.Core.InvokeLLM({
-          prompt: sectorPrompt,
-          add_context_from_internet: false
-        });
+      // Run all 3 LLM calls in parallel per target
+      const [shortNameResult, corrNameResult, sectorResult] = await Promise.all([
+        base44.integrations.Core.InvokeLLM({ prompt: shortNamePrompt, add_context_from_internet: false }),
+        base44.integrations.Core.InvokeLLM({ prompt: corrNamePrompt, add_context_from_internet: false }),
+        base44.integrations.Core.InvokeLLM({ prompt: sectorPrompt, add_context_from_internet: false }),
+      ]);
 
-        const enriched = {
-          ...target,
-          companyShortName: shortNameResult.trim(),
-          correspondenceName: corrNameResult.trim(),
-          sectorFocus: sectorResult.trim()
-        };
+      const enriched = {
+        ...target,
+        companyShortName: shortNameResult.trim(),
+        correspondenceName: corrNameResult.trim(),
+        sectorFocus: sectorResult.trim()
+      };
 
-        // If target has an id (from DB), write back directly — avoids frontend round-trip writes
-        if (target.id) {
-          const sleep = (ms) => new Promise(r => setTimeout(r, ms));
-          let delay = 300;
-          for (let attempt = 0; attempt < 4; attempt++) {
-            try {
-              await base44.asServiceRole.entities.BDTarget.update(target.id, {
-                correspondenceName: enriched.correspondenceName,
-                sectorFocus: enriched.sectorFocus,
-              });
-              break;
-            } catch (err) {
-              const is429 = err?.status === 429 || (err?.message || '').includes('429') || (err?.message || '').includes('Rate limit');
-              if (is429 && attempt < 3) {
-                await sleep(delay);
-                delay *= 2;
-              } else {
-                throw err;
-              }
+      // If target has an id (from DB), write back directly
+      if (target.id) {
+        let delay = 300;
+        for (let attempt = 0; attempt < 4; attempt++) {
+          try {
+            await base44.asServiceRole.entities.BDTarget.update(target.id, {
+              correspondenceName: enriched.correspondenceName,
+              sectorFocus: enriched.sectorFocus,
+            });
+            break;
+          } catch (err) {
+            const is429 = err?.status === 429 || (err?.message || '').includes('429') || (err?.message || '').includes('Rate limit');
+            if (is429 && attempt < 3) {
+              await sleep(delay);
+              delay *= 2;
+            } else {
+              throw err;
             }
           }
         }
+      }
 
-        enrichedTargets.push(enriched);
+      return enriched;
+    };
 
-      } catch (error) {
-        console.error(`Error enriching target ${target.name}:`, error);
-        errors.push({ targetName: target.name, error: error.message });
-        enrichedTargets.push({
-          ...target,
-          companyShortName: target.name,
-          correspondenceName: target.name,
-          sectorFocus: "HS: General"
-        });
+    // Process targets in parallel (up to 5 at a time to avoid rate limits)
+    const CONCURRENCY = 5;
+    for (let i = 0; i < targetsToProcess.length; i += CONCURRENCY) {
+      const batch = targetsToProcess.slice(i, i + CONCURRENCY);
+      const results = await Promise.allSettled(batch.map(enrichOne));
+      for (let j = 0; j < results.length; j++) {
+        const result = results[j];
+        const target = batch[j];
+        if (result.status === 'fulfilled') {
+          enrichedTargets.push(result.value);
+        } else {
+          console.error(`Error enriching target ${target.name}:`, result.reason);
+          errors.push({ targetName: target.name, error: result.reason?.message || String(result.reason) });
+          enrichedTargets.push({ ...target, companyShortName: target.name, correspondenceName: target.name, sectorFocus: "HS: General" });
+        }
+      }
+      // Small pause between concurrency groups to stay within rate limits
+      if (i + CONCURRENCY < targetsToProcess.length) {
+        await sleep(200);
       }
     }
 

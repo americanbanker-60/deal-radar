@@ -119,40 +119,24 @@ export default function OpsConsole(){
   };
 
   const onUpload = async (file, kind) => {
-    console.log("📤 Starting upload:", file.name, "kind:", kind);
     dispatch({ type: ActionTypes.SET_LOADING, payload: true });
     dispatch({ type: ActionTypes.SET_UPLOAD_ERROR, payload: null });
 
     try {
-      // First, upload to Base44 CDN
-      console.log("☁️ Uploading to CDN...");
       const uploadResult = await base44.integrations.Core.UploadFile({ file });
       const fileUrl = uploadResult.file_url;
-      console.log("✅ File uploaded:", fileUrl);
 
-      // Determine file type and call appropriate parser
       const ext = file.name.toLowerCase().split(".").pop();
-      console.log("📋 File extension:", ext);
 
       let result;
       try {
         if (ext === "csv") {
-          console.log("🔄 Calling parseCsvFile...");
           result = await base44.functions.invoke('parseCsvFile', { fileUrl });
         } else {
-          console.log("🔄 Calling parseExcelFile...");
           result = await base44.functions.invoke('parseExcelFile', { fileUrl });
         }
 
-        console.log("✅ Function returned:", result);
-
         const data = result.data;
-
-        console.log("📊 Parsed data:", {
-          headers: data.headers?.length,
-          rows: data.rows?.length,
-          diagnostics: data.diagnostics
-        });
 
         if (!data.rows || data.rows.length === 0) {
           throw new Error("No data extracted from file. Please check the file format.");
@@ -921,25 +905,15 @@ Return JSON:
   }, []);
 
   const normalizedGR = useMemo(() => {
-    const normalized = grCompaniesRaw.map((r) => normalizeRow(r));
-    console.log("🔄 Normalized data:", {
-      total: normalized.length,
-      sample: normalized[0]
-    });
-    return normalized;
+    return grCompaniesRaw.map((r) => normalizeRow(r));
   }, [grCompaniesRaw, normalizeRow]);
   
   const filteredGR = useMemo(() => {
-    const filtered = filterTargets(normalizedGR, { regionFilter, minRev, maxRev, ownerPref });
-    console.log("🔄 Filtered data:", {
-      total: filtered.length,
-      filters: { regionFilter, minRev, maxRev, ownerPref }
-    });
-    return filtered;
+    return filterTargets(normalizedGR, { regionFilter, minRev, maxRev, ownerPref });
   }, [normalizedGR, regionFilter, minRev, maxRev, ownerPref]);
   
   const grScored = useMemo(() => {
-    const scored = scoreTargets(filteredGR, { 
+    return scoreTargets(filteredGR, { 
       fitKeywords: vertical,
       weights,
       targetRange: {
@@ -949,12 +923,6 @@ Return JSON:
         maxRevenue: targetMaxRev ? parseFloat(targetMaxRev) : null
       }
     });
-    console.log("🔄 Scored data:", {
-      total: scored.length,
-      fitKeywords: vertical,
-      weights
-    });
-    return scored;
   }, [filteredGR, vertical, weights, targetMinEmp, targetMaxEmp, targetMinRev, targetMaxRev]);
 
   const downloadText = (filename, text) => {
