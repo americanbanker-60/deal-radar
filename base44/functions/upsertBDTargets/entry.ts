@@ -72,50 +72,70 @@ Deno.serve(async (req) => {
       }
     });
 
-    // Process targets in batches to avoid timeouts
-    const BATCH_SIZE = 100;
-    for (let i = 0; i < targets.length; i += BATCH_SIZE) {
-      const batch = targets.slice(i, i + BATCH_SIZE);
-      
-      for (const target of batch) {
+    // Helper: sleep for ms milliseconds
+    const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+    // Helper: write with retry on 429
+    const writeWithRetry = async (fn, maxRetries = 5) => {
+      let delay = 500;
+      for (let attempt = 0; attempt <= maxRetries; attempt++) {
         try {
-          const normalizedDomain = normalizeDomain(target.website);
-          let matchedTarget = null;
-
-          // Try domain matching first (fast)
-          if (normalizedDomain && domainMap.has(normalizedDomain)) {
-            matchedTarget = domainMap.get(normalizedDomain);
-          }
-
-          // Skip fuzzy matching for now to avoid timeouts
-          // Can be added as a separate enrichment step later
-
-          // Update existing or create new
-          if (matchedTarget) {
-            const updates = mergeData(matchedTarget, target);
-            
-            if (Object.keys(updates).length > 0) {
-              await base44.asServiceRole.entities.BDTarget.update(matchedTarget.id, updates);
-              results.updated++;
-              results.updatedIds.push(matchedTarget.id);
-            } else {
-              results.skipped++;
-            }
+          return await fn();
+        } catch (error) {
+          const is429 = error?.status === 429 || error?.message?.includes('429') || error?.message?.includes('Rate limit');
+          if (is429 && attempt < maxRetries) {
+            console.warn(`Rate limited. Retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries})`);
+            await sleep(delay);
+            delay = Math.min(delay * 2, 8000); // exponential backoff, cap at 8s
           } else {
-            const created = await base44.asServiceRole.entities.BDTarget.create({
+            throw error;
+          }
+        }
+      }
+    };
+
+    // Process targets sequentially with a small delay between writes to avoid rate limits
+    const WRITE_DELAY_MS = 50; // 50ms between writes = ~20 writes/sec, well within limits
+
+    for (const target of targets) {
+      try {
+        const normalizedDomain = normalizeDomain(target.website);
+        let matchedTarget = null;
+
+        if (normalizedDomain && domainMap.has(normalizedDomain)) {
+          matchedTarget = domainMap.get(normalizedDomain);
+        }
+
+        if (matchedTarget) {
+          const updates = mergeData(matchedTarget, target);
+          
+          if (Object.keys(updates).length > 0) {
+            await writeWithRetry(() =>
+              base44.asServiceRole.entities.BDTarget.update(matchedTarget.id, updates)
+            );
+            results.updated++;
+            results.updatedIds.push(matchedTarget.id);
+          } else {
+            results.skipped++;
+          }
+        } else {
+          const created = await writeWithRetry(() =>
+            base44.asServiceRole.entities.BDTarget.create({
               ...target,
               campaign: campaign || target.campaign || 'Uncategorized'
-            });
-            results.created++;
-            results.createdIds.push(created.id);
-          }
-
-        } catch (error) {
-          results.errors.push({
-            company: target.name || 'Unknown',
-            error: error.message
-          });
+            })
+          );
+          results.created++;
+          results.createdIds.push(created.id);
         }
+
+        await sleep(WRITE_DELAY_MS);
+
+      } catch (error) {
+        results.errors.push({
+          company: target.name || 'Unknown',
+          error: error.message
+        });
       }
     }
 
