@@ -31,8 +31,8 @@ export default function Layout({ children }) {
   };
 
   const navItems = [
-    { name: "Saved Targets", path: "SavedTargets", icon: Database },
     { name: "Ops Console", path: "OpsConsole", icon: Database },
+    { name: "Saved Targets", path: "SavedTargets", icon: Database },
   ];
 
   // Add admin-only items
