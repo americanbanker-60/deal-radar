@@ -564,8 +564,8 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
     setEnrichAllProgress({ step: "Starting...", current: 0, total: pendingList.length });
     
     try {
-      // Chunk into groups of 5 for controlled processing
-      const chunks = _.chunk(pendingList, 5);
+      // Chunk into groups of 20 for controlled processing
+      const chunks = _.chunk(pendingList, 20);
       let completed = 0;
       let successCount = 0;
       const errors = [];
@@ -581,7 +581,8 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
 
         try {
           const result = await base44.functions.invoke('bulkEnrichTargets', {
-            targetIds: chunk.map(t => t.id)
+            targetIds: chunk.map(t => t.id),
+            targets: chunk  // pass full targets so backend can write directly to DB
           });
 
           successCount += result.data.processed;

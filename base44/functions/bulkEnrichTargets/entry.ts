@@ -1,5 +1,4 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
-import { checkRateLimit, rateLimitResponse } from '../../shared/rate-limiter.ts';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
 
 Deno.serve(async (req) => {
   try {
@@ -10,23 +9,25 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Rate limit: 10 bulk enrich requests per minute
-    const rateCheck = checkRateLimit(user.email, { maxRequests: 10, keyPrefix: 'bulk-enrich' });
-    if (!rateCheck.allowed) {
-      return rateLimitResponse(rateCheck.retryAfterMs);
+    const { targets, targetIds } = await req.json();
+
+    // Support passing targetIds to fetch from DB directly
+    let targetsToProcess = targets;
+    if (!targetsToProcess && targetIds && Array.isArray(targetIds)) {
+      targetsToProcess = await Promise.all(
+        targetIds.map(id => base44.asServiceRole.entities.BDTarget.get(id))
+      );
     }
 
-    const { targets } = await req.json();
-
-    if (!targets || !Array.isArray(targets)) {
+    if (!targetsToProcess || !Array.isArray(targetsToProcess)) {
       return Response.json({ error: 'Invalid input: targets must be an array' }, { status: 400 });
     }
 
     const enrichedTargets = [];
     const errors = [];
 
-    for (let i = 0; i < targets.length; i++) {
-      const target = targets[i];
+    for (let i = 0; i < targetsToProcess.length; i++) {
+      const target = targetsToProcess[i];
       
       try {
         // Generate short names
@@ -102,21 +103,41 @@ Instructions:
           add_context_from_internet: false
         });
 
-        enrichedTargets.push({
+        const enriched = {
           ...target,
           companyShortName: shortNameResult.trim(),
           correspondenceName: corrNameResult.trim(),
           sectorFocus: sectorResult.trim()
-        });
+        };
+
+        // If target has an id (from DB), write back directly — avoids frontend round-trip writes
+        if (target.id) {
+          const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+          let delay = 300;
+          for (let attempt = 0; attempt < 4; attempt++) {
+            try {
+              await base44.asServiceRole.entities.BDTarget.update(target.id, {
+                correspondenceName: enriched.correspondenceName,
+                sectorFocus: enriched.sectorFocus,
+              });
+              break;
+            } catch (err) {
+              const is429 = err?.status === 429 || (err?.message || '').includes('429') || (err?.message || '').includes('Rate limit');
+              if (is429 && attempt < 3) {
+                await sleep(delay);
+                delay *= 2;
+              } else {
+                throw err;
+              }
+            }
+          }
+        }
+
+        enrichedTargets.push(enriched);
 
       } catch (error) {
         console.error(`Error enriching target ${target.name}:`, error);
-        errors.push({
-          targetName: target.name,
-          error: error.message
-        });
-        
-        // Add target with original values if enrichment fails
+        errors.push({ targetName: target.name, error: error.message });
         enrichedTargets.push({
           ...target,
           companyShortName: target.name,
@@ -128,6 +149,7 @@ Instructions:
 
     return Response.json({
       success: true,
+      processed: enrichedTargets.length,
       enrichedTargets,
       errors: errors.length > 0 ? errors : null
     });
