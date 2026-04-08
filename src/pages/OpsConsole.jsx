@@ -15,6 +15,7 @@ import { Link } from "react-router-dom";
 import { createPageUrl } from "../utils";
 
 import SchemaMapper from "../components/ops/SchemaMapper";
+import ColumnMapper, { applyMapping } from "../components/ops/ColumnMapper";
 import ScoringWeights from "../components/ops/ScoringWeights";
 import HowToUse from "../components/ops/HowToUse";
 import DataPipelineDebug from "../components/ops/DataPipelineDebug";
@@ -28,7 +29,7 @@ export default function OpsConsole(){
 
   const {
     // Upload
-    loading, uploadError, successMessage, grCompaniesRaw, grHeaders,
+    loading, uploadError, successMessage, grCompaniesRaw, grHeaders, pendingUpload, showColumnMapper,
     // Crawl
     crawling, crawlProgress,
     // Enrich
@@ -118,7 +119,7 @@ export default function OpsConsole(){
     setTimeout(() => dispatch({ type: ActionTypes.SET_SUCCESS_MESSAGE, payload: null }), 5000);
   };
 
-  const onUpload = async (file, kind) => {
+  const onUpload = async (file) => {
     dispatch({ type: ActionTypes.SET_LOADING, payload: true });
     dispatch({ type: ActionTypes.SET_UPLOAD_ERROR, payload: null });
 
@@ -129,51 +130,58 @@ export default function OpsConsole(){
       const ext = file.name.toLowerCase().split(".").pop();
 
       let result;
-      try {
-        if (ext === "csv") {
-          result = await base44.functions.invoke('parseCsvFile', { fileUrl });
-        } else {
-          result = await base44.functions.invoke('parseExcelFile', { fileUrl });
-        }
-
-        const data = result.data;
-
-        if (!data.rows || data.rows.length === 0) {
-          throw new Error("No data extracted from file. Please check the file format.");
-        }
-
-        if (kind === "gr-companies") {
-          console.log("✅ Setting Grata companies:", data.rows.length);
-
-          // Validate schema by checking first row
-          const firstRow = data.rows[0];
-          const hasNewSchema = firstRow["Company Name"] !== undefined;
-          const hasOldSchema = firstRow.Name !== undefined || firstRow["Revenue Estimate"] !== undefined;
-
-          if (!hasNewSchema && !hasOldSchema) {
-            throw new Error("Unrecognized file schema. Expected columns: 'Company Name' or 'Name'");
-          }
-
-          // Store file URL in raw data for audit trail
-          const rowsWithSource = data.rows.map(r => ({ ...r, _sourceFileUrl: fileUrl }));
-          dispatch({ type: ActionTypes.SET_GR_COMPANIES_RAW, payload: rowsWithSource });
-          dispatch({ type: ActionTypes.SET_GR_HEADERS, payload: data.headers || Object.keys(data.rows[0]) });
-
-          const schemaType = hasNewSchema ? "new export schema" : "Grata schema";
-          showSuccess(`✓ Uploaded ${data.rows.length} companies (${schemaType})`);
-        }
-      } catch (parseError) {
-        console.error("❌ Parse/mapping error:", parseError);
-        throw new Error(`Failed to process file: ${parseError.message || 'Invalid format or large file timeout'}`);
+      if (ext === "csv") {
+        result = await base44.functions.invoke('parseCsvFile', { fileUrl });
+      } else {
+        result = await base44.functions.invoke('parseExcelFile', { fileUrl });
       }
 
+      const data = result.data;
+
+      if (!data.rows || data.rows.length === 0) {
+        throw new Error("No data extracted from file. Please check the file format.");
+      }
+
+      const headers = data.headers || Object.keys(data.rows[0]);
+      const rowsWithSource = data.rows.map(r => ({ ...r, _sourceFileUrl: fileUrl }));
+
+      // Store parsed data and show the column mapper
+      dispatch({ type: ActionTypes.SET_PENDING_UPLOAD, payload: { rows: rowsWithSource, headers } });
+      dispatch({ type: ActionTypes.SET_SHOW_COLUMN_MAPPER, payload: true });
       dispatch({ type: ActionTypes.SET_LOADING, payload: false });
+
+      showSuccess(`✓ Parsed ${data.rows.length} rows with ${headers.length} columns. Map your columns below.`);
     } catch (error) {
       console.error("❌ Upload error:", error);
-      dispatch({ type: ActionTypes.SET_UPLOAD_ERROR, payload: error.message || "File processing failed. Please try a smaller file or check the format." });
+      dispatch({ type: ActionTypes.SET_UPLOAD_ERROR, payload: error.message || "File processing failed." });
       dispatch({ type: ActionTypes.SET_LOADING, payload: false });
     }
   };
+
+  const confirmColumnMapping = useCallback((mapping) => {
+    if (!pendingUpload) return;
+
+    const { rows } = pendingUpload;
+
+    // Apply the user's column mapping to each row
+    const mappedRows = rows.map(row => {
+      const mapped = applyMapping(row, mapping);
+      // Carry over internal enrichment fields
+      return { ...row, _mapped: mapped };
+    });
+
+    dispatch({ type: ActionTypes.SET_GR_COMPANIES_RAW, payload: mappedRows });
+    dispatch({ type: ActionTypes.SET_GR_HEADERS, payload: Object.keys(mapping) });
+    dispatch({ type: ActionTypes.SET_SHOW_COLUMN_MAPPER, payload: false });
+    dispatch({ type: ActionTypes.SET_PENDING_UPLOAD, payload: null });
+
+    showSuccess(`✓ Imported ${mappedRows.length} companies with ${Object.keys(mapping).length} mapped fields`);
+  }, [pendingUpload]);
+
+  const cancelColumnMapping = useCallback(() => {
+    dispatch({ type: ActionTypes.SET_SHOW_COLUMN_MAPPER, payload: false });
+    dispatch({ type: ActionTypes.SET_PENDING_UPLOAD, payload: null });
+  }, []);
 
   const crawlWebsites = async () => {
     if (normalizedGR.length === 0) {
@@ -778,6 +786,56 @@ Return JSON:
   
   const normalizeRow = useCallback((row) => {
     try {
+      // If column mapper was used, use the pre-mapped data
+      if (row._mapped) {
+        const m = row._mapped;
+        const cleanedName = cleanCompanyNameRegex(m.name);
+        const ns = m.state ? normalizeState(m.state) : "";
+        let revenue = midpointFromRange(m.revenue);
+        if (revenue && revenue > 1_000_000) revenue = Math.round(revenue / 1_000_000);
+        else if (revenue === undefined) {
+          const n = toNumber(m.revenue);
+          revenue = isNaN(Number(n)) ? undefined : (Number(n) > 10000 ? Math.round(Number(n) / 1_000_000) : Number(n));
+        }
+        let employees = midpointFromRange(m.employees);
+        if (employees === undefined) employees = toNumber(m.employees);
+        employees = employees ? Math.round(employees) : undefined;
+
+        return {
+          name: cleanedName,
+          url: m.website || "",
+          website: m.website || "",
+          linkedin: m.linkedin || "",
+          city: m.city || "",
+          state: ns,
+          hq: (m.city || "") + (ns ? ", " + ns : ""),
+          industry: m.industry || "Healthcare Services",
+          subsector: "",
+          revenue,
+          employees,
+          ownership: m.ownership || "Unknown",
+          notes: m.notes || "",
+          websiteStatus: row._websiteStatus,
+          clinicCount: row._clinicCount,
+          lastActive: row._lastActive,
+          dormancyFlag: row._dormancyFlag,
+          crawlRationale: row._crawlRationale || "",
+          companyShortName: row._companyShortName || "",
+          correspondenceName: row._correspondenceName || "",
+          sectorFocus: row._sectorFocus || "",
+          sectorRationale: row._sectorRationale || "",
+          personalization_snippet: row._personalization_snippet || "",
+          growthSignals: (row._growthSignals || []).join(", "),
+          contact: {
+            email: m.contact?.email || "",
+            firstName: m.contact?.firstName || "",
+            lastName: m.contact?.lastName || "",
+            title: m.contact?.title || "",
+            phone: m.contact?.phone || "",
+          }
+        };
+      }
+
       // Check for new export schema (Company Name, Domain, Correspondence_Name, etc.)
       const isNewSchema = row["Company Name"] !== undefined;
       
@@ -1346,21 +1404,30 @@ Return JSON:
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3 pt-4">
-                <Input 
-                  type="file" 
-                  accept=".csv,.xlsx,.xls" 
-                  onChange={(e) => e.target.files && onUpload(e.target.files[0], "gr-companies")}
+                <Input
+                  type="file"
+                  accept=".csv,.xlsx,.xls"
+                  onChange={(e) => e.target.files && onUpload(e.target.files[0])}
                   className="cursor-pointer"
                 />
                 <div className="text-xs text-muted-foreground flex items-start gap-2">
                   <CircleAlert className="w-3 h-3 mt-0.5 flex-shrink-0" />
-                  Schema Mapper in Settings handles ranges → midpoint.
+                  After upload, you'll map your columns before importing.
                 </div>
               </CardContent>
             </Card>
             
             <WorkflowSummary />
           </div>
+
+          {showColumnMapper && pendingUpload && (
+            <ColumnMapper
+              headers={pendingUpload.headers}
+              sampleRows={pendingUpload.rows.slice(0, 3)}
+              onConfirm={confirmColumnMapping}
+              onCancel={cancelColumnMapping}
+            />
+          )}
 
           {grCompaniesRaw.length > 0 && (
             <div className="grid md:grid-cols-2 gap-4">

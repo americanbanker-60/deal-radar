@@ -209,23 +209,32 @@ const TargetRow = React.memo(({
         <div className="flex items-center gap-1">
           {target.contactEmail ? (
             <div className="text-xs">
-              <div className="font-medium">
+              <div className="font-medium flex items-center gap-1">
+                <CheckCircle2 className="w-3 h-3 text-green-500 flex-shrink-0" />
                 {target.contactPreferredName || target.contactFirstName} {target.contactLastName}
               </div>
               <div className="text-slate-500 truncate">{target.contactEmail}</div>
             </div>
           ) : (
-            <span className="text-xs text-muted-foreground">—</span>
+            <button
+              className="flex items-center gap-1 text-xs text-amber-600 hover:text-amber-800 transition-colors"
+              onClick={(e) => { e.stopPropagation(); setShowAddContact(true); }}
+            >
+              <UserPlus className="w-3.5 h-3.5" />
+              <span className="font-medium">Add contact</span>
+            </button>
           )}
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
-            onClick={(e) => { e.stopPropagation(); setShowAddContact(true); }}
-            title="Add Contact"
-          >
-            <UserPlus className="w-3 h-3 text-blue-600" />
-          </Button>
+          {target.contactEmail && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
+              onClick={(e) => { e.stopPropagation(); setShowAddContact(true); }}
+              title="Edit Contact"
+            >
+              <UserPlus className="w-3 h-3 text-blue-600" />
+            </Button>
+          )}
         </div>
       </td>
       <td className="py-3 px-4">

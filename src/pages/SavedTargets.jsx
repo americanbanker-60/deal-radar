@@ -990,8 +990,9 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
                     (correspondenceFilter === "missing" && (!t.correspondenceName || t.correspondenceName.trim() === '')) ||
                     (correspondenceFilter === "has" && t.correspondenceName && t.correspondenceName.trim() !== '');
       const contactEnrichMatch = contactEnrichFilter === "all" ||
-                    (contactEnrichFilter === "missing" && !t.contactPreferredName) ||
-                    (contactEnrichFilter === "has" && t.contactPreferredName);
+                    (contactEnrichFilter === "missing" && !t.contactEmail) ||
+                    (contactEnrichFilter === "has" && t.contactEmail) ||
+                    (contactEnrichFilter === "enriched" && t.contactPreferredName);
       const growthMatch = growthSignalsFilter === "all" ||
                     (growthSignalsFilter === "missing" && (!t.growthSignals || t.growthSignals.trim() === '')) ||
                     (growthSignalsFilter === "has" && t.growthSignals && t.growthSignals.trim() !== '');
@@ -1447,15 +1448,16 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
               </div>
 
               <div className="space-y-2">
-                <div className="text-sm font-medium">Contact Enrichment</div>
+                <div className="text-sm font-medium">Contact Info</div>
                 <Select value={contactEnrichFilter} onValueChange={setContactEnrichFilter}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All</SelectItem>
-                    <SelectItem value="missing">Not Enriched</SelectItem>
-                    <SelectItem value="has">Enriched</SelectItem>
+                    <SelectItem value="missing">Missing Email</SelectItem>
+                    <SelectItem value="has">Has Email</SelectItem>
+                    <SelectItem value="enriched">Fully Enriched</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
