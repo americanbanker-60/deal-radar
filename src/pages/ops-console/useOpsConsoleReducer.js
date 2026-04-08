@@ -6,6 +6,8 @@ export const ActionTypes = {
   SET_SUCCESS_MESSAGE: "SET_SUCCESS_MESSAGE",
   SET_GR_COMPANIES_RAW: "SET_GR_COMPANIES_RAW",
   SET_GR_HEADERS: "SET_GR_HEADERS",
+  SET_PENDING_UPLOAD: "SET_PENDING_UPLOAD",
+  SET_SHOW_COLUMN_MAPPER: "SET_SHOW_COLUMN_MAPPER",
 
   // Crawl
   SET_CRAWLING: "SET_CRAWLING",
@@ -107,6 +109,8 @@ export const initialState = {
   successMessage: null,
   grCompaniesRaw: [],
   grHeaders: [],
+  pendingUpload: null, // { rows, headers } — set after parse, before mapping confirmation
+  showColumnMapper: false,
 
   // Crawl
   crawling: false,
@@ -190,6 +194,10 @@ export function reducer(state, action) {
       return { ...state, grCompaniesRaw: action.payload };
     case ActionTypes.SET_GR_HEADERS:
       return { ...state, grHeaders: action.payload };
+    case ActionTypes.SET_PENDING_UPLOAD:
+      return { ...state, pendingUpload: action.payload };
+    case ActionTypes.SET_SHOW_COLUMN_MAPPER:
+      return { ...state, showColumnMapper: action.payload };
 
     // Crawl
     case ActionTypes.SET_CRAWLING:
