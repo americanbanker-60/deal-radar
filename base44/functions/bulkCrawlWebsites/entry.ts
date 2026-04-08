@@ -1,5 +1,4 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
-import { checkRateLimit, rateLimitResponse } from '../../shared/rate-limiter.ts';
 
 Deno.serve(async (req) => {
   try {
@@ -8,12 +7,6 @@ Deno.serve(async (req) => {
 
     if (!user) {
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // Rate limit: 5 bulk crawl requests per minute
-    const rateCheck = checkRateLimit(user.email, { maxRequests: 5, keyPrefix: 'bulk-crawl' });
-    if (!rateCheck.allowed) {
-      return rateLimitResponse(rateCheck.retryAfterMs);
     }
 
     const { companies } = await req.json();
