@@ -127,20 +127,31 @@ Deno.serve(async (req) => {
         if (customFields?.customSource) {
           prospectData.data.attributes.custom1 = customFields.customSource;
         }
-        
-        // Map score to custom2
-        if (prospect.score !== undefined && prospect.score !== null) {
-          prospectData.data.attributes.custom2 = String(prospect.score);
+
+        // Map score + sector to custom2
+        const scoreAndSector = [
+          prospect.score !== undefined && prospect.score !== null ? `Score: ${prospect.score}` : null,
+          prospect.sectorFocus ? `Sector: ${prospect.sectorFocus}` : null,
+        ].filter(Boolean).join(' | ');
+        if (scoreAndSector) {
+          prospectData.data.attributes.custom2 = scoreAndSector;
         }
-        
+
         // Generate and map Sales Context to custom3
-        if (prospect.notes || prospect.crawlRationale) {
+        // Include all enrichment data for richer context
+        if (prospect.notes || prospect.crawlRationale || prospect.strategicRationale || prospect.growthSignals) {
           try {
             const contextPrompt = `Summarize the following information about a healthcare company into a concise 2-3 sentence "Sales Context" for outreach:
 
 Company: ${prospect.company || 'Unknown'}
+Sector: ${prospect.sectorFocus || 'N/A'}
+Revenue: ${prospect.revenue ? `$${prospect.revenue}M` : 'N/A'}
+Employees: ${prospect.employees || 'N/A'}
+Clinics: ${prospect.clinicCount || 'N/A'}
+Strategic Rationale: ${prospect.strategicRationale || 'N/A'}
+Growth Signals: ${prospect.growthSignals || 'N/A'}
 Notes: ${prospect.notes || 'N/A'}
-Research Rationale: ${prospect.crawlRationale || 'N/A'}
+Research: ${prospect.crawlRationale || 'N/A'}
 
 Write a brief, actionable summary highlighting key business insights that would help a sales rep personalize their outreach. Focus on what makes this target interesting.`;
 

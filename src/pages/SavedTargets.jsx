@@ -544,15 +544,14 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
 
   const enrichAllSelected = async () => {
     const selectedList = filteredTargets.filter(t => selectedTargets.has(t.id));
-    
-    // Pre-filter for truly pending records (missing any enrichment)
+
+    // Pre-filter for records missing any enrichment field
     const pendingList = selectedList.filter(t => {
-      return !t.correspondenceName || !t.qualityTier || 
-             (!t.contactPreferredName && t.contactFirstName) ||
-             !t.personalization_snippet || !t.growthSignals || 
+      return !t.correspondenceName || !t.qualityTier ||
+             !t.personalization_snippet ||
              !t.strategicRationale || !t.state || !t.revenue || !t.employees;
     });
-    
+
     if (pendingList.length === 0) {
       alert("All selected targets are fully enriched");
       return;
@@ -561,63 +560,65 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
     const skippedCount = selectedList.length - pendingList.length;
 
     setEnrichingAll(true);
-    setEnrichAllProgress({ step: "Starting...", current: 0, total: pendingList.length });
-    
+    setEnrichAllProgress({ step: "Starting full enrichment pipeline...", current: 0, total: pendingList.length });
+
     try {
-      // Chunk into groups of 20 for controlled processing
-      const chunks = _.chunk(pendingList, 20);
+      // Process in small batches (3 targets at a time) to avoid timeouts
+      // Each target runs the full 7-step pipeline on the backend
+      const BATCH_SIZE = 3;
       let completed = 0;
       let successCount = 0;
       const errors = [];
 
-      // Process each chunk sequentially
-      for (let i = 0; i < chunks.length; i++) {
-        const chunk = chunks[i];
-        setEnrichAllProgress({ 
-          step: `Processing chunk ${i + 1} of ${chunks.length}...`, 
-          current: completed, 
-          total: pendingList.length 
+      for (let i = 0; i < pendingList.length; i += BATCH_SIZE) {
+        const batch = pendingList.slice(i, i + BATCH_SIZE);
+        const batchNum = Math.floor(i / BATCH_SIZE) + 1;
+        const totalBatches = Math.ceil(pendingList.length / BATCH_SIZE);
+
+        setEnrichAllProgress({
+          step: `Batch ${batchNum}/${totalBatches}: enriching ${batch.map(t => t.name).join(', ').substring(0, 60)}...`,
+          current: completed,
+          total: pendingList.length
         });
 
         try {
           const result = await base44.functions.invoke('bulkEnrichTargets', {
-            targetIds: chunk.map(t => t.id),
-            targets: chunk  // pass full targets so backend can write directly to DB
+            targetIds: batch.map(t => t.id),
           });
 
-          successCount += result.data.processed;
+          successCount += result.data.processed || 0;
           if (result.data.errors && result.data.errors.length > 0) {
             errors.push(...result.data.errors);
           }
         } catch (error) {
-          console.error(`Chunk ${i + 1} error:`, error);
-          chunk.forEach(t => {
+          console.error(`Batch ${batchNum} error:`, error);
+          batch.forEach(t => {
             errors.push({ targetId: t.id, error: error.message });
           });
         }
 
-        completed += chunk.length;
-        setEnrichAllProgress({ 
-          step: `Processed ${completed} of ${pendingList.length}...`, 
-          current: completed, 
-          total: pendingList.length 
+        completed += batch.length;
+        setEnrichAllProgress({
+          step: `${completed} of ${pendingList.length} complete`,
+          current: completed,
+          total: pendingList.length
         });
 
-        // Refresh data after each chunk
+        // Refresh data after each batch so UI updates progressively
         await queryClient.invalidateQueries({ queryKey: ['bdTargets'] });
 
-        // Small delay between chunks to avoid rate limits
-        if (i < chunks.length - 1) {
+        // Pause between batches
+        if (i + BATCH_SIZE < pendingList.length) {
           await new Promise(resolve => setTimeout(resolve, 1000));
         }
       }
 
       const message = [
-        `✓ ${successCount} enriched`,
-        skippedCount > 0 && `⊝ ${skippedCount} skipped (already enriched)`,
+        `✓ ${successCount} fully enriched (names, sector, data, quality, rationale, personalization)`,
+        skippedCount > 0 && `⊝ ${skippedCount} skipped (already complete)`,
         errors.length > 0 && `✗ ${errors.length} failed`
       ].filter(Boolean).join('\n');
-      
+
       alert(`Enrichment complete!\n${message}`);
     } catch (error) {
       console.error("Enrichment error:", error);
@@ -873,6 +874,11 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
           notes: t.notes,
           crawlRationale: t.crawlRationale,
           sectorFocus: t.sectorFocus,
+          revenue: t.revenue,
+          employees: t.employees,
+          clinicCount: t.clinicCount,
+          strategicRationale: t.strategicRationale,
+          growthSignals: t.growthSignals,
           _targetId: t.id,
         }));
 
