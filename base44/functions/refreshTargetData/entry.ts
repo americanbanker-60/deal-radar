@@ -1,5 +1,4 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
-import { checkRateLimit, rateLimitResponse } from '../../shared/rate-limiter.ts';
 
 Deno.serve(async (req) => {
   try {
@@ -8,12 +7,6 @@ Deno.serve(async (req) => {
 
     if (!user || user.role !== 'admin') {
       return Response.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
-    }
-
-    // Rate limit: 3 refresh requests per minute for admin
-    const rateCheck = checkRateLimit(user.email, { maxRequests: 3, keyPrefix: 'refresh-data' });
-    if (!rateCheck.allowed) {
-      return rateLimitResponse(rateCheck.retryAfterMs);
     }
 
     const { targetIds, daysOld = 30, batchSize = 10 } = await req.json();

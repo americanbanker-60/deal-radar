@@ -1,5 +1,4 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
-import { checkRateLimit, rateLimitResponse } from '../../shared/rate-limiter.ts';
 
 /**
  * Full enrichment pipeline for BD targets.
@@ -216,11 +215,6 @@ Deno.serve(async (req) => {
     const user = await base44.auth.me();
     if (!user) {
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const rateCheck = checkRateLimit(user.email, { maxRequests: 10, keyPrefix: 'bulk-enrich' });
-    if (!rateCheck.allowed) {
-      return rateLimitResponse(rateCheck.retryAfterMs);
     }
 
     const { targetIds, steps } = await req.json();
