@@ -59,11 +59,20 @@ export default function OAuthCallback() {
       try {
         // Complete auth directly from this window since window.opener might be null
         addLog("🔄 Calling backend to complete auth...");
-        
-        const result = await base44.functions.invoke('outreachCompleteAuth', { code });
-        
+
+        let result;
+        try {
+          result = await base44.functions.invoke('outreachCompleteAuth', { code });
+        } catch (invokeErr) {
+          // Try to extract detailed error from response
+          const detail = invokeErr.response?.data?.error || invokeErr.response?.data?.hint || invokeErr.message;
+          const step = invokeErr.response?.data?.step || 'unknown';
+          addLog("❌ Backend error (step: " + step + "): " + detail);
+          throw new Error(detail);
+        }
+
         addLog("✅ Backend response: " + JSON.stringify(result.data));
-        
+
         if (result.data.success) {
           addLog("🎉 Successfully connected to Outreach!");
           setStatus("success");
