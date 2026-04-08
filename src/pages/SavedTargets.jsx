@@ -1256,6 +1256,77 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
         />
       </div>
 
+      <Card className="shadow-sm border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Send className="w-5 h-5 text-blue-600" />
+            Push to Outreach.io
+            {selectedTargets.size > 0 && (
+              <Badge className="bg-blue-100 text-blue-700 border-blue-200 ml-2">
+                {selectedTargets.size} selected
+              </Badge>
+            )}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4 pt-0">
+          {selectedTargets.size === 0 ? (
+            <p className="text-sm text-slate-500">Select targets below, then push them to Outreach here.</p>
+          ) : (
+            <>
+              <div className="flex gap-2">
+                {(() => {
+                  const selectedList = filteredTargets.filter(t => selectedTargets.has(t.id));
+                  const withEmail = selectedList.filter(t => t.contactEmail);
+                  const withoutEmail = selectedList.length - withEmail.length;
+                  const alreadySynced = selectedList.every(t => !!t.last_synced_at);
+                  const someSynced = selectedList.some(t => !!t.last_synced_at);
+                  return (
+                    <div className="flex-1 space-y-2">
+                      <div className="flex items-center gap-3 text-sm text-slate-600">
+                        <span>{withEmail.length} with email</span>
+                        {withoutEmail > 0 && (
+                          <span className="text-amber-600">{withoutEmail} missing email (will be skipped)</span>
+                        )}
+                      </div>
+                      <Button
+                        onClick={handlePushToOutreach}
+                        disabled={pushingToOutreach || withEmail.length === 0}
+                        className={`w-full ${alreadySynced ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-indigo-600 hover:bg-indigo-700'}`}
+                      >
+                        {pushingToOutreach ? (
+                          <>
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            Syncing to Outreach...
+                          </>
+                        ) : alreadySynced ? (
+                          <>
+                            <RefreshCw className="w-4 h-4 mr-2" />
+                            Re-sync {withEmail.length} to Outreach
+                          </>
+                        ) : (
+                          <>
+                            <Send className="w-4 h-4 mr-2" />
+                            Push {withEmail.length} to Outreach{someSynced ? ' (some new)' : ''}
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  );
+                })()}
+              </div>
+              <div className="border-t pt-4">
+                <OutreachIntegration
+                  prospects={filteredTargets.filter(t => selectedTargets.has(t.id) && t.contactEmail)}
+                  onSyncComplete={(result) => {
+                    console.log("Sync complete:", result);
+                  }}
+                />
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
+
       <Card className="shadow-sm border-slate-200">
         <Collapsible defaultOpen={true}>
           <CardHeader className="pb-3">
@@ -1561,81 +1632,6 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
           </CardContent>
         </Card>
       )}
-
-      <Card className="shadow-sm border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Send className="w-5 h-5 text-blue-600" />
-            Push to Outreach.io
-            {selectedTargets.size > 0 && (
-              <Badge className="bg-blue-100 text-blue-700 border-blue-200 ml-2">
-                {selectedTargets.size} selected
-              </Badge>
-            )}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {selectedTargets.size === 0 ? (
-            <div className="text-center py-6 text-slate-500">
-              <Send className="w-8 h-8 mx-auto mb-3 text-slate-300" />
-              <p className="font-medium">Select enriched targets to push to Outreach</p>
-              <p className="text-sm mt-1">Use the checkboxes in the table above, then come back here to sync</p>
-            </div>
-          ) : (
-            <>
-              <div className="flex gap-2">
-                {(() => {
-                  const selectedList = filteredTargets.filter(t => selectedTargets.has(t.id));
-                  const withEmail = selectedList.filter(t => t.contactEmail);
-                  const withoutEmail = selectedList.length - withEmail.length;
-                  const alreadySynced = selectedList.every(t => !!t.last_synced_at);
-                  const someSynced = selectedList.some(t => !!t.last_synced_at);
-                  return (
-                    <div className="flex-1 space-y-2">
-                      <div className="flex items-center gap-3 text-sm text-slate-600">
-                        <span>{withEmail.length} with email</span>
-                        {withoutEmail > 0 && (
-                          <span className="text-amber-600">{withoutEmail} missing email (will be skipped)</span>
-                        )}
-                      </div>
-                      <Button
-                        onClick={handlePushToOutreach}
-                        disabled={pushingToOutreach || withEmail.length === 0}
-                        className={`w-full ${alreadySynced ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-indigo-600 hover:bg-indigo-700'}`}
-                      >
-                        {pushingToOutreach ? (
-                          <>
-                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                            Syncing to Outreach...
-                          </>
-                        ) : alreadySynced ? (
-                          <>
-                            <RefreshCw className="w-4 h-4 mr-2" />
-                            Re-sync {withEmail.length} to Outreach
-                          </>
-                        ) : (
-                          <>
-                            <Send className="w-4 h-4 mr-2" />
-                            Push {withEmail.length} to Outreach{someSynced ? ' (some new)' : ''}
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                  );
-                })()}
-              </div>
-              <div className="border-t pt-4">
-                <OutreachIntegration
-                  prospects={filteredTargets.filter(t => selectedTargets.has(t.id) && t.contactEmail)}
-                  onSyncComplete={(result) => {
-                    console.log("Sync complete:", result);
-                  }}
-                />
-              </div>
-            </>
-          )}
-        </CardContent>
-      </Card>
 
       <TargetDrawer
         target={drawerTarget}
