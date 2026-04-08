@@ -66,30 +66,35 @@ Deno.serve(async (req) => {
         status: 'connected',
       };
 
-      // Try to find existing connection
+      // Try to find existing connection using user's own auth context
       let existingConnections = [];
       try {
-        existingConnections = await base44.asServiceRole.entities.OutreachConnection.filter({
+        existingConnections = await base44.entities.OutreachConnection.filter({
           user_email: user.email,
         });
-      } catch (filterErr) {
-        // Entity might not exist yet — that's OK, we'll create
-        console.log('OutreachConnection filter failed (entity may not exist):', filterErr.message);
+      } catch {
+        // filter might not be supported — try list instead
+        try {
+          const all = await base44.entities.OutreachConnection.list();
+          existingConnections = all.filter(c => c.user_email === user.email);
+        } catch (listErr) {
+          console.log('OutreachConnection list failed:', listErr.message);
+        }
       }
 
       if (existingConnections && existingConnections.length > 0) {
-        await base44.asServiceRole.entities.OutreachConnection.update(
+        await base44.entities.OutreachConnection.update(
           existingConnections[0].id,
           connectionData
         );
       } else {
-        await base44.asServiceRole.entities.OutreachConnection.create(connectionData);
+        await base44.entities.OutreachConnection.create(connectionData);
       }
     } catch (dbErr) {
       return Response.json({
         error: 'Token exchange succeeded but failed to save connection: ' + dbErr.message,
         step: 'save_connection',
-        hint: 'The OutreachConnection entity may not exist in your Base44 data schema. Create it with fields: user_email, access_token, refresh_token, expires_at, status',
+        hint: 'Check OutreachConnection entity permissions in Base44',
       }, { status: 500 });
     }
 
