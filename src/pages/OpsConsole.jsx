@@ -1342,13 +1342,13 @@ Return JSON:
               <CardHeader className="bg-gradient-to-r from-emerald-50 to-transparent">
                 <CardTitle className="flex items-center gap-2">
                   <Upload className="w-5 h-5 text-emerald-600"/>
-                  Upload Grata Companies (.csv)
+                  Upload Companies (.csv or .xlsx)
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3 pt-4">
                 <Input 
                   type="file" 
-                  accept=".csv" 
+                  accept=".csv,.xlsx,.xls" 
                   onChange={(e) => e.target.files && onUpload(e.target.files[0], "gr-companies")}
                   className="cursor-pointer"
                 />
