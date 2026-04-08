@@ -1173,9 +1173,9 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
           <div className="flex-1 min-w-0">
             <h1 className="text-xl sm:text-2xl font-bold text-slate-900">Saved BD Targets</h1>
             <p className="text-xs sm:text-sm text-slate-600 mt-1">
-              {targets.length.toLocaleString()} companies across {campaigns.length} campaign{campaigns.length !== 1 ? 's' : ''}
+              {targets.length.toLocaleString()} targets in database across {campaigns.length} campaign{campaigns.length !== 1 ? 's' : ''}
               {targets.length >= 50000 && (
-                <span className="text-amber-600 ml-2">• Results may be truncated — showing first 50,000</span>
+                <span className="text-amber-600 ml-2">• Showing first 50,000 — there may be more</span>
               )}
               {targets.some(t => !t.campaign) && (
                 <span className="text-amber-600 ml-2">• {targets.filter(t => !t.campaign).length} missing campaign name</span>
@@ -1263,7 +1263,7 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
               <CardTitle className="flex items-center gap-2 hover:text-slate-700 transition-colors">
                 <Filter className="w-5 h-5" />
                 Filters
-                <Badge variant="outline" className="ml-auto">{filteredTargets.length} results</Badge>
+                <Badge variant="outline" className="ml-auto">{filteredTargets.length.toLocaleString()} of {targets.length.toLocaleString()} shown</Badge>
               </CardTitle>
             </CollapsibleTrigger>
           </CardHeader>
@@ -1468,7 +1468,7 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
               <CardTitle>Saved Companies</CardTitle>
               <div className="flex items-center gap-3">
                 <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">
-                  {filteredTargets.length} results
+                  {filteredTargets.length.toLocaleString()} of {targets.length.toLocaleString()} shown
                 </Badge>
                 {totalPages > 1 && (
                   <div className="flex items-center gap-2">
