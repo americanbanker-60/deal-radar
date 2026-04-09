@@ -76,15 +76,20 @@ export default function OAuthCallback() {
         if (result.data.success) {
           addLog("🎉 Successfully connected to Outreach!");
           setStatus("success");
-          setMessage("✅ Authorization successful! Redirecting...");
-          
+          setMessage("✅ Authorization successful! This window will close automatically.");
+
           // Send success message through multiple channels
           sendToParent({ type: "outreach-oauth-success", code });
-          
-          // Redirect back to main app after short delay
+
+          // Close popup after short delay, or redirect if not in a popup
           setTimeout(() => {
-            addLog("🔄 Redirecting to Ops Console...");
-            window.location.href = createPageUrl("OpsConsole");
+            if (window.opener && !window.opener.closed) {
+              addLog("🔄 Closing popup window...");
+              window.close();
+            } else {
+              addLog("🔄 Not in a popup, redirecting to Ops Console...");
+              window.location.href = createPageUrl("OpsConsole");
+            }
           }, 2000);
         } else {
           throw new Error(result.data.error || "Unknown error");
@@ -189,7 +194,7 @@ export default function OAuthCallback() {
           
           {status === "success" ? (
             <p className="text-xs text-slate-500 mt-4">
-              Redirecting to Ops Console...
+              This window will close automatically...
             </p>
           ) : (
             <p className="text-xs text-slate-500 mt-4">
