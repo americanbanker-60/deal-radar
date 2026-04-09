@@ -44,6 +44,10 @@ const AuthenticatedApp = () => {
   // Render the main app
   return (
     <Routes>
+      {/* OAuthCallback renders WITHOUT Layout — it runs in a popup and must not show app chrome */}
+      {Pages.OAuthCallback && (
+        <Route path="/OAuthCallback" element={<Pages.OAuthCallback />} />
+      )}
       <Route path="/" element={
         <LayoutWrapper currentPageName={mainPageKey}>
           <MainPage />

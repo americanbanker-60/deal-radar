@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Loader2, CheckCircle2, XCircle } from "lucide-react";
 import { base44 } from "@/api/base44Client";
-import { createPageUrl } from "../utils";
 
 export default function OAuthCallback() {
   const [status, setStatus] = useState("processing");
@@ -81,19 +80,18 @@ export default function OAuthCallback() {
           // Send success message through multiple channels
           sendToParent({ type: "outreach-oauth-success", code });
 
-          // Try to close the popup window after a short delay.
-          // Browsers may block window.close() after cross-origin OAuth redirects,
-          // so if it doesn't work, show a message instead of redirecting
-          // (the parent window will also try to close this popup).
+          // Try to close the popup. The parent window will also try to
+          // close us when it detects the connection via polling.
+          // If all close attempts fail, the user sees this minimal page
+          // (no app chrome since OAuthCallback is outside the Layout).
           setTimeout(() => {
             addLog("🔄 Attempting to close popup window...");
             window.close();
-            // If still open after 500ms, update the message instead of redirecting
-            setTimeout(() => {
-              addLog("⚠️ Browser blocked window.close() — showing manual close message");
-              setMessage("✅ Authorization successful! You can close this window.");
-            }, 500);
-          }, 2000);
+          }, 1500);
+          // If window.close() was blocked, update message after a delay
+          setTimeout(() => {
+            setMessage("✅ Connected! You can close this window.");
+          }, 2500);
         } else {
           throw new Error(result.data.error || "Unknown error");
         }
