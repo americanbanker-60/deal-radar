@@ -1,4 +1,4 @@
-import React, { useMemo, useReducer, useEffect, useCallback } from "react";
+import React, { useMemo, useReducer, useEffect, useCallback, useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,7 +11,6 @@ import { Download, Upload, Sparkles, Database, Settings, CircleAlert, Loader2, H
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "../utils";
 
@@ -28,6 +27,7 @@ import { reducer, initialState, ActionTypes } from "./ops-console/useOpsConsoleR
 
 export default function OpsConsole(){
   const [state, dispatch] = useReducer(reducer, initialState);
+  const [showHealthAlerts, setShowHealthAlerts] = useState(false);
 
   const {
     // Upload
@@ -1152,45 +1152,13 @@ Return JSON:
           </Button>
           <Badge variant="secondary" className="self-center">v3</Badge>
           {healthAlertCount > 0 && (
-            <Popover>
-              <PopoverTrigger asChild>
-                <button className="self-center inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold bg-red-100 text-red-700 border border-red-200 gap-1 cursor-pointer hover:bg-red-200 transition-colors">
-                  <CircleAlert className="w-3 h-3" />
-                  {healthAlertCount} Health Alert{healthAlertCount !== 1 ? 's' : ''}
-                </button>
-              </PopoverTrigger>
-              <PopoverContent className="w-80 max-h-80 overflow-y-auto p-0" align="end">
-                <div className="p-3 border-b bg-red-50">
-                  <h4 className="font-semibold text-sm text-red-900">Health Alerts</h4>
-                  <p className="text-xs text-red-700 mt-0.5">Targets with broken websites or dormant activity</p>
-                </div>
-                <div className="divide-y">
-                  {healthAlertTargets.map((t) => (
-                    <Link
-                      key={t.id}
-                      to={createPageUrl("TargetDetails") + `?id=${t.id}`}
-                      className="flex items-start gap-2 p-2.5 hover:bg-slate-50 transition-colors"
-                    >
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium text-slate-900 truncate">{t.name}</div>
-                        <div className="flex flex-wrap gap-1 mt-1">
-                          {t.websiteStatus === 'broken' && (
-                            <span className="inline-flex items-center text-[10px] px-1.5 py-0.5 rounded bg-red-100 text-red-700">
-                              <Globe className="w-2.5 h-2.5 mr-0.5" /> Broken Website
-                            </span>
-                          )}
-                          {t.dormancyFlag && (
-                            <span className="inline-flex items-center text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">
-                              <CircleAlert className="w-2.5 h-2.5 mr-0.5" /> Dormant
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </Link>
-                  ))}
-                </div>
-              </PopoverContent>
-            </Popover>
+            <button
+              onClick={() => setShowHealthAlerts(true)}
+              className="self-center inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold bg-red-100 text-red-700 border border-red-200 gap-1 cursor-pointer hover:bg-red-200 transition-colors"
+            >
+              <CircleAlert className="w-3 h-3" />
+              {healthAlertCount} Health Alert{healthAlertCount !== 1 ? 's' : ''}
+            </button>
           )}
         </div>
       </div>
@@ -1316,6 +1284,49 @@ Return JSON:
       )}
 
 
+
+      <Dialog open={showHealthAlerts} onOpenChange={setShowHealthAlerts}>
+        <DialogContent className="max-w-md max-h-[70vh] overflow-hidden flex flex-col p-0">
+          <DialogHeader className="p-4 pb-2 bg-red-50 border-b">
+            <DialogTitle className="flex items-center gap-2 text-red-900">
+              <CircleAlert className="w-4 h-4" />
+              Health Alerts
+            </DialogTitle>
+            <DialogDescription className="text-red-700">
+              Targets with broken websites or dormant activity
+            </DialogDescription>
+          </DialogHeader>
+          <div className="overflow-y-auto divide-y">
+            {healthAlertTargets.map((t) => (
+              <Link
+                key={t.id}
+                to={createPageUrl("TargetDetails") + `?id=${t.id}`}
+                onClick={() => setShowHealthAlerts(false)}
+                className="flex items-start gap-2 p-3 hover:bg-slate-50 transition-colors block"
+              >
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium text-slate-900 truncate">{t.name}</div>
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {t.websiteStatus === 'broken' && (
+                      <span className="inline-flex items-center text-[10px] px-1.5 py-0.5 rounded bg-red-100 text-red-700">
+                        <Globe className="w-2.5 h-2.5 mr-0.5" /> Broken Website
+                      </span>
+                    )}
+                    {t.dormancyFlag && (
+                      <span className="inline-flex items-center text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">
+                        <CircleAlert className="w-2.5 h-2.5 mr-0.5" /> Dormant
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </Link>
+            ))}
+            {healthAlertTargets.length === 0 && (
+              <div className="p-4 text-sm text-slate-500 text-center">No health alerts found.</div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={showNewCampaignDialog} onOpenChange={(open) => dispatch({ type: ActionTypes.SET_SHOW_NEW_CAMPAIGN_DIALOG, payload: open })}>
         <DialogContent>
