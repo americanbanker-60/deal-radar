@@ -577,19 +577,16 @@ export default function OpsConsole(){
       dispatch({ type: ActionTypes.SET_RATIONALE_PROGRESS, payload: { current: i + 1, total: highScoring.length } });
 
       try {
-        const result = await base44.functions.invoke('generateRationale', {
-          targetId: target.id,
-          weights
+        const rationale = await base44.integrations.Core.InvokeLLM({
+          prompt: `Write a 2-sentence strategic investment thesis for acquiring "${target.name}" (${target.website || 'healthcare'} in ${target.city || '?'}, ${target.state || '?'}). Sector: ${target.sectorFocus || 'Healthcare'}. Revenue: ~$${target.revenue || '?'}M. Employees: ${target.employees || '?'}. Be specific and data-driven.`,
+          add_context_from_internet: true
         });
-
-        // Update local state with the rationale
-        target.notes = result.data.rationale;
+        target.notes = rationale.trim();
       } catch (error) {
         console.error(`Error generating rationale for ${target.name}:`, error);
       }
     }
 
-    // Force re-render by updating the raw data
     dispatch({ type: ActionTypes.SET_GR_COMPANIES_RAW, payload: [...grCompaniesRaw] });
     dispatch({ type: ActionTypes.SET_GENERATING_RATIONALES, payload: false });
     dispatch({ type: ActionTypes.SET_RATIONALE_PROGRESS, payload: { current: 0, total: 0 } });
