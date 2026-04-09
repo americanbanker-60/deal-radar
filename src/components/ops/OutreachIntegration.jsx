@@ -27,6 +27,7 @@ export default function OutreachIntegration({ prospects, onSyncComplete }) {
   const [customSource, setCustomSource] = useState("Ops Console");
   const [needsReconnect, setNeedsReconnect] = useState(false);
   const pollIntervalRef = React.useRef(null);
+  const popupRef = React.useRef(null);
 
   useEffect(() => {
     checkConnection();
@@ -49,6 +50,11 @@ export default function OutreachIntegration({ prospects, onSyncComplete }) {
           setConnected(true);
           setLoading(false);
           setError(null);
+          // Close the OAuth popup if it's still open
+          if (popupRef.current && !popupRef.current.closed) {
+            popupRef.current.close();
+            popupRef.current = null;
+          }
         }
       } catch (error) {
         console.error("Error checking connection:", error);
@@ -99,6 +105,8 @@ export default function OutreachIntegration({ prospects, onSyncComplete }) {
       if (!popup) {
         throw new Error("Popup was blocked. Please allow popups for this site.");
       }
+
+      popupRef.current = popup;
 
       // Monitor popup closure
       const popupCheckInterval = setInterval(() => {
