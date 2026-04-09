@@ -8,6 +8,8 @@ export const ActionTypes = {
   SET_GR_HEADERS: "SET_GR_HEADERS",
   SET_PENDING_UPLOAD: "SET_PENDING_UPLOAD",
   SET_SHOW_COLUMN_MAPPER: "SET_SHOW_COLUMN_MAPPER",
+  SET_SHOW_DUPLICATE_RESOLVER: "SET_SHOW_DUPLICATE_RESOLVER",
+  SET_DUPLICATE_DATA: "SET_DUPLICATE_DATA",
 
   // Crawl
   SET_CRAWLING: "SET_CRAWLING",
@@ -111,6 +113,8 @@ export const initialState = {
   grHeaders: [],
   pendingUpload: null, // { rows, headers } — set after parse, before mapping confirmation
   showColumnMapper: false,
+  showDuplicateResolver: false,
+  duplicateData: null, // { newRows, duplicateRows } — set after column mapping
 
   // Crawl
   crawling: false,
@@ -198,6 +202,10 @@ export function reducer(state, action) {
       return { ...state, pendingUpload: action.payload };
     case ActionTypes.SET_SHOW_COLUMN_MAPPER:
       return { ...state, showColumnMapper: action.payload };
+    case ActionTypes.SET_SHOW_DUPLICATE_RESOLVER:
+      return { ...state, showDuplicateResolver: action.payload };
+    case ActionTypes.SET_DUPLICATE_DATA:
+      return { ...state, duplicateData: action.payload };
 
     // Crawl
     case ActionTypes.SET_CRAWLING:
