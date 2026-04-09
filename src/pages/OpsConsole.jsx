@@ -16,6 +16,7 @@ import { createPageUrl } from "../utils";
 
 import SchemaMapper from "../components/ops/SchemaMapper";
 import ColumnMapper, { applyMapping } from "../components/ops/ColumnMapper";
+import DuplicateResolver, { detectDuplicates, mergeNewIntoExisting, overwriteWithIncoming } from "../components/ops/DuplicateResolver";
 import ScoringWeights from "../components/ops/ScoringWeights";
 import HowToUse from "../components/ops/HowToUse";
 import DataPipelineDebug from "../components/ops/DataPipelineDebug";
@@ -29,7 +30,7 @@ export default function OpsConsole(){
 
   const {
     // Upload
-    loading, uploadError, successMessage, grCompaniesRaw, grHeaders, pendingUpload, showColumnMapper,
+    loading, uploadError, successMessage, grCompaniesRaw, grHeaders, pendingUpload, showColumnMapper, showDuplicateResolver, duplicateData,
     // Crawl
     crawling, crawlProgress,
     // Enrich
@@ -158,7 +159,7 @@ export default function OpsConsole(){
     }
   };
 
-  const confirmColumnMapping = useCallback((mapping) => {
+  const confirmColumnMapping = useCallback(async (mapping) => {
     if (!pendingUpload) return;
 
     const { rows } = pendingUpload;
@@ -166,21 +167,94 @@ export default function OpsConsole(){
     // Apply the user's column mapping to each row
     const mappedRows = rows.map(row => {
       const mapped = applyMapping(row, mapping);
-      // Carry over internal enrichment fields
       return { ...row, _mapped: mapped };
     });
 
-    dispatch({ type: ActionTypes.SET_GR_COMPANIES_RAW, payload: mappedRows });
-    dispatch({ type: ActionTypes.SET_GR_HEADERS, payload: Object.keys(mapping) });
     dispatch({ type: ActionTypes.SET_SHOW_COLUMN_MAPPER, payload: false });
-    dispatch({ type: ActionTypes.SET_PENDING_UPLOAD, payload: null });
 
-    showSuccess(`✓ Imported ${mappedRows.length} companies with ${Object.keys(mapping).length} mapped fields`);
+    // Check for duplicates against existing database targets
+    dispatch({ type: ActionTypes.SET_LOADING, payload: true });
+    try {
+      const existingTargets = await base44.entities.BDTarget.list('-created_date', 50000);
+      const { newRows, duplicateRows } = detectDuplicates(mappedRows, existingTargets);
+
+      if (duplicateRows.length > 0) {
+        // Show duplicate resolver
+        dispatch({ type: ActionTypes.SET_DUPLICATE_DATA, payload: { newRows, duplicateRows, mapping } });
+        dispatch({ type: ActionTypes.SET_SHOW_DUPLICATE_RESOLVER, payload: true });
+        dispatch({ type: ActionTypes.SET_LOADING, payload: false });
+      } else {
+        // No duplicates — import directly
+        dispatch({ type: ActionTypes.SET_GR_COMPANIES_RAW, payload: mappedRows });
+        dispatch({ type: ActionTypes.SET_GR_HEADERS, payload: Object.keys(mapping) });
+        dispatch({ type: ActionTypes.SET_PENDING_UPLOAD, payload: null });
+        dispatch({ type: ActionTypes.SET_LOADING, payload: false });
+        showSuccess(`✓ Imported ${mappedRows.length} companies (no duplicates found)`);
+      }
+    } catch (err) {
+      console.error("Duplicate check failed:", err);
+      // Fall back to importing everything if duplicate check fails
+      dispatch({ type: ActionTypes.SET_GR_COMPANIES_RAW, payload: mappedRows });
+      dispatch({ type: ActionTypes.SET_GR_HEADERS, payload: Object.keys(mapping) });
+      dispatch({ type: ActionTypes.SET_PENDING_UPLOAD, payload: null });
+      dispatch({ type: ActionTypes.SET_LOADING, payload: false });
+      showSuccess(`✓ Imported ${mappedRows.length} companies (duplicate check skipped)`);
+    }
   }, [pendingUpload]);
+
+  const confirmDuplicateStrategy = useCallback(async (strategy) => {
+    if (!duplicateData) return;
+
+    const { newRows, duplicateRows, mapping } = duplicateData;
+
+    dispatch({ type: ActionTypes.SET_SHOW_DUPLICATE_RESOLVER, payload: false });
+
+    if (strategy === "ignore") {
+      // Only import new rows
+      dispatch({ type: ActionTypes.SET_GR_COMPANIES_RAW, payload: newRows });
+      dispatch({ type: ActionTypes.SET_GR_HEADERS, payload: Object.keys(mapping) });
+      dispatch({ type: ActionTypes.SET_PENDING_UPLOAD, payload: null });
+      dispatch({ type: ActionTypes.SET_DUPLICATE_DATA, payload: null });
+      showSuccess(`✓ Imported ${newRows.length} new companies. Skipped ${duplicateRows.length} duplicates.`);
+      return;
+    }
+
+    // For "fill" or "overwrite", update existing targets in the database
+    dispatch({ type: ActionTypes.SET_LOADING, payload: true });
+    let updatedCount = 0;
+
+    try {
+      for (const dup of duplicateRows) {
+        const updates = strategy === "fill"
+          ? mergeNewIntoExisting(dup._existingTarget, dup)
+          : overwriteWithIncoming(dup);
+
+        if (Object.keys(updates).length > 0) {
+          await base44.entities.BDTarget.update(dup._existingTarget.id, updates);
+          updatedCount++;
+        }
+      }
+    } catch (err) {
+      console.error("Error updating duplicates:", err);
+      dispatch({ type: ActionTypes.SET_UPLOAD_ERROR, payload: "Some duplicate updates failed: " + err.message });
+    }
+
+    // Import the new rows into the local table
+    dispatch({ type: ActionTypes.SET_GR_COMPANIES_RAW, payload: newRows });
+    dispatch({ type: ActionTypes.SET_GR_HEADERS, payload: Object.keys(mapping) });
+    dispatch({ type: ActionTypes.SET_PENDING_UPLOAD, payload: null });
+    dispatch({ type: ActionTypes.SET_DUPLICATE_DATA, payload: null });
+    dispatch({ type: ActionTypes.SET_LOADING, payload: false });
+
+    const action = strategy === "fill" ? "filled missing data for" : "overwrote";
+    showSuccess(`✓ Imported ${newRows.length} new companies. ${action} ${updatedCount} existing targets.`);
+  }, [duplicateData]);
 
   const cancelColumnMapping = useCallback(() => {
     dispatch({ type: ActionTypes.SET_SHOW_COLUMN_MAPPER, payload: false });
+    dispatch({ type: ActionTypes.SET_SHOW_DUPLICATE_RESOLVER, payload: false });
     dispatch({ type: ActionTypes.SET_PENDING_UPLOAD, payload: null });
+    dispatch({ type: ActionTypes.SET_DUPLICATE_DATA, payload: null });
   }, []);
 
   const crawlWebsites = async () => {
@@ -1425,6 +1499,15 @@ Return JSON:
               headers={pendingUpload.headers}
               sampleRows={pendingUpload.rows.slice(0, 3)}
               onConfirm={confirmColumnMapping}
+              onCancel={cancelColumnMapping}
+            />
+          )}
+
+          {showDuplicateResolver && duplicateData && (
+            <DuplicateResolver
+              newCount={duplicateData.newRows.length}
+              duplicates={duplicateData.duplicateRows}
+              onConfirm={confirmDuplicateStrategy}
               onCancel={cancelColumnMapping}
             />
           )}
