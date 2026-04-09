@@ -183,6 +183,7 @@ export const initialState = {
 
   // Health
   healthAlertCount: 0,
+  healthAlertTargets: [],
 };
 
 export function reducer(state, action) {
@@ -315,7 +316,7 @@ export function reducer(state, action) {
 
     // Health
     case ActionTypes.SET_HEALTH_ALERT_COUNT:
-      return { ...state, healthAlertCount: action.payload };
+      return { ...state, healthAlertCount: action.payload.count, healthAlertTargets: action.payload.targets || [] };
 
     // Batch actions
     case ActionTypes.RESET_AFTER_SAVE:

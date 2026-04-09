@@ -11,6 +11,7 @@ import { Download, Upload, Sparkles, Database, Settings, CircleAlert, Loader2, H
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "../utils";
 
@@ -57,6 +58,7 @@ export default function OpsConsole(){
     generatingRationales, rationaleProgress,
     // Health
     healthAlertCount,
+    healthAlertTargets,
   } = state;
 
   // Load health alert count on mount
@@ -64,10 +66,10 @@ export default function OpsConsole(){
     const loadHealthAlerts = async () => {
       try {
         const allTargets = await base44.entities.BDTarget.list('-created_date', 500);
-        const alertCount = allTargets.filter(t =>
+        const alertTargets = allTargets.filter(t =>
           t.websiteStatus === 'broken' || t.dormancyFlag === true
-        ).length;
-        dispatch({ type: ActionTypes.SET_HEALTH_ALERT_COUNT, payload: alertCount });
+        );
+        dispatch({ type: ActionTypes.SET_HEALTH_ALERT_COUNT, payload: { count: alertTargets.length, targets: alertTargets } });
       } catch (err) {
         console.error('Failed to load health alerts:', err);
       }
@@ -1150,10 +1152,45 @@ Return JSON:
           </Button>
           <Badge variant="secondary" className="self-center">v3</Badge>
           {healthAlertCount > 0 && (
-            <Badge className="self-center bg-red-100 text-red-700 border border-red-200 gap-1">
-              <CircleAlert className="w-3 h-3" />
-              {healthAlertCount} Health Alert{healthAlertCount !== 1 ? 's' : ''}
-            </Badge>
+            <Popover>
+              <PopoverTrigger asChild>
+                <button className="self-center inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold bg-red-100 text-red-700 border border-red-200 gap-1 cursor-pointer hover:bg-red-200 transition-colors">
+                  <CircleAlert className="w-3 h-3" />
+                  {healthAlertCount} Health Alert{healthAlertCount !== 1 ? 's' : ''}
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-80 max-h-80 overflow-y-auto p-0" align="end">
+                <div className="p-3 border-b bg-red-50">
+                  <h4 className="font-semibold text-sm text-red-900">Health Alerts</h4>
+                  <p className="text-xs text-red-700 mt-0.5">Targets with broken websites or dormant activity</p>
+                </div>
+                <div className="divide-y">
+                  {healthAlertTargets.map((t) => (
+                    <Link
+                      key={t.id}
+                      to={createPageUrl("TargetDetails") + `?id=${t.id}`}
+                      className="flex items-start gap-2 p-2.5 hover:bg-slate-50 transition-colors"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium text-slate-900 truncate">{t.name}</div>
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {t.websiteStatus === 'broken' && (
+                            <span className="inline-flex items-center text-[10px] px-1.5 py-0.5 rounded bg-red-100 text-red-700">
+                              <Globe className="w-2.5 h-2.5 mr-0.5" /> Broken Website
+                            </span>
+                          )}
+                          {t.dormancyFlag && (
+                            <span className="inline-flex items-center text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">
+                              <CircleAlert className="w-2.5 h-2.5 mr-0.5" /> Dormant
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              </PopoverContent>
+            </Popover>
           )}
         </div>
       </div>

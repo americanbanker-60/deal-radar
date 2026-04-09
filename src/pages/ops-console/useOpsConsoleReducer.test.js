@@ -104,8 +104,10 @@ describe('OpsConsole reducer', () => {
   });
 
   it('manages health alert count', () => {
-    const state = reducer(initialState, { type: ActionTypes.SET_HEALTH_ALERT_COUNT, payload: 5 });
+    const targets = [{ id: 1, name: 'Test', websiteStatus: 'broken' }];
+    const state = reducer(initialState, { type: ActionTypes.SET_HEALTH_ALERT_COUNT, payload: { count: 5, targets } });
     expect(state.healthAlertCount).toBe(5);
+    expect(state.healthAlertTargets).toEqual(targets);
   });
 
   it('has correct default weights in initial state', () => {
