@@ -81,15 +81,19 @@ export default function OAuthCallback() {
           // Send success message through multiple channels
           sendToParent({ type: "outreach-oauth-success", code });
 
-          // Close popup after short delay, or redirect if not in a popup
+          // Close the popup window after a short delay.
+          // window.opener is often null after cross-origin OAuth redirects,
+          // so we always try window.close() first. It works as long as the
+          // window was originally opened via window.open(). If the browser
+          // blocks it (e.g. user navigated here directly), fall back to redirect.
           setTimeout(() => {
-            if (window.opener && !window.opener.closed) {
-              addLog("🔄 Closing popup window...");
-              window.close();
-            } else {
-              addLog("🔄 Not in a popup, redirecting to Ops Console...");
+            addLog("🔄 Attempting to close popup window...");
+            window.close();
+            // If window.close() was blocked, the page is still open — redirect instead
+            setTimeout(() => {
+              addLog("🔄 Window still open, redirecting to Ops Console...");
               window.location.href = createPageUrl("OpsConsole");
-            }
+            }, 500);
           }, 2000);
         } else {
           throw new Error(result.data.error || "Unknown error");
