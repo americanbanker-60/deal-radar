@@ -22,6 +22,7 @@ import HowToUse from "../components/ops/HowToUse";
 import DataPipelineDebug from "../components/ops/DataPipelineDebug";
 import WorkflowSummary from "../components/ops/WorkflowSummary";
 import TargetsTable from "../components/ops/TargetsTable";
+import OutreachStatusBadge from "../components/ops/OutreachStatusBadge";
 import { filterTargets, scoreTargets, toNumber, midpointFromRange, normalizeState, cleanCompanyNameRegex } from "../components/utils/data-engine";
 import { reducer, initialState, ActionTypes } from "./ops-console/useOpsConsoleReducer";
 
@@ -1151,6 +1152,7 @@ Return JSON:
             <span className="sm:hidden">Help</span>
           </Button>
           <Badge variant="secondary" className="self-center">v3</Badge>
+          <OutreachStatusBadge />
           {healthAlertCount > 0 && (
             <button
               onClick={() => setShowHealthAlerts(true)}

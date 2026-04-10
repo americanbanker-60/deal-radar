@@ -1,4 +1,4 @@
-import React, { useReducer, useState, useMemo, useCallback } from "react";
+import React, { useReducer, useState, useMemo, useCallback, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import _ from "lodash";
@@ -17,7 +17,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Link } from "react-router-dom";
 import { createPageUrl } from "../utils";
 
-import OutreachIntegration from "../components/ops/OutreachIntegration";
+import OutreachStatusBadge from "../components/ops/OutreachStatusBadge";
 import TargetRow from "../components/targets/TargetRow";
 import VirtualizedTargetTable from "../components/targets/VirtualizedTargetTable";
 import ActionButtons from "../components/targets/ActionButtons";
@@ -130,9 +130,16 @@ export default function SavedTargets() {
   const queryClient = useQueryClient();
 
   const [user, setUser] = useState(null);
+  const [outreachConnected, setOutreachConnected] = useState(false);
 
-  React.useEffect(() => {
-    base44.auth.me().then(setUser).catch(() => setUser(null));
+  useEffect(() => {
+    base44.auth.me().then(u => {
+      setUser(u);
+      // Check Outreach connection status
+      base44.entities.OutreachConnection.list().then(connections => {
+        setOutreachConnected(!!connections.find(c => c.user_email === u.email && c.status === "connected"));
+      }).catch(() => {});
+    }).catch(() => setUser(null));
   }, []);
 
   const { data: targets = [], isLoading } = useQuery({
@@ -1172,7 +1179,10 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
             className="w-12 h-12 object-contain flex-shrink-0"
           />
           <div className="flex-1 min-w-0">
-            <h1 className="text-xl sm:text-2xl font-bold text-slate-900">Saved BD Targets</h1>
+            <div className="flex items-center gap-3 flex-wrap">
+              <h1 className="text-xl sm:text-2xl font-bold text-slate-900">Saved BD Targets</h1>
+              <OutreachStatusBadge />
+            </div>
             <p className="text-xs sm:text-sm text-slate-600 mt-1">
               {targets.length.toLocaleString()} targets in database across {campaigns.length} campaign{campaigns.length !== 1 ? 's' : ''}
               {targets.length >= 50000 && (
@@ -1262,7 +1272,7 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
           <CardTitle className="flex items-center gap-2 text-base">
             <Send className="w-5 h-5 text-blue-600" />
             Push to Outreach.io
-            {selectedTargets.size > 0 && (
+            {selectedTargets.size > 0 && outreachConnected && (
               <Badge className="bg-blue-100 text-blue-700 border-blue-200 ml-2">
                 {selectedTargets.size} selected
               </Badge>
@@ -1270,60 +1280,62 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4 pt-0">
-          {selectedTargets.size === 0 ? (
+          {!outreachConnected ? (
+            <div className="space-y-3">
+              <p className="text-sm text-slate-600">
+                Connect your Outreach.io account to push selected targets as prospects.
+              </p>
+              <Link to={createPageUrl("OpsConsole")}>
+                <Button className="w-full bg-blue-600 hover:bg-blue-700">
+                  <ExternalLink className="w-4 h-4 mr-2" />
+                  Connect Outreach Account
+                </Button>
+              </Link>
+            </div>
+          ) : selectedTargets.size === 0 ? (
             <p className="text-sm text-slate-500">Select targets below, then push them to Outreach here.</p>
           ) : (
-            <>
-              <div className="flex gap-2">
-                {(() => {
-                  const selectedList = filteredTargets.filter(t => selectedTargets.has(t.id));
-                  const withEmail = selectedList.filter(t => t.contactEmail);
-                  const withoutEmail = selectedList.length - withEmail.length;
-                  const alreadySynced = selectedList.every(t => !!t.last_synced_at);
-                  const someSynced = selectedList.some(t => !!t.last_synced_at);
-                  return (
-                    <div className="flex-1 space-y-2">
-                      <div className="flex items-center gap-3 text-sm text-slate-600">
-                        <span>{withEmail.length} with email</span>
-                        {withoutEmail > 0 && (
-                          <span className="text-amber-600">{withoutEmail} missing email (will be skipped)</span>
-                        )}
-                      </div>
-                      <Button
-                        onClick={handlePushToOutreach}
-                        disabled={pushingToOutreach || withEmail.length === 0}
-                        className={`w-full ${alreadySynced ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-indigo-600 hover:bg-indigo-700'}`}
-                      >
-                        {pushingToOutreach ? (
-                          <>
-                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                            Syncing to Outreach...
-                          </>
-                        ) : alreadySynced ? (
-                          <>
-                            <RefreshCw className="w-4 h-4 mr-2" />
-                            Re-sync {withEmail.length} to Outreach
-                          </>
-                        ) : (
-                          <>
-                            <Send className="w-4 h-4 mr-2" />
-                            Push {withEmail.length} to Outreach{someSynced ? ' (some new)' : ''}
-                          </>
-                        )}
-                      </Button>
+            <div className="flex gap-2">
+              {(() => {
+                const selectedList = filteredTargets.filter(t => selectedTargets.has(t.id));
+                const withEmail = selectedList.filter(t => t.contactEmail);
+                const withoutEmail = selectedList.length - withEmail.length;
+                const alreadySynced = selectedList.every(t => !!t.last_synced_at);
+                const someSynced = selectedList.some(t => !!t.last_synced_at);
+                return (
+                  <div className="flex-1 space-y-2">
+                    <div className="flex items-center gap-3 text-sm text-slate-600">
+                      <span>{withEmail.length} with email</span>
+                      {withoutEmail > 0 && (
+                        <span className="text-amber-600">{withoutEmail} missing email (will be skipped)</span>
+                      )}
                     </div>
-                  );
-                })()}
-              </div>
-              <div className="border-t pt-4">
-                <OutreachIntegration
-                  prospects={filteredTargets.filter(t => selectedTargets.has(t.id) && t.contactEmail)}
-                  onSyncComplete={(result) => {
-                    console.log("Sync complete:", result);
-                  }}
-                />
-              </div>
-            </>
+                    <Button
+                      onClick={handlePushToOutreach}
+                      disabled={pushingToOutreach || withEmail.length === 0}
+                      className={`w-full ${alreadySynced ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-indigo-600 hover:bg-indigo-700'}`}
+                    >
+                      {pushingToOutreach ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Syncing to Outreach...
+                        </>
+                      ) : alreadySynced ? (
+                        <>
+                          <RefreshCw className="w-4 h-4 mr-2" />
+                          Re-sync {withEmail.length} to Outreach
+                        </>
+                      ) : (
+                        <>
+                          <Send className="w-4 h-4 mr-2" />
+                          Push {withEmail.length} to Outreach{someSynced ? ' (some new)' : ''}
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                );
+              })()}
+            </div>
           )}
         </CardContent>
       </Card>
