@@ -6,6 +6,32 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { AlertCircle, Copy, FileUp, RefreshCw, Check } from "lucide-react";
+import { toNumber, midpointFromRange } from "../utils/data-engine";
+
+/**
+ * Parse a revenue string to a numeric value in millions.
+ * Matches the same logic used in the main import pipeline.
+ */
+function parseRevenue(raw) {
+  if (raw === null || raw === undefined || raw === "") return undefined;
+  let revenue = midpointFromRange(raw);
+  if (revenue && revenue > 1_000_000) revenue = Math.round(revenue / 1_000_000);
+  else if (revenue === undefined) {
+    const n = toNumber(raw);
+    revenue = isNaN(Number(n)) ? undefined : (Number(n) > 10000 ? Math.round(Number(n) / 1_000_000) : Number(n));
+  }
+  return revenue;
+}
+
+/**
+ * Parse an employees string to a numeric integer.
+ */
+function parseEmployees(raw) {
+  if (raw === null || raw === undefined || raw === "") return undefined;
+  let employees = midpointFromRange(raw);
+  if (employees === undefined) employees = toNumber(raw);
+  return employees ? Math.round(employees) : undefined;
+}
 
 /**
  * Normalizes a URL/domain for comparison purposes.
@@ -71,8 +97,8 @@ export function mergeNewIntoExisting(existingTarget, incomingRow) {
 
   fillIfEmpty("city", mapped.city);
   fillIfEmpty("state", mapped.state);
-  fillIfEmpty("revenue", mapped.revenue);
-  fillIfEmpty("employees", mapped.employees);
+  fillIfEmpty("revenue", parseRevenue(mapped.revenue));
+  fillIfEmpty("employees", parseEmployees(mapped.employees));
   fillIfEmpty("industry", mapped.industry);
   fillIfEmpty("ownership", mapped.ownership);
   fillIfEmpty("notes", mapped.notes);
@@ -103,8 +129,8 @@ export function overwriteWithIncoming(incomingRow) {
   setIfPresent("name", mapped.name);
   setIfPresent("city", mapped.city);
   setIfPresent("state", mapped.state);
-  setIfPresent("revenue", mapped.revenue);
-  setIfPresent("employees", mapped.employees);
+  setIfPresent("revenue", parseRevenue(mapped.revenue));
+  setIfPresent("employees", parseEmployees(mapped.employees));
   setIfPresent("industry", mapped.industry);
   setIfPresent("ownership", mapped.ownership);
   setIfPresent("notes", mapped.notes);
