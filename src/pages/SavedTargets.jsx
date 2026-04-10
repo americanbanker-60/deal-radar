@@ -132,6 +132,7 @@ export default function SavedTargets() {
 
   const [user, setUser] = useState(null);
   const [outreachConnected, setOutreachConnected] = useState(false);
+  const [connectingOutreach, setConnectingOutreach] = useState(false);
 
   useEffect(() => {
     base44.auth.me().then(u => {
@@ -1290,12 +1291,38 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
               <p className="text-sm text-slate-600">
                 Connect your Outreach.io account to push selected targets as prospects.
               </p>
-              <Link to={createPageUrl("OpsConsole")}>
-                <Button className="w-full bg-blue-600 hover:bg-blue-700">
-                  <ExternalLink className="w-4 h-4 mr-2" />
-                  Connect Outreach Account
-                </Button>
-              </Link>
+              <Button
+                className="w-full bg-blue-600 hover:bg-blue-700"
+                disabled={connectingOutreach}
+                onClick={async () => {
+                  setConnectingOutreach(true);
+                  try {
+                    const result = await base44.functions.invoke('outreachInitAuth', {});
+                    const authUrl = result.data.authUrl;
+                    if (!authUrl || !authUrl.startsWith('https://')) {
+                      throw new Error("Invalid authorization URL received.");
+                    }
+                    // Save current page so OAuthCallback redirects back here
+                    sessionStorage.setItem('oauth_return_page', 'SavedTargets');
+                    window.location.href = authUrl;
+                  } catch (error) {
+                    alert("Failed to connect: " + error.message);
+                    setConnectingOutreach(false);
+                  }
+                }}
+              >
+                {connectingOutreach ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Redirecting to Outreach...
+                  </>
+                ) : (
+                  <>
+                    <ExternalLink className="w-4 h-4 mr-2" />
+                    Connect Outreach Account
+                  </>
+                )}
+              </Button>
             </div>
           ) : selectedTargets.size === 0 ? (
             <p className="text-sm text-slate-500">Select targets below, then push them to Outreach here.</p>

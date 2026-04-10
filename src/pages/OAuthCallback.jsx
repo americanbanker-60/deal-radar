@@ -42,9 +42,11 @@ export default function OAuthCallback() {
           setStatus("success");
           setMessage("Connected to Outreach! Redirecting...");
 
-          // Redirect back to Ops Console
+          // Redirect back to the page the user was on before OAuth
           setTimeout(() => {
-            window.location.href = createPageUrl("OpsConsole");
+            const returnPage = sessionStorage.getItem('oauth_return_page') || 'OpsConsole';
+            sessionStorage.removeItem('oauth_return_page');
+            window.location.href = createPageUrl(returnPage);
           }, 1500);
         } else {
           throw new Error(result.data.error || "Unknown error");

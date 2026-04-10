@@ -55,10 +55,8 @@ export default function OutreachIntegration({ prospects, onSyncComplete }) {
         throw new Error("Invalid authorization URL received.");
       }
 
-      // Navigate the current window to Outreach OAuth.
-      // After authorization, Outreach redirects to /OAuthCallback which
-      // processes the code and redirects back to /OpsConsole.
-      // This avoids all popup/window.close issues.
+      // Save current page so OAuthCallback redirects back here
+      sessionStorage.setItem('oauth_return_page', 'OpsConsole');
       window.location.href = authUrl;
     } catch (error) {
       setError("Failed to connect: " + error.message);
