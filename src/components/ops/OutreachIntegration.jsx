@@ -26,45 +26,10 @@ export default function OutreachIntegration({ prospects, onSyncComplete }) {
   const [customTag, setCustomTag] = useState("BD-Priority");
   const [customSource, setCustomSource] = useState("Ops Console");
   const [needsReconnect, setNeedsReconnect] = useState(false);
-  const pollIntervalRef = React.useRef(null);
-  const popupRef = React.useRef(null);
 
   useEffect(() => {
     checkConnection();
   }, []);
-
-  // Poll OutreachConnection entity while loading
-  useEffect(() => {
-    if (!loading) {
-      if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
-      return;
-    }
-
-    pollIntervalRef.current = setInterval(async () => {
-      try {
-        const user = await base44.auth.me();
-        const connections = await base44.entities.OutreachConnection.list();
-        const userConnection = connections.find(c => c.user_email === user.email && c.status === "connected");
-
-        if (userConnection) {
-          setConnected(true);
-          setLoading(false);
-          setError(null);
-          // Close the OAuth popup if it's still open
-          if (popupRef.current && !popupRef.current.closed) {
-            popupRef.current.close();
-            popupRef.current = null;
-          }
-        }
-      } catch (error) {
-        console.error("Error checking connection:", error);
-      }
-    }, 2000);
-
-    return () => {
-      if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
-    };
-  }, [loading]);
 
   const checkConnection = async () => {
     try {
@@ -81,48 +46,20 @@ export default function OutreachIntegration({ prospects, onSyncComplete }) {
     setLoading(true);
     setError(null);
     setNeedsReconnect(false);
-    
+
     try {
       const result = await base44.functions.invoke('outreachInitAuth', {});
-      
-      const width = 600;
-      const height = 700;
-      const left = window.screen.width / 2 - width / 2;
-      const top = window.screen.height / 2 - height / 2;
-      
-      // Validate auth URL before opening popup
+
       const authUrl = result.data.authUrl;
       if (!authUrl || !authUrl.startsWith('https://')) {
         throw new Error("Invalid authorization URL received.");
       }
 
-      const popup = window.open(
-        authUrl,
-        "Outreach Authorization",
-        `width=${width},height=${height},left=${left},top=${top}`
-      );
-
-      if (!popup) {
-        throw new Error("Popup was blocked. Please allow popups for this site.");
-      }
-
-      popupRef.current = popup;
-
-      // Monitor popup closure
-      const popupCheckInterval = setInterval(() => {
-        if (popup.closed) {
-          clearInterval(popupCheckInterval);
-          
-          // Give database a moment to update
-          setTimeout(() => {
-            if (loading) {
-              setLoading(false);
-              setError("Authorization window closed. Please try again and approve the authorization.");
-            }
-          }, 3000);
-        }
-      }, 500);
-
+      // Navigate the current window to Outreach OAuth.
+      // After authorization, Outreach redirects to /OAuthCallback which
+      // processes the code and redirects back to /OpsConsole.
+      // This avoids all popup/window.close issues.
+      window.location.href = authUrl;
     } catch (error) {
       setError("Failed to connect: " + error.message);
       setLoading(false);
@@ -276,8 +213,7 @@ export default function OutreachIntegration({ prospects, onSyncComplete }) {
             {loading ? (
               <>
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                <span className="hidden sm:inline">Waiting for authorization...</span>
-                <span className="sm:hidden">Authorizing...</span>
+                <span>Redirecting to Outreach...</span>
               </>
             ) : (
               <>
@@ -291,10 +227,9 @@ export default function OutreachIntegration({ prospects, onSyncComplete }) {
           <div className="text-xs text-slate-500 bg-slate-50 p-3 rounded border">
             <strong>What happens next:</strong>
             <ol className="list-decimal ml-4 mt-1 space-y-1">
-              <li>Popup opens with Outreach login</li>
+              <li>You'll be redirected to Outreach to log in</li>
               <li>Log in and click "Authorize"</li>
-              <li>Popup will automatically redirect back and close</li>
-              <li>Connection status will update here</li>
+              <li>You'll be redirected back here automatically</li>
             </ol>
           </div>
         </CardContent>
