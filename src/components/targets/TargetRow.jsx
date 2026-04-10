@@ -193,7 +193,7 @@ const TargetRow = React.memo(({
         )}
       </td>
       <td className="py-3 px-4">
-        {target.websiteStatus === 'broken' || target.dormancyFlag ? (
+        {(target.websiteStatus === 'broken' || target.dormancyFlag) && !target.healthAlertDismissedAt ? (
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>

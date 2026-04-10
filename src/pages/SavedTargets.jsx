@@ -1022,7 +1022,7 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
       const personalizationMatch = personalizationFilter === "all" ||
                     (personalizationFilter === "missing" && (!t.personalization_snippet || t.personalization_snippet.trim() === '')) ||
                     (personalizationFilter === "has" && t.personalization_snippet && t.personalization_snippet.trim() !== '');
-      const hasHealthAlert = t.websiteStatus === 'broken' || t.dormancyFlag === true;
+      const hasHealthAlert = (t.websiteStatus === 'broken' || t.dormancyFlag === true) && !t.healthAlertDismissedAt;
       const healthMatch = healthFilter === "all" ||
                     (healthFilter === "alerts" && hasHealthAlert) ||
                     (healthFilter === "healthy" && !hasHealthAlert);

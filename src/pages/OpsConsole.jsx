@@ -63,20 +63,21 @@ export default function OpsConsole(){
   } = state;
 
   // Load health alert count on mount
-  useEffect(() => {
-    const loadHealthAlerts = async () => {
-      try {
-        const allTargets = await base44.entities.BDTarget.list('-created_date', 500);
-        const alertTargets = allTargets.filter(t =>
-          t.websiteStatus === 'broken' || t.dormancyFlag === true
-        );
-        dispatch({ type: ActionTypes.SET_HEALTH_ALERT_COUNT, payload: { count: alertTargets.length, targets: alertTargets } });
-      } catch (err) {
-        console.error('Failed to load health alerts:', err);
-      }
-    };
-    loadHealthAlerts();
+  const loadHealthAlerts = useCallback(async () => {
+    try {
+      const allTargets = await base44.entities.BDTarget.list('-created_date', 500);
+      const alertTargets = allTargets.filter(t =>
+        (t.websiteStatus === 'broken' || t.dormancyFlag === true) && !t.healthAlertDismissedAt
+      );
+      dispatch({ type: ActionTypes.SET_HEALTH_ALERT_COUNT, payload: { count: alertTargets.length, targets: alertTargets } });
+    } catch (err) {
+      console.error('Failed to load health alerts:', err);
+    }
   }, []);
+
+  useEffect(() => {
+    loadHealthAlerts();
+  }, [loadHealthAlerts]);
 
   // Load saved settings and campaigns on mount
   useEffect(() => {
@@ -1290,24 +1291,50 @@ Return JSON:
       <Dialog open={showHealthAlerts} onOpenChange={setShowHealthAlerts}>
         <DialogContent className="max-w-md max-h-[70vh] overflow-hidden flex flex-col p-0">
           <DialogHeader className="p-4 pb-2 bg-red-50 border-b">
-            <DialogTitle className="flex items-center gap-2 text-red-900">
-              <CircleAlert className="w-4 h-4" />
-              Health Alerts
-            </DialogTitle>
+            <div className="flex items-center justify-between">
+              <DialogTitle className="flex items-center gap-2 text-red-900">
+                <CircleAlert className="w-4 h-4" />
+                Health Alerts
+              </DialogTitle>
+              {healthAlertTargets.length > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-xs h-7"
+                  onClick={async () => {
+                    try {
+                      await Promise.all(
+                        healthAlertTargets.map(t =>
+                          base44.entities.BDTarget.update(t.id, {
+                            healthAlertDismissedAt: new Date().toISOString()
+                          })
+                        )
+                      );
+                      loadHealthAlerts();
+                    } catch (err) {
+                      console.error("Failed to dismiss alerts:", err);
+                    }
+                  }}
+                >
+                  Dismiss All
+                </Button>
+              )}
+            </div>
             <DialogDescription className="text-red-700">
               Targets with broken websites or dormant activity
             </DialogDescription>
           </DialogHeader>
           <div className="overflow-y-auto divide-y">
             {healthAlertTargets.map((t) => (
-              <Link
-                key={t.id}
-                to={createPageUrl("TargetDetails") + `?id=${t.id}`}
-                onClick={() => setShowHealthAlerts(false)}
-                className="flex items-start gap-2 p-3 hover:bg-slate-50 transition-colors block"
-              >
+              <div key={t.id} className="flex items-start gap-2 p-3 hover:bg-slate-50 transition-colors">
                 <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium text-slate-900 truncate">{t.name}</div>
+                  <Link
+                    to={createPageUrl("TargetDetails") + `?id=${t.id}`}
+                    onClick={() => setShowHealthAlerts(false)}
+                    className="text-sm font-medium text-slate-900 truncate block hover:text-blue-600"
+                  >
+                    {t.name}
+                  </Link>
                   <div className="flex flex-wrap gap-1 mt-1">
                     {t.websiteStatus === 'broken' && (
                       <span className="inline-flex items-center text-[10px] px-1.5 py-0.5 rounded bg-red-100 text-red-700">
@@ -1324,10 +1351,32 @@ Return JSON:
                     <p className="text-[11px] text-slate-500 mt-1 line-clamp-2">{t.crawlRationale}</p>
                   )}
                 </div>
-              </Link>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-xs text-slate-400 hover:text-slate-700 h-7 px-2 flex-shrink-0"
+                  onClick={async (e) => {
+                    e.stopPropagation();
+                    try {
+                      await base44.entities.BDTarget.update(t.id, {
+                        healthAlertDismissedAt: new Date().toISOString()
+                      });
+                      loadHealthAlerts();
+                    } catch (err) {
+                      console.error("Failed to dismiss alert:", err);
+                    }
+                  }}
+                >
+                  Dismiss
+                </Button>
+              </div>
             ))}
             {healthAlertTargets.length === 0 && (
-              <div className="p-4 text-sm text-slate-500 text-center">No health alerts found.</div>
+              <div className="p-6 text-center">
+                <CheckCircle2 className="w-8 h-8 text-green-500 mx-auto mb-2" />
+                <div className="text-sm font-medium text-slate-700">All clear</div>
+                <div className="text-xs text-slate-500 mt-1">No active health alerts</div>
+              </div>
             )}
           </div>
         </DialogContent>
