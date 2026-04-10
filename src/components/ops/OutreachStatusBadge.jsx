@@ -12,13 +12,22 @@ export default function OutreachStatusBadge({ currentPage }) {
   const [connecting, setConnecting] = useState(false);
 
   useEffect(() => {
+    // Check if we just came back from a successful OAuth flow
+    const justConnected = sessionStorage.getItem('outreach_just_connected');
+    if (justConnected) {
+      sessionStorage.removeItem('outreach_just_connected');
+      setConnected(true);
+      return;
+    }
+
     const check = async () => {
       try {
         const user = await base44.auth.me();
         const connections = await base44.entities.OutreachConnection.list();
         const match = connections.find(c => c.user_email === user.email && c.status === "connected");
         setConnected(!!match);
-      } catch {
+      } catch (err) {
+        console.error("OutreachStatusBadge: failed to check connection:", err);
         setConnected(false);
       }
     };

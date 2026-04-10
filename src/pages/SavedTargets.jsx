@@ -135,12 +135,23 @@ export default function SavedTargets() {
   const [connectingOutreach, setConnectingOutreach] = useState(false);
 
   useEffect(() => {
+    // Check if we just came back from a successful OAuth flow
+    const justConnected = sessionStorage.getItem('outreach_just_connected');
+    if (justConnected) {
+      // Don't remove the flag here — let the badge read it too
+      setOutreachConnected(true);
+    }
+
     base44.auth.me().then(u => {
       setUser(u);
-      // Check Outreach connection status
-      base44.entities.OutreachConnection.list().then(connections => {
-        setOutreachConnected(!!connections.find(c => c.user_email === u.email && c.status === "connected"));
-      }).catch(() => {});
+      // Verify Outreach connection from database (unless we already know from OAuth redirect)
+      if (!justConnected) {
+        base44.entities.OutreachConnection.list().then(connections => {
+          setOutreachConnected(!!connections.find(c => c.user_email === u.email && c.status === "connected"));
+        }).catch(err => {
+          console.error("Failed to check Outreach connection:", err);
+        });
+      }
     }).catch(() => setUser(null));
   }, []);
 

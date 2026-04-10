@@ -46,6 +46,8 @@ export default function OAuthCallback() {
           setTimeout(() => {
             const returnPage = sessionStorage.getItem('oauth_return_page') || 'OpsConsole';
             sessionStorage.removeItem('oauth_return_page');
+            // Signal to the next page that OAuth just succeeded
+            sessionStorage.setItem('outreach_just_connected', 'true');
             window.location.href = createPageUrl(returnPage);
           }, 1500);
         } else {
