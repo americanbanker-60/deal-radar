@@ -13,6 +13,7 @@ export const ActionTypes = {
   SET_GROWTH_SIGNALS_FILTER: "SET_GROWTH_SIGNALS_FILTER",
   SET_RATIONALE_FILTER: "SET_RATIONALE_FILTER",
   SET_PERSONALIZATION_FILTER: "SET_PERSONALIZATION_FILTER",
+  SET_HEALTH_FILTER: "SET_HEALTH_FILTER",
 
   // Sort
   SET_SORT_FIELD: "SET_SORT_FIELD",
@@ -85,6 +86,7 @@ export const initialState = {
     growthSignalsFilter: "all",
     rationaleFilter: "all",
     personalizationFilter: "all",
+    healthFilter: "all",
   },
 
   // Sort
@@ -180,6 +182,8 @@ export function reducer(state, action) {
       return { ...state, filters: { ...state.filters, rationaleFilter: action.payload } };
     case ActionTypes.SET_PERSONALIZATION_FILTER:
       return { ...state, filters: { ...state.filters, personalizationFilter: action.payload } };
+    case ActionTypes.SET_HEALTH_FILTER:
+      return { ...state, filters: { ...state.filters, healthFilter: action.payload } };
 
     // --- Sort ---
     case ActionTypes.SET_SORT_FIELD:

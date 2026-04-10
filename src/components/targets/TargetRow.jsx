@@ -4,7 +4,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { MapPin, Check, RefreshCw, Info, UserPlus, CheckCircle2 } from "lucide-react";
+import { MapPin, Check, RefreshCw, Info, UserPlus, CheckCircle2, AlertTriangle, Globe } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "../../utils";
 import AddContactDialog from "./AddContactDialog";
@@ -190,6 +190,35 @@ const TargetRow = React.memo(({
           </a>
         ) : (
           <span className="text-xs text-muted-foreground">—</span>
+        )}
+      </td>
+      <td className="py-3 px-4">
+        {target.websiteStatus === 'broken' || target.dormancyFlag ? (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="flex flex-col gap-1">
+                  {target.websiteStatus === 'broken' && (
+                    <Badge className="bg-red-100 text-red-700 border-red-200 text-[10px] gap-0.5 whitespace-nowrap">
+                      <Globe className="w-2.5 h-2.5" /> Broken
+                    </Badge>
+                  )}
+                  {target.dormancyFlag && (
+                    <Badge className="bg-amber-100 text-amber-700 border-amber-200 text-[10px] gap-0.5 whitespace-nowrap">
+                      <AlertTriangle className="w-2.5 h-2.5" /> Dormant
+                    </Badge>
+                  )}
+                </div>
+              </TooltipTrigger>
+              {target.crawlRationale && (
+                <TooltipContent className="max-w-xs text-xs">
+                  {target.crawlRationale}
+                </TooltipContent>
+              )}
+            </Tooltip>
+          </TooltipProvider>
+        ) : (
+          <span className="text-xs text-green-600">OK</span>
         )}
       </td>
       <td className="py-3 px-4">

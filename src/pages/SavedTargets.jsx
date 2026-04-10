@@ -32,7 +32,7 @@ export default function SavedTargets() {
   const {
     selectedCampaign, searchQuery, statusFilter, sectorFilter, clinicFilter,
     qualityFilter, nameFilter, correspondenceFilter, contactEnrichFilter,
-    growthSignalsFilter, rationaleFilter, personalizationFilter,
+    growthSignalsFilter, rationaleFilter, personalizationFilter, healthFilter,
   } = state.filters;
 
   const { sortField, sortDirection } = state.sort;
@@ -69,6 +69,7 @@ export default function SavedTargets() {
   const setGrowthSignalsFilter = useCallback((v) => dispatch({ type: ActionTypes.SET_GROWTH_SIGNALS_FILTER, payload: v }), []);
   const setRationaleFilter = useCallback((v) => dispatch({ type: ActionTypes.SET_RATIONALE_FILTER, payload: v }), []);
   const setPersonalizationFilter = useCallback((v) => dispatch({ type: ActionTypes.SET_PERSONALIZATION_FILTER, payload: v }), []);
+  const setHealthFilter = useCallback((v) => dispatch({ type: ActionTypes.SET_HEALTH_FILTER, payload: v }), []);
 
   const setSortField = useCallback((v) => dispatch({ type: ActionTypes.SET_SORT_FIELD, payload: v }), []);
   const setSortDirection = useCallback((v) => dispatch({ type: ActionTypes.SET_SORT_DIRECTION, payload: v }), []);
@@ -1009,14 +1010,18 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
       const personalizationMatch = personalizationFilter === "all" ||
                     (personalizationFilter === "missing" && (!t.personalization_snippet || t.personalization_snippet.trim() === '')) ||
                     (personalizationFilter === "has" && t.personalization_snippet && t.personalization_snippet.trim() !== '');
-      const searchMatch = !searchQuery || 
+      const hasHealthAlert = t.websiteStatus === 'broken' || t.dormancyFlag === true;
+      const healthMatch = healthFilter === "all" ||
+                    (healthFilter === "alerts" && hasHealthAlert) ||
+                    (healthFilter === "healthy" && !hasHealthAlert);
+      const searchMatch = !searchQuery ||
                     (t.name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
                     (t.correspondenceName || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
                     (t.city || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
                     (t.state || "").toLowerCase().includes(searchQuery.toLowerCase());
-      return campaignMatch && statusMatch && clinicMatch && qualityMatch && sectorMatch && nameMatch && 
-             correspondenceMatch && contactEnrichMatch && growthMatch && rationaleMatch && 
-             personalizationMatch && searchMatch;
+      return campaignMatch && statusMatch && clinicMatch && qualityMatch && sectorMatch && nameMatch &&
+             correspondenceMatch && contactEnrichMatch && growthMatch && rationaleMatch &&
+             personalizationMatch && healthMatch && searchMatch;
     });
 
     if (sortField) {
@@ -1516,6 +1521,20 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
                 </Select>
               </div>
 
+              <div className="space-y-2">
+                <div className="text-sm font-medium">Health</div>
+                <Select value={healthFilter} onValueChange={setHealthFilter}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All</SelectItem>
+                    <SelectItem value="alerts">Has Alerts</SelectItem>
+                    <SelectItem value="healthy">Healthy Only</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
               <div className="space-y-2 md:col-span-2 lg:col-span-1">
                 <div className="text-sm font-medium">Search</div>
                 <div className="relative">
@@ -1583,7 +1602,7 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
           </CardHeader>
           <CardContent className="p-0">
             <div className="overflow-x-auto">
-              <table className="w-full text-sm min-w-[1400px]">
+              <table className="w-full text-sm min-w-[1500px]">
                 <thead>
                   <tr className="text-left border-b-2 border-slate-200 bg-slate-50">
                     <th className="py-3 px-4 font-semibold w-12">
@@ -1601,6 +1620,7 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
                     <SortHeader field="employees">Employees</SortHeader>
                     <SortHeader field="clinicCount">Clinics</SortHeader>
                     <th className="py-3 px-4 font-semibold">Website</th>
+                    <th className="py-3 px-4 font-semibold">Health</th>
                     <th className="py-3 px-4 font-semibold">Quality Tier</th>
                     <th className="py-3 px-4 font-semibold">Contact</th>
                     <SortHeader field="score">Score</SortHeader>

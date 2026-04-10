@@ -1320,6 +1320,9 @@ Return JSON:
                       </span>
                     )}
                   </div>
+                  {t.crawlRationale && (
+                    <p className="text-[11px] text-slate-500 mt-1 line-clamp-2">{t.crawlRationale}</p>
+                  )}
                 </div>
               </Link>
             ))}
