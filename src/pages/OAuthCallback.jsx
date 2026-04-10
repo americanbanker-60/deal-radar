@@ -94,10 +94,10 @@ export default function OAuthCallback() {
                 </div>
               </div>
               <a
-                href={createPageUrl("OpsConsole")}
+                href={createPageUrl(sessionStorage.getItem('oauth_return_page') || 'OpsConsole')}
                 className="inline-block text-sm text-blue-600 hover:text-blue-800 underline"
               >
-                Back to Ops Console
+                Go Back
               </a>
             </div>
           )}

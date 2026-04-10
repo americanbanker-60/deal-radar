@@ -1,15 +1,15 @@
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle2, XCircle, Link as LinkIcon } from "lucide-react";
-import { createPageUrl } from "../../utils";
+import { CheckCircle2, XCircle, Loader2 } from "lucide-react";
 
 /**
  * Small status badge showing whether Outreach is connected.
- * If not connected, links to OpsConsole where the user can connect.
+ * If not connected, clicking it starts the OAuth flow directly.
  */
-export default function OutreachStatusBadge() {
+export default function OutreachStatusBadge({ currentPage }) {
   const [connected, setConnected] = useState(null); // null = loading
+  const [connecting, setConnecting] = useState(false);
 
   useEffect(() => {
     const check = async () => {
@@ -25,7 +25,7 @@ export default function OutreachStatusBadge() {
     check();
   }, []);
 
-  if (connected === null) return null; // still loading
+  if (connected === null) return null;
 
   if (connected) {
     return (
@@ -36,12 +36,32 @@ export default function OutreachStatusBadge() {
     );
   }
 
+  const handleConnect = async () => {
+    setConnecting(true);
+    try {
+      const result = await base44.functions.invoke('outreachInitAuth', {});
+      const authUrl = result.data.authUrl;
+      if (!authUrl || !authUrl.startsWith('https://')) {
+        throw new Error("Invalid authorization URL received.");
+      }
+      sessionStorage.setItem('oauth_return_page', currentPage || 'OpsConsole');
+      window.location.href = authUrl;
+    } catch (error) {
+      alert("Failed to connect Outreach: " + error.message);
+      setConnecting(false);
+    }
+  };
+
   return (
-    <a href={createPageUrl("OpsConsole")}>
+    <button onClick={handleConnect} disabled={connecting}>
       <Badge className="bg-slate-100 text-slate-500 border border-slate-200 gap-1 self-center cursor-pointer hover:bg-slate-200 transition-colors">
-        <XCircle className="w-3 h-3" />
-        Outreach Not Connected
+        {connecting ? (
+          <Loader2 className="w-3 h-3 animate-spin" />
+        ) : (
+          <XCircle className="w-3 h-3" />
+        )}
+        {connecting ? "Connecting..." : "Outreach Not Connected"}
       </Badge>
-    </a>
+    </button>
   );
 }

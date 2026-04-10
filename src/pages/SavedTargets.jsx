@@ -1187,7 +1187,7 @@ Focus on: market position, growth potential, strategic fit, and competitive adva
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-3 flex-wrap">
               <h1 className="text-xl sm:text-2xl font-bold text-slate-900">Saved BD Targets</h1>
-              <OutreachStatusBadge />
+              <OutreachStatusBadge currentPage="SavedTargets" />
             </div>
             <p className="text-xs sm:text-sm text-slate-600 mt-1">
               {targets.length.toLocaleString()} targets in database across {campaigns.length} campaign{campaigns.length !== 1 ? 's' : ''}

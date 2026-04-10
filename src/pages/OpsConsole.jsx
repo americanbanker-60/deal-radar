@@ -1152,7 +1152,7 @@ Return JSON:
             <span className="sm:hidden">Help</span>
           </Button>
           <Badge variant="secondary" className="self-center">v3</Badge>
-          <OutreachStatusBadge />
+          <OutreachStatusBadge currentPage="OpsConsole" />
           {healthAlertCount > 0 && (
             <button
               onClick={() => setShowHealthAlerts(true)}
