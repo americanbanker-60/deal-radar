@@ -56,7 +56,7 @@ Deno.serve(async (req) => {
       }, { status: 500 });
     }
 
-    // Step 2: Store the connection
+    // Step 2: Store the connection using service role for consistent access
     try {
       const connectionData = {
         user_email: user.email,
@@ -66,16 +66,15 @@ Deno.serve(async (req) => {
         status: 'connected',
       };
 
-      // Try to find existing connection using user's own auth context
+      // Find existing connection using service role (same context the sync function uses)
       let existingConnections = [];
       try {
-        existingConnections = await base44.entities.OutreachConnection.filter({
+        existingConnections = await base44.asServiceRole.entities.OutreachConnection.filter({
           user_email: user.email,
         });
       } catch {
-        // filter might not be supported — try list instead
         try {
-          const all = await base44.entities.OutreachConnection.list();
+          const all = await base44.asServiceRole.entities.OutreachConnection.list();
           existingConnections = all.filter(c => c.user_email === user.email);
         } catch (listErr) {
           console.log('OutreachConnection list failed:', listErr.message);
@@ -83,12 +82,12 @@ Deno.serve(async (req) => {
       }
 
       if (existingConnections && existingConnections.length > 0) {
-        await base44.entities.OutreachConnection.update(
+        await base44.asServiceRole.entities.OutreachConnection.update(
           existingConnections[0].id,
           connectionData
         );
       } else {
-        await base44.entities.OutreachConnection.create(connectionData);
+        await base44.asServiceRole.entities.OutreachConnection.create(connectionData);
       }
     } catch (dbErr) {
       return Response.json({
