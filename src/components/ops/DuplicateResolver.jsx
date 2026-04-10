@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
-import { AlertCircle, Copy, FileUp, RefreshCw, Check } from "lucide-react";
+import { AlertCircle, Copy, Check } from "lucide-react";
 import { toNumber, midpointFromRange } from "../utils/data-engine";
 
 /**
