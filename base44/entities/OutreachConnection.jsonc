@@ -1,0 +1,55 @@
+{
+  "name": "OutreachConnection",
+  "type": "object",
+  "properties": {
+    "user_email": {
+      "type": "string",
+      "description": "Email of the user who connected"
+    },
+    "access_token": {
+      "type": "string",
+      "description": "Encrypted Outreach access token"
+    },
+    "refresh_token": {
+      "type": "string",
+      "description": "Encrypted Outreach refresh token"
+    },
+    "expires_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the access token expires"
+    },
+    "outreach_user_id": {
+      "type": "string",
+      "description": "Outreach user ID"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "connected",
+        "expired",
+        "disconnected"
+      ],
+      "default": "connected"
+    }
+  },
+  "required": [
+    "user_email",
+    "access_token",
+    "refresh_token"
+  ],
+  "rls": {
+    "read": {
+      "user_email": "{{user.email}}"
+    },
+    "update": {
+      "user_email": "{{user.email}}"
+    },
+    "delete": {
+      "user_email": "{{user.email}}"
+    },
+    "write": {
+      "user_email": "{{user.email}}"
+    }
+  }
+}

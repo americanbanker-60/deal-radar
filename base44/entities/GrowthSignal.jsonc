@@ -1,0 +1,38 @@
+{
+  "name": "GrowthSignal",
+  "type": "object",
+  "properties": {
+    "target_id": {
+      "type": "string",
+      "description": "Reference to the BDTarget entity ID"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "funding",
+        "expansion",
+        "hiring"
+      ],
+      "description": "Type of growth signal"
+    },
+    "description": {
+      "type": "string",
+      "description": "One-sentence description of the signal"
+    },
+    "date": {
+      "type": "string",
+      "description": "Approximate date of the event (e.g., 'Jan 2026')"
+    }
+  },
+  "required": [
+    "target_id",
+    "type",
+    "description"
+  ],
+  "rls": {
+    "create": {},
+    "read": {},
+    "update": {},
+    "delete": {}
+  }
+}

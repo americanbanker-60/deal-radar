@@ -1,0 +1,214 @@
+{
+  "name": "BDTarget",
+  "type": "object",
+  "properties": {
+    "campaign": {
+      "type": "string",
+      "description": "Campaign or list name (e.g., 'California Urgent Care Q1 2025')"
+    },
+    "campaign_id": {
+      "type": "string",
+      "description": "Reference to Campaign entity"
+    },
+    "assignedTo": {
+      "type": "string",
+      "enum": [
+        "Bella",
+        "Brayden",
+        "Ryan L.",
+        "Mikel",
+        "Johnny"
+      ],
+      "description": "Team member assigned to this target"
+    },
+    "name": {
+      "type": "string",
+      "description": "Full company name"
+    },
+    "correspondenceName": {
+      "type": "string",
+      "description": "Natural name for email correspondence"
+    },
+    "strategicRationale": {
+      "type": "string",
+      "description": "AI-generated 2-sentence investment thesis"
+    },
+    "sectorFocus": {
+      "type": "string",
+      "description": "HS sector classification"
+    },
+    "sectorRationale": {
+      "type": "string",
+      "description": "Brief explanation of why this sector was chosen"
+    },
+    "crawlRationale": {
+      "type": "string",
+      "description": "Brief explanation of where clinic count and website data was found"
+    },
+    "website": {
+      "type": "string",
+      "description": "Company website URL"
+    },
+    "websiteStatus": {
+      "type": "string",
+      "enum": [
+        "working",
+        "broken",
+        "missing",
+        "unknown",
+        "error"
+      ],
+      "description": "Website health status"
+    },
+    "lastActive": {
+      "type": "string",
+      "format": "date",
+      "description": "Last active date (YYYY-MM-DD)"
+    },
+    "dormancyFlag": {
+      "type": "boolean",
+      "description": "True if no activity detected in 12+ months"
+    },
+    "growthSignals": {
+      "type": "string",
+      "description": "Recent growth indicators - comma-separated text"
+    },
+    "growthSignalsDate": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When growth signals were last checked"
+    },
+    "city": {
+      "type": "string"
+    },
+    "state": {
+      "type": "string"
+    },
+    "hq": {
+      "type": "string"
+    },
+    "industry": {
+      "type": "string"
+    },
+    "subsector": {
+      "type": "string"
+    },
+    "revenue": {
+      "type": "number"
+    },
+    "employees": {
+      "type": "number"
+    },
+    "clinicCount": {
+      "type": "number"
+    },
+    "ownership": {
+      "type": "string"
+    },
+    "score": {
+      "type": "number"
+    },
+    "qualityTier": {
+      "type": "string",
+      "enum": [
+        "great",
+        "good",
+        "bad"
+      ]
+    },
+    "qualityScore": {
+      "type": "number"
+    },
+    "qualityConfidence": {
+      "type": "number"
+    },
+    "qualityReason": {
+      "type": "string"
+    },
+    "qualityFlags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "contactEmail": {
+      "type": "string"
+    },
+    "contactFirstName": {
+      "type": "string"
+    },
+    "contactLastName": {
+      "type": "string"
+    },
+    "contactTitle": {
+      "type": "string"
+    },
+    "contactPhone": {
+      "type": "string"
+    },
+    "contactPreferredName": {
+      "type": "string"
+    },
+    "contactPreferredNameConfidence": {
+      "type": "number"
+    },
+    "contactHonorific": {
+      "type": "string"
+    },
+    "contactIsDoctor": {
+      "type": "boolean"
+    },
+    "contactDoctorConfidence": {
+      "type": "number"
+    },
+    "contactCredential": {
+      "type": "string"
+    },
+    "contactEnrichmentReason": {
+      "type": "string"
+    },
+    "contactEnrichmentDate": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "linkedin": {
+      "type": "string"
+    },
+    "notes": {
+      "type": "string"
+    },
+    "personalization_snippet": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "new",
+        "contacted",
+        "qualified",
+        "disqualified",
+        "closed"
+      ],
+      "default": "new"
+    },
+    "outreach_id": {
+      "type": "string",
+      "description": "Outreach.io prospect ID after successful sync"
+    },
+    "last_synced_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Timestamp of the last successful Outreach sync"
+    }
+  },
+  "required": [
+    "campaign",
+    "name"
+  ],
+  "rls": {
+    "create": {},
+    "read": {},
+    "update": {},
+    "delete": {}
+  }
+}
